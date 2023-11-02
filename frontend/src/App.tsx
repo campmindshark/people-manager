@@ -5,6 +5,7 @@ import CssBaseline from '@mui/material/CssBaseline';
 import Home from './pages/Home';
 import './App.css';
 import Settings from './pages/Settings';
+import Login from './pages/Login';
 
 const mdTheme = createTheme({
   palette: {
@@ -20,6 +21,7 @@ export default function App() {
         <div>
           <Routes>
             <Route path="/" element={<Home />} />
+            <Route path="/login" element={<Login />} />
             <Route path="/settings" element={<Settings />} />
           </Routes>
         </div>

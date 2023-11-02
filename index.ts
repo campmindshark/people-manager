@@ -4,12 +4,15 @@ import logger from 'morgan';
 import createError from 'http-errors';
 import path from 'path';
 import dotenv from 'dotenv';
+import passport from 'passport';
+import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 
+import authRouter from './routes/auth';
 import indexRouter from './routes/index';
 import usersRouter from './routes/users';
 
 //For env File 
-dotenv.config();
+dotenv.config({path: __dirname + '/.env.local'});
 
 const app: Application = express();
 const port = process.env.PORT || 3001;
@@ -20,7 +23,42 @@ app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
+// configure passport
+app.use(passport.initialize())
+app.use(passport.session())
+
+passport.serializeUser(function (user, cb) {
+    cb(null, user);
+});
+
+passport.deserializeUser(function (user: any, cb) {
+    cb(null, user);
+});
+
+/*  Google AUTH  */
+passport.use(new GoogleStrategy({
+    clientID: process.env.GOOGLE_OAUTH_CLIENT_ID ?? '',
+    clientSecret: process.env.GOOGLE_OAUTH_CLIENT_SECRET ?? '',
+    callbackURL: "http://localhost:3000/auth/google/callback"
+},
+    function (accessToken, refreshToken, profile, done) {
+        return done(null, profile);
+    }
+));
+
+// Add this middleware BELOW passport middleware
+app.use(function (req, res, next) {
+    res.locals.user = req.user; 
+    next();
+  });
+
+const checkAuthenticated = (req: Request, res: Response, next: NextFunction) => {
+    if (req.isAuthenticated()) { return next() }
+    res.redirect("/login")
+}
+
 app.use('/', indexRouter);
+app.use('/', authRouter);
 app.use('/users', usersRouter);
 
 
