@@ -1,5 +1,6 @@
 import express, { Express, Request, Response, Application, NextFunction } from 'express';
 import cookieParser from 'cookie-parser';
+import cors from 'cors';
 import logger from 'morgan';
 import createError from 'http-errors';
 import path from 'path';
@@ -17,6 +18,13 @@ dotenv.config({ path: __dirname + '/.env.local' });
 
 const app: Application = express();
 const port = process.env.PORT || 3001;
+
+app.use(
+    cors({
+        origin: ["http://localhost:3000"],
+        methods: "GET,POST,PUT,DELETE,OPTIONS",
+    })
+);
 
 app.use(logger('dev'));
 app.use(express.json());
