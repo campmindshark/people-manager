@@ -2,12 +2,19 @@ import React, { useEffect } from 'react';
 import Container from '@mui/material/Container';
 import Grid from '@mui/material/Grid';
 import Paper from '@mui/material/Paper';
-import { useSetRecoilState } from 'recoil';
+import Table from '@mui/material/Table';
+import TableBody from '@mui/material/TableBody';
+import TableCell from '@mui/material/TableCell';
+import TableHead from '@mui/material/TableHead';
+import TableRow from '@mui/material/TableRow';
+import { useRecoilValue, useSetRecoilState } from 'recoil';
+import User from '../../../user/user';
 import Dashboard from '../layouts/dashboard/Dashboard';
-import PageState from './store';
+import PageState, { UsersState } from './store';
 
 function Home() {
   const setPageState = useSetRecoilState(PageState);
+  const users = useRecoilValue(UsersState);
 
   useEffect(() => {
     setPageState({
@@ -32,7 +39,34 @@ function Home() {
             >
               {/* <Chart /> */}
               <h1>Current Roster</h1>
-              <p>There is no active event ongoing.</p>
+              <Table sx={{ minWidth: 650 }} aria-label="simple table">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Name</TableCell>
+                    <TableCell align="right">ID</TableCell>
+                    <TableCell align="right">GoogleID</TableCell>
+                    <TableCell align="center">Name</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {users.map((user: User) => (
+                    <TableRow
+                      key={user.id}
+                      sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
+                    >
+                      <TableCell component="th" scope="row">
+                        {user.googleID}
+                      </TableCell>
+                      <TableCell component="th" scope="row">
+                        {user.firstName}
+                        {' '}
+                        {user.lastName}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+
             </Paper>
           </Grid>
           {/* Recent Deposits */}
