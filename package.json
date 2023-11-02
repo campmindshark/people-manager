@@ -5,7 +5,8 @@
   "scripts": {
     "build": "npx tsc",
     "start": "node dist/index.js",
-    "dev": "nodemon index.ts"
+    "dev": "nodemon index.ts",
+    "migrate": "knex migrate:latest"
   },
   "dependencies": {
     "cookie-parser": "~1.4.4",
@@ -16,13 +17,17 @@
     "express-session": "^1.17.3",
     "http-errors": "~1.6.3",
     "jade": "~1.11.0",
+    "knex": "^3.0.1",
     "mongodb": "^6.2.0",
     "mongoose": "^8.0.0",
     "morgan": "~1.9.1",
     "nodemon": "^3.0.1",
+    "objection": "^3.1.2",
     "passport": "^0.6.0",
     "passport-google-oauth2": "^0.2.0",
-    "passport-google-oauth20": "^2.0.0"
+    "passport-google-oauth20": "^2.0.0",
+    "pg": "^8.11.3",
+    "sqlite3": "^5.1.6"
   },
   "devDependencies": {
     "@types/cookie-parser": "^1.4.5",

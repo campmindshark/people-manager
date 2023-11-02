@@ -1,16 +1,14 @@
 import express, {Request, Response, NextFunction} from 'express';
+import User from '../user/user';
 
 var router = express.Router();
 
 /* GET users listing. */
-router.get('/', function(req: Request, res: Response, next: NextFunction) {
-  res.json([{
-  	id: 1,
-  	username: "samsepi0l"
-  }, {
-  	id: 2,
-  	username: "D0loresH4ze"
-  }]);
+router.get('/', async function(req: Request, res: Response, next: NextFunction) {
+	const query = User.query();
+
+	const users = await query;
+	res.json(users);
 });
 
 export default router;
