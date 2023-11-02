@@ -31,7 +31,8 @@ function Home() {
               }}
             >
               {/* <Chart /> */}
-              <h1>Chart</h1>
+              <h1>Current Roster</h1>
+              <p>There is no active event ongoing.</p>
             </Paper>
           </Grid>
           {/* Recent Deposits */}
@@ -44,14 +45,14 @@ function Home() {
                 height: 240,
               }}
             >
-              <h1>Deposits</h1>
+              <h1>Teams</h1>
               {/* <Deposits /> */}
             </Paper>
           </Grid>
           {/* Recent Orders */}
           <Grid item xs={12}>
             <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column' }}>
-              <h1>Orders</h1>
+              <h1>Chores</h1>
               {/* <Orders /> */}
             </Paper>
           </Grid>
