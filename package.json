@@ -6,9 +6,10 @@
         "frontend"
     ],
     "scripts": {
-        "frontend": "yarn workspace frontend start",
-        "backend": "yarn workspace backend dev",
-        "dev": "concurrently --kill-others-on-fail \"yarn frontend\"  \"yarn backend\""
+        "frontend-dev": "yarn workspace frontend start",
+        "backend-dev": "yarn workspace backend dev",
+        "dev": "concurrently --kill-others-on-fail \"yarn frontend0dev\"  \"yarn backend-dev\"",
+        "db-migrate": "yarn workspace backend migrate"
     },
     "dependencies": {
         "concurrently": "^8.2.2"
