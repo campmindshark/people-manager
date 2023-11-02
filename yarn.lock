@@ -93,6 +93,13 @@
     "@types/range-parser" "*"
     "@types/send" "*"
 
+"@types/express-session@^1.17.9":
+  version "1.17.9"
+  resolved "https://registry.yarnpkg.com/@types/express-session/-/express-session-1.17.9.tgz#2811b8c3f2e7efb5fd239e4cb0f26f58de8c0a62"
+  integrity sha512-yIqficLlTPdloeEPhOVenpOUWILkdaXHUWhTOqFGx9JoSuTgeatNjb97k8VvJehbTk0kUSUAHy5r27PXMga89Q==
+  dependencies:
+    "@types/express" "*"
+
 "@types/express@*", "@types/express@^4.17.20":
   version "4.17.20"
   resolved "https://registry.npmjs.org/@types/express/-/express-4.17.20.tgz"

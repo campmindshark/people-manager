@@ -3,19 +3,7 @@ import passport from 'passport';
 
 var router = express.Router();
 
-/* GET users listing. */
-router.get('/', function (req: Request, res: Response, next: NextFunction) {
-    res.json([{
-        id: 1,
-        username: "samsepi0l"
-    }, {
-        id: 2,
-        username: "D0loresH4ze"
-    }]);
-});
-
-router.get('/auth/google',
-    passport.authenticate('google', { scope: ['profile', 'email'] }));
+router.get('/auth/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
 
 router.get('/auth/google/callback', passport.authenticate('google', { failureRedirect: '/error' }),
     function (req, res) {
