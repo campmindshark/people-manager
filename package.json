@@ -1,7 +1,16 @@
 {
     "private": true,
+    "name": "people-manager",
     "workspaces": [
         "backend",
         "frontend"
-    ]
+    ],
+    "scripts": {
+        "frontend": "yarn workspace frontend start",
+        "backend": "yarn workspace backend dev",
+        "dev": "concurrently --kill-others-on-fail \"yarn frontend\"  \"yarn backend\""
+    },
+    "dependencies": {
+        "concurrently": "^8.2.2"
+    }
 }
