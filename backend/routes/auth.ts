@@ -8,7 +8,7 @@ router.get('/auth/google', passport.authenticate('google', { scope: ['profile', 
 router.get('/auth/google/callback', passport.authenticate('google', { failureRedirect: '/error' }),
     function (req, res) {
         // Successful authentication, redirect success.
-        res.redirect('/success');
+        res.redirect('/users');
     });
 
 router.post("/login", passport.authenticate('local', {
