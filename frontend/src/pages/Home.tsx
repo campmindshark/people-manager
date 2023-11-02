@@ -8,7 +8,7 @@ import TableCell from '@mui/material/TableCell';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import { useRecoilValue, useSetRecoilState } from 'recoil';
-import User from '../../../user/user';
+import User from 'backend/user/user';
 import Dashboard from '../layouts/dashboard/Dashboard';
 import PageState, { UsersState } from './store';
 
