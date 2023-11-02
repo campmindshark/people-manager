@@ -1,40 +1,29 @@
-import React, { Component } from 'react';
-import logo from './logo.svg';
+import * as React from 'react';
+import { HashRouter as Router, Routes, Route } from 'react-router-dom';
+import { createTheme, ThemeProvider } from '@mui/material/styles';
+import CssBaseline from '@mui/material/CssBaseline';
+import Home from './pages/Home';
 import './App.css';
+import Settings from './pages/Settings';
 
-interface User {
-  id: number;
-  username: string;
-  email: string;
-  password: string;
+const mdTheme = createTheme({
+  palette: {
+    mode: 'dark',
+  },
+});
+
+export default function App() {
+  return (
+    <ThemeProvider theme={mdTheme}>
+      <CssBaseline />
+      <Router>
+        <div>
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/settings" element={<Settings />} />
+          </Routes>
+        </div>
+      </Router>
+    </ThemeProvider>
+  );
 }
-
-interface AppProps {}
-
-interface AppState {
-  users: User[];
-}
-
-class App extends Component<AppProps, AppState> {
-  constructor(props: AppProps) {
-    super(props);
-    this.state = {users: []};
-  }
-  
-  componentDidMount() {
-    fetch('/users')
-      .then(res => res.json())
-      .then(users => this.setState({ users }));
-  }
-  render() {
-    return (
-      <div className="App">
-        <h1>Users</h1>
-        {this.state.users.map(user =>
-          <div key={user.id}>{user.username}</div>
-        )}
-      </div>
-    );
-  }
-}
-export default App;
