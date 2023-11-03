@@ -29,8 +29,9 @@ const port = process.env.PORT || 3001;
 
 app.use(
     cors({
-        origin: ["http://localhost:3000"],
+        origin: "http://localhost:3000",
         methods: "GET,POST,PUT,DELETE,OPTIONS",
+        credentials: true,
     })
 );
 
@@ -97,7 +98,7 @@ const checkAuthenticated = (req: Request, res: Response, next: NextFunction) => 
 }
 
 app.use('/', indexRouter);
-app.use('/', authRouter);
+app.use('/auth', authRouter);
 app.use('/users', usersRouter);
 
 
@@ -105,18 +106,6 @@ app.use('/users', usersRouter);
 app.use(function (req: Request, res: Response, next: NextFunction) {
     next(createError(404));
 });
-
-// error handler
-// app.use(function (err: any, req: Request, res: Response, next: NextFunction) {
-//     // set locals, only providing error in development
-//     res.locals.message = err.message;
-//     res.locals.error = req.app.get('env') === 'development' ? err : {};
-
-//     // render the error page
-//     res.status(err.status || 500);
-//     res.send();
-//     // res.render('error');
-// });
 
 app.listen(port, () => {
     console.log(`Server is Fire at http://localhost:${port}`);
