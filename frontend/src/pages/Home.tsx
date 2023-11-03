@@ -43,9 +43,7 @@ function Home() {
                 <TableHead>
                   <TableRow>
                     <TableCell>Name</TableCell>
-                    <TableCell align="right">ID</TableCell>
-                    <TableCell align="right">GoogleID</TableCell>
-                    <TableCell align="center">Name</TableCell>
+                    <TableCell>GoogleID</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -55,12 +53,12 @@ function Home() {
                       sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
                     >
                       <TableCell component="th" scope="row">
-                        {user.googleID}
-                      </TableCell>
-                      <TableCell component="th" scope="row">
                         {user.firstName}
                         {' '}
                         {user.lastName}
+                      </TableCell>
+                      <TableCell component="th" scope="row">
+                        {user.googleID}
                       </TableCell>
                     </TableRow>
                   ))}
