@@ -37,7 +37,7 @@
     "start": "react-app-rewired start",
     "build": "react-app-rewired build",
     "test": "react-app-rewired test",
-    "eject": "react-app-rewired eject",
+    "eject": "react-scripts eject",
     "lint": "eslint \"**/*.{ts,tsx}\"",
     "lint-fix": "eslint --fix \"**/*.{ts,tsx}\""
   },
@@ -50,6 +50,12 @@
   "eslintIgnore": [
     "src/react-app-env.d.ts"
   ],
+  "jest": {
+    "transform": {
+      "^.+\\.[t|j]sx?$": "babel-jest"
+    },
+    "transformIgnorePatterns": ["node_modules/(?!backend)/"]
+  },
   "browserslist": [
     ">0.2%",
     "not dead",

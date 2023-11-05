@@ -4,7 +4,7 @@ import passport from 'passport';
 var router = express.Router();
 
 router.get("/login/success", (req, res) => {
-    if (req.user) {
+    if (req.user && req.isAuthenticated()) {
         res.status(200).json({
             success: true,
             message: "successful",

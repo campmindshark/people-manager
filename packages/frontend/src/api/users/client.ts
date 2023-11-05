@@ -20,4 +20,16 @@ export default class BackendUserClient implements UserClient {
     });
     return data;
   }
+
+  async GetAuthenticatedUser(): Promise<User> {
+    const { data } = await axios.get<User>(`${this.baseApiURL}/auth/login/success`, {
+      withCredentials: true,
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Credentials': 'true',
+      },
+    });
+    return data;
+  }
 }

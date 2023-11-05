@@ -6,7 +6,7 @@ import createError from 'http-errors';
 import path from 'path';
 import Knex from 'knex';
 import knexConfig from './knexfile'
-import { Model, ForeignKeyViolationError, ValidationError } from 'objection'
+import { Model } from 'objection'
 import dotenv from 'dotenv';
 import passport from 'passport';
 import session from 'express-session';
@@ -29,7 +29,7 @@ const port = process.env.PORT || 3001;
 
 app.use(
     cors({
-        origin: "http://localhost:3000",
+        origin: ["http://localhost:3000", "http://localhost"],
         methods: "GET,POST,PUT,DELETE,OPTIONS",
         credentials: true,
     })
