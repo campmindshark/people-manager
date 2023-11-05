@@ -1,6 +1,0 @@
-version: v1
-plugins:
-  - plugin: buf.build/bufbuild/es:v1.4.1
-    out: ./frontend/src/gen
-  - plugin: buf.build/bufbuild/es:v1.4.1
-    out: ./backend/gen
