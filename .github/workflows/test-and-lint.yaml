@@ -19,9 +19,9 @@ jobs:
 
   run-tests:
     runs-on: ubuntu-latest
+    needs: get-workspace-packages
     steps:
       - name: Print packages
-        needs: get-workspace-packages
         run: echo ${{ needs.get-workspace-packages.outputs.package_names }}
 
 # jobs:
