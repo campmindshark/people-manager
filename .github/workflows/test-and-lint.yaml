@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - 'master'
+      - 're-init'
   pull_request:
   workflow_dispatch:
 
