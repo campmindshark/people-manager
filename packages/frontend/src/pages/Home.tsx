@@ -10,7 +10,7 @@ import TableRow from '@mui/material/TableRow';
 import { useRecoilValue, useSetRecoilState } from 'recoil';
 import User from 'backend/user/user';
 import Dashboard from '../layouts/dashboard/Dashboard';
-import PageState, { UsersState } from './store';
+import PageState, { UsersState } from '../state/store';
 
 function Home() {
   const setPageState = useSetRecoilState(PageState);

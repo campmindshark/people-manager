@@ -2,8 +2,7 @@
     "private": true,
     "name": "people-manager",
     "workspaces": [
-        "backend",
-        "frontend"
+        "packages/*"
     ],
     "scripts": {
         "frontend-dev": "yarn workspace frontend start",

@@ -9,7 +9,7 @@ import List from '@mui/material/List';
 import Divider from '@mui/material/Divider';
 import { Link } from 'react-router-dom';
 import { useRecoilValue } from 'recoil';
-import PageState from '../../pages/store';
+import PageState from '../../state/store';
 
 export default function NavList() {
   const pageState = useRecoilValue(PageState);

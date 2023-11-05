@@ -50,7 +50,16 @@
               "ts": "never",
               "tsx": "never"
             }
-         ]
+        ],
+        "@typescript-eslint/naming-convention": [
+            "error",
+            {
+              "selector": "variable",
+              "modifiers": ["unused"],
+              "format": ["strictCamelCase"],
+              "leadingUnderscore": "require"
+            }
+        ]
     },
     "settings": {
         "import/resolver": {

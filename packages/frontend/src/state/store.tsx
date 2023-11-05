@@ -12,6 +12,16 @@ export const UsersState = selector<User[]>({
   },
 });
 
+export const UserState = atom<User>({
+  key: 'userState',
+  default: new User(),
+});
+
+export const UserIsAuthenticated = atom<boolean>({
+  key: 'userIsAuthenticated',
+  default: false,
+});
+
 interface PageData {
   title: string
   index: string

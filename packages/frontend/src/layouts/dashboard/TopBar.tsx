@@ -7,7 +7,7 @@ import NotificationsIcon from '@mui/icons-material/Notifications';
 import IconButton from '@mui/material/IconButton';
 import { useRecoilValue } from 'recoil';
 import AppBar from './AppBar';
-import PageState from '../../pages/store';
+import PageState from '../../state/store';
 
 interface TopBarProps {
   open: boolean

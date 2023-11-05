@@ -4,7 +4,7 @@ import Grid from '@mui/material/Grid';
 import Paper from '@mui/material/Paper';
 import { useSetRecoilState } from 'recoil';
 import Dashboard from '../layouts/dashboard/Dashboard';
-import PageState from './store';
+import PageState from '../state/store';
 
 export default function Settings() {
   const setPageState = useSetRecoilState(PageState);

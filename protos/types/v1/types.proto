@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+package protos.types.v1;
+
+message User {
+    string id = 1;
+    string firstName = 2;
+    string lastName = 3;
+    string email = 4;
+    string role = 5;
+    string status = 6;
+    string created_at = 7;
+    string updated_at = 8;
+}

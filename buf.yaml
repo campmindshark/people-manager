@@ -1,0 +1,10 @@
+version: v1
+name: buf.github.com/campmindshark/people-manager
+deps: []
+breaking:
+  use:
+    - FILE
+lint:
+  use:
+    - DEFAULT
+    - FILE_LOWER_SNAKE_CASE
