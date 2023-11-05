@@ -15,6 +15,9 @@ The backend is an express typescript app. It utilizes [knex](https://knexjs.org/
 
 ## Getting Started
 
+1. Setup your env var file by copy pasting the contents of `packages/backend/.env.sample` into a new `packages/backend/.env.local` and fill it out with appropriate values.
+
+2. Running the application:
 ```
 # Install dependencies
 yarn
