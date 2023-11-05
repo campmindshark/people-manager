@@ -14,8 +14,11 @@ export default class BackendUserClient implements UserClient {
 
   async GetAllUsers(): Promise<User[]> {
     const { data } = await axios.get<User[]>(`${this.baseApiURL}/users`, {
+      withCredentials: true,
       headers: {
         Accept: 'application/json',
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Credentials': 'true',
       },
     });
     return data;
@@ -30,6 +33,8 @@ export default class BackendUserClient implements UserClient {
         'Access-Control-Allow-Credentials': 'true',
       },
     });
+
+    console.log(data);
     return data;
   }
 }
