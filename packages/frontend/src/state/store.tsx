@@ -1,12 +1,12 @@
-import { atom, selector } from "recoil";
-import User from "backend/user/user";
-import { getConfig } from "backend/config/config";
-import BackendUserClient from "../api/users/client";
+import { atom, selector } from 'recoil';
+import User from 'backend/user/user';
+import { getConfig } from 'backend/config/config';
+import BackendUserClient from '../api/users/client';
 
 const config = getConfig();
 
 export const UsersState = selector<User[]>({
-  key: "users",
+  key: 'users',
   get: async () => {
     const apiMethod = new BackendUserClient(config.BackendURL);
     const users = await apiMethod.GetAllUsers();
@@ -16,12 +16,12 @@ export const UsersState = selector<User[]>({
 });
 
 export const UserState = atom<User>({
-  key: "userState",
+  key: 'userState',
   default: new User(),
 });
 
 export const UserIsAuthenticated = atom<boolean>({
-  key: "userIsAuthenticated",
+  key: 'userIsAuthenticated',
   default: false,
 });
 
@@ -31,10 +31,10 @@ interface PageData {
 }
 
 const PageState = atom<PageData>({
-  key: "pageState",
+  key: 'pageState',
   default: {
-    title: "Home",
-    index: "home",
+    title: 'Home',
+    index: 'home',
   },
 });
 

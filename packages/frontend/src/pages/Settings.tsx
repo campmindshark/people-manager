@@ -52,6 +52,5 @@ export default function Settings() {
         </Grid>
       </Container>
     </Dashboard>
-
   );
 }

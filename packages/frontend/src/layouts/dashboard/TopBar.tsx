@@ -11,8 +11,8 @@ import AppBar from './AppBar';
 import PageState from '../../state/store';
 
 interface TopBarProps {
-  open: boolean
-  toggleDrawer: () => void
+  open: boolean;
+  toggleDrawer: () => void;
 }
 
 export default function TopBar({ open, toggleDrawer }: TopBarProps) {
@@ -21,7 +21,7 @@ export default function TopBar({ open, toggleDrawer }: TopBarProps) {
   const handleLogout = () => {
     console.log('logout');
     window.location.href = 'http://localhost:3001/auth/logout';
-  }
+  };
 
   return (
     <AppBar position="absolute" open={open}>
@@ -57,7 +57,7 @@ export default function TopBar({ open, toggleDrawer }: TopBarProps) {
           </Badge>
         </IconButton>
         <IconButton color="inherit" onClick={handleLogout}>
-            <LogoutIcon />
+          <LogoutIcon />
         </IconButton>
       </Toolbar>
     </AppBar>

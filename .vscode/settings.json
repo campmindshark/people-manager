@@ -1,6 +1,10 @@
 {
-    "cSpell.words": [
-        "protos"
-    ],
-    "editor.formatOnSave": true,
+  "cSpell.words": ["protos"],
+  "editor.formatOnSave": true,
+  "[javascript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "prettier.configPath": "prettierrc.json",
+  "prettier.semi": true,
+  "prettier.jsxSingleQuote": true
 }

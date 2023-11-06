@@ -10,7 +10,7 @@ import { Drawer } from './Drawer';
 import TopBar from './TopBar';
 
 type DashboardProps = {
-  children: ReactNode,
+  children: ReactNode;
 };
 
 export default function Dashboard({ children }: DashboardProps) {
@@ -41,9 +41,10 @@ export default function Dashboard({ children }: DashboardProps) {
       <Box
         component="main"
         sx={{
-          backgroundColor: (theme) => (theme.palette.mode === 'light'
-            ? theme.palette.grey[100]
-            : theme.palette.grey[900]),
+          backgroundColor: (theme) =>
+            theme.palette.mode === 'light'
+              ? theme.palette.grey[100]
+              : theme.palette.grey[900],
           flexGrow: 1,
           height: '100vh',
           overflow: 'auto',
