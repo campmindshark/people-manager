@@ -17,6 +17,7 @@ function Home() {
   const users = useRecoilValue(UsersState);
 
   useEffect(() => {
+    document.title = 'MindShark Portal - Home';
     setPageState({
       title: 'Home',
       index: 'home',

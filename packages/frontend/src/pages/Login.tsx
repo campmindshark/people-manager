@@ -1,4 +1,4 @@
-import * as React from 'react';
+import React, { useEffect } from 'react';
 import Avatar from '@mui/material/Avatar';
 import Button from '@mui/material/Button';
 import CssBaseline from '@mui/material/CssBaseline';
@@ -14,6 +14,10 @@ export default function Login() {
     event.preventDefault();
     window.open('http://localhost:3001/auth/google', '_self');
   };
+
+  useEffect(() => {
+    document.title = 'MindShark Portal - Log In';
+  });
 
   return (
     <Grid container component="main" sx={{ height: '100vh' }}>
