@@ -34,7 +34,7 @@ function Home() {
                 p: 2,
                 display: 'flex',
                 flexDirection: 'column',
-                height: 240,
+                height: "100%",
               }}
             >
               {/* <Chart /> */}
@@ -74,7 +74,7 @@ function Home() {
                 p: 2,
                 display: 'flex',
                 flexDirection: 'column',
-                height: 240,
+                height: "100%",
               }}
             >
               <h1>Teams</h1>

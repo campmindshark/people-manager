@@ -3,6 +3,7 @@ import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
 import Badge from '@mui/material/Badge';
 import MenuIcon from '@mui/icons-material/Menu';
+import LogoutIcon from '@mui/icons-material/Logout';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import IconButton from '@mui/material/IconButton';
 import { useRecoilValue } from 'recoil';
@@ -16,6 +17,11 @@ interface TopBarProps {
 
 export default function TopBar({ open, toggleDrawer }: TopBarProps) {
   const pageState = useRecoilValue(PageState);
+
+  const handleLogout = () => {
+    console.log('logout');
+    window.location.href = 'http://localhost:3001/auth/logout';
+  }
 
   return (
     <AppBar position="absolute" open={open}>
@@ -49,6 +55,9 @@ export default function TopBar({ open, toggleDrawer }: TopBarProps) {
           <Badge badgeContent={4} color="secondary">
             <NotificationsIcon />
           </Badge>
+        </IconButton>
+        <IconButton color="inherit" onClick={handleLogout}>
+            <LogoutIcon />
         </IconButton>
       </Toolbar>
     </AppBar>
