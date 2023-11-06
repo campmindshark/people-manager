@@ -5,6 +5,7 @@ import express, {
   Application,
   NextFunction,
 } from "express";
+import { getConfig } from "config/config";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import logger from "morgan";
@@ -25,17 +26,17 @@ import usersRouter from "./routes/users";
 
 //For env File
 dotenv.config({ path: __dirname + "/.env.local" });
+const config = getConfig();
 
 // Initialize knex.
 const knex = Knex(knexConfig.development);
 Model.knex(knex);
 
 const app: Application = express();
-const port = process.env.PORT || 3001;
 
 app.use(
   cors({
-    origin: ["http://localhost:3000", "http://localhost"],
+    origin: config.CORSWhitelist,
     methods: "GET,POST,PUT,DELETE,OPTIONS",
     credentials: true,
   })
@@ -49,7 +50,7 @@ app.use(express.static(path.join(__dirname, "public")));
 
 app.use(
   session({
-    secret: "yerrrrr",
+    secret: config.JWTSecret,
     resave: false,
     saveUninitialized: true,
   })
@@ -71,9 +72,9 @@ passport.deserializeUser(function (user: any, cb) {
 passport.use(
   new GoogleStrategy(
     {
-      clientID: process.env.GOOGLE_OAUTH_CLIENT_ID ?? "",
-      clientSecret: process.env.GOOGLE_OAUTH_CLIENT_SECRET ?? "",
-      callbackURL: "http://localhost:3001/auth/google/callback",
+      clientID: config.GoogleOAuthClientID,
+      clientSecret: config.GoogleOAuthClientSecret,
+      callbackURL: config.GoogleOAuthCallbackURL,
     },
     async function (accessToken, refreshToken, profile, done) {
       const query = User.query();
@@ -123,6 +124,6 @@ app.use(function (req: Request, res: Response, next: NextFunction) {
   next(createError(404));
 });
 
-app.listen(port, () => {
-  console.log(`Server is Fire at http://localhost:${port}`);
+app.listen(config.Port, () => {
+  console.log(`Server is Fire at http://localhost:${config.Port}`);
 });
