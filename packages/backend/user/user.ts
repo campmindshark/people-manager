@@ -1,28 +1,28 @@
-import { Model, Modifiers } from 'objection'
+import { Model, Modifiers } from "objection";
 
 export default class User extends Model {
-  id!: number
-  firstName!: string
-  lastName!: string
-  email!: string
-  googleID!: string
+  id!: number;
+  firstName!: string;
+  lastName!: string;
+  email!: string;
+  googleID!: string;
 
   // Table name is the only required property.
-  static tableName = 'users'
+  static tableName = "users";
 
   // Optional JSON schema. This is not the database schema! Nothing is generated
   // based on this. This is only used for validation. Whenever a model instance
   // is created it is checked against this schema. http://json-schema.org/.
   static jsonSchema = {
-    type: 'object',
-    required: ['firstName', 'lastName'],
+    type: "object",
+    required: ["firstName", "lastName"],
 
     properties: {
-      id: { type: 'integer' },
-      firstName: { type: 'string', minLength: 1, maxLength: 255 },
-      lastName: { type: 'string', minLength: 1, maxLength: 255 },
+      id: { type: "integer" },
+      firstName: { type: "string", minLength: 1, maxLength: 255 },
+      lastName: { type: "string", minLength: 1, maxLength: 255 },
     },
-  }
+  };
 
   // Modifiers are reusable query snippets that can be used in various places.
   static modifiers: Modifiers = {
@@ -35,11 +35,14 @@ export default class User extends Model {
       // statements don't get mixed with the these.
       query.where((query) => {
         for (const namePart of name.trim().split(/\s+/)) {
-          for (const column of ['firstName', 'lastName']) {
-            query.orWhereRaw('lower(??) like ?', [column, namePart.toLowerCase() + '%'])
+          for (const column of ["firstName", "lastName"]) {
+            query.orWhereRaw("lower(??) like ?", [
+              column,
+              namePart.toLowerCase() + "%",
+            ]);
           }
         }
-      })
+      });
     },
-  }
+  };
 }
