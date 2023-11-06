@@ -5,8 +5,6 @@ import express, {
   Application,
   NextFunction,
 } from "express";
-import sqlite from "better-sqlite3";
-import SqliteStore from "better-sqlite3-session-store";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import logger from "morgan";
@@ -49,28 +47,13 @@ app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, "public")));
 
-// configure session
-const db = new sqlite("sessions.db", { verbose: console.log });
-
 app.use(
   session({
-    store: new SqliteStore({
-      client: db,
-      expired: {
-        clear: true,
-        intervalMs: 900000, //ms = 15min
-      },
-    }),
-    secret: "keyboard cat",
+    secret: "yerrrrr",
     resave: false,
+    saveUninitialized: true,
   })
 );
-
-// app.use(session({
-//     secret: 'yerrrrr',
-//     resave: false,
-//     saveUninitialized: true,
-// }))
 
 // configure passport
 app.use(passport.initialize());

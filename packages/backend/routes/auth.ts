@@ -9,7 +9,6 @@ router.get("/login/success", (req, res) => {
       success: true,
       message: "successful",
       user: req.user,
-      //cookies: req.cookies
     });
   } else {
     res.status(401).json({
@@ -32,11 +31,6 @@ router.get(
     res.redirect("http://localhost:3000/");
   }
 );
-
-// router.post("/login", passport.authenticate('local', {
-//     successRedirect: "/",
-//     failureRedirect: "/login",
-// }));
 
 router.get("/logout", (req: Request, res: Response) => {
   req.logOut((err: any) => {
