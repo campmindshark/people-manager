@@ -1,25 +1,22 @@
-import React from 'react';
-import {
-  createBrowserRouter,
-  RouterProvider,
-} from 'react-router-dom';
-import { createTheme, ThemeProvider } from '@mui/material/styles';
-import CssBaseline from '@mui/material/CssBaseline';
-import './App.css';
-import Home from './pages/Home';
-import Settings from './pages/Settings';
-import Login from './pages/Login';
-import AuthenticatedPage from './components/AuthenticatedPage';
+import React from "react";
+import { createBrowserRouter, RouterProvider } from "react-router-dom";
+import { createTheme, ThemeProvider } from "@mui/material/styles";
+import CssBaseline from "@mui/material/CssBaseline";
+import "./App.css";
+import Home from "./pages/Home";
+import Settings from "./pages/Settings";
+import Login from "./pages/Login";
+import AuthenticatedPage from "./components/AuthenticatedPage";
 
 const mdTheme = createTheme({
   palette: {
-    mode: 'dark',
+    mode: "dark",
   },
 });
 
 const router = createBrowserRouter([
   {
-    path: '/',
+    path: "/",
     loader: async () => ({}),
     Component() {
       return (
@@ -30,15 +27,19 @@ const router = createBrowserRouter([
     },
   },
   {
-    path: '/login',
+    path: "/login",
     Component() {
       return <Login />;
     },
   },
   {
-    path: '/settings',
+    path: "/settings",
     Component() {
-      return <Settings />;
+      return (
+        <AuthenticatedPage>
+          <Settings />
+        </AuthenticatedPage>
+      );
     },
   },
 ]);

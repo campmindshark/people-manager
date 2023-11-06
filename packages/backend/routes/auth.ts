@@ -1,6 +1,6 @@
 import express, { Request, Response, NextFunction } from "express";
 import passport from "passport";
-import { getConfig } from "config/config";
+import { getConfig } from "../config/config";
 
 const config = getConfig();
 var router = express.Router();

@@ -7,6 +7,7 @@ export interface Config {
 
   Port: number;
   FrontendURL: string;
+  BackendURL: string;
 
   JWTSecret: string;
 }
@@ -29,8 +30,9 @@ export function getConfig(): Config {
       (process.env.GOOGLE_OAUTH_CALLBACK_URL as string) ??
       "http://localhost:3001/auth/google/callback",
 
-    Port: parseInt(process.env.PORT as string) ?? 3001,
+    Port: parseInt((process.env.PORT as string) ?? "3001"),
     FrontendURL: (process.env.CLIENT_URL as string) ?? "http://localhost:3000",
+    BackendURL: (process.env.CLIENT_URL as string) ?? "http://localhost:3001",
 
     JWTSecret: (process.env.JWT_SECRET as string) ?? "yerrrrr",
   };
