@@ -4,32 +4,38 @@ import express, {
   Response,
   Application,
   NextFunction,
-} from "express";
-import { getConfig } from "./config/config";
-import cookieParser from "cookie-parser";
-import cors from "cors";
-import logger from "morgan";
-import createError from "http-errors";
-import path from "path";
-import Knex from "knex";
-import knexConfig from "./knexfile";
-import { Model } from "objection";
-import dotenv from "dotenv";
-import passport from "passport";
-import session from "express-session";
-import { Strategy as GoogleStrategy } from "passport-google-oauth20";
+} from 'express';
+import { getConfig } from './config/config';
+import cookieParser from 'cookie-parser';
+import cors from 'cors';
+import logger from 'morgan';
+import createError from 'http-errors';
+import path from 'path';
+import Knex from 'knex';
+import knexConfig from './knexfile';
+import { Model } from 'objection';
+import dotenv from 'dotenv';
+import passport from 'passport';
+import session from 'express-session';
+import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 
-import User from "./user/user";
-import authRouter from "./routes/auth";
-import indexRouter from "./routes/index";
-import usersRouter from "./routes/users";
+import User from './user/user';
+import authRouter from './routes/auth';
+import indexRouter from './routes/index';
+import usersRouter from './routes/users';
+
+const envFilePath = process.argv[2];
+
+console.log('envFilePath: ', envFilePath);
 
 //For env File
-dotenv.config({ path: __dirname + "/.env.local" });
+dotenv.config({ path: path.join(__dirname, envFilePath) });
 const config = getConfig();
 
+console.log('config: ', config);
+
 // Initialize knex.
-const knex = Knex(knexConfig.development);
+const knex = Knex(knexConfig[config.Environment]);
 Model.knex(knex);
 
 const app: Application = express();
@@ -37,23 +43,23 @@ const app: Application = express();
 app.use(
   cors({
     origin: config.CORSWhitelist,
-    methods: "GET,POST,PUT,DELETE,OPTIONS",
+    methods: 'GET,POST,PUT,DELETE,OPTIONS',
     credentials: true,
-  })
+  }),
 );
 
-app.use(logger("dev"));
+app.use(logger('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
-app.use(express.static(path.join(__dirname, "public")));
+app.use(express.static(path.join(__dirname, 'public')));
 
 app.use(
   session({
     secret: config.JWTSecret,
     resave: false,
     saveUninitialized: true,
-  })
+  }),
 );
 
 // configure passport
@@ -78,13 +84,13 @@ passport.use(
     },
     async function (accessToken, refreshToken, profile, done) {
       const query = User.query();
-      query.where("googleID", profile.id);
+      query.where('googleID', profile.id);
       const user = await query;
       if (user.length === 0) {
         const newUserModel = new User();
-        newUserModel.googleID = profile.id ?? "";
-        newUserModel.firstName = profile.name?.givenName ?? "";
-        newUserModel.lastName = profile.name?.familyName ?? "";
+        newUserModel.googleID = profile.id ?? '';
+        newUserModel.firstName = profile.name?.givenName ?? '';
+        newUserModel.lastName = profile.name?.familyName ?? '';
 
         const query = await User.query().insert(newUserModel);
         const newUser = await query;
@@ -94,8 +100,8 @@ passport.use(
 
       console.log(profile);
       return done(null, profile);
-    }
-  )
+    },
+  ),
 );
 
 // Add this middleware BELOW passport middleware
@@ -107,17 +113,17 @@ app.use(function (req, res, next) {
 const checkAuthenticated = (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   if (req.isAuthenticated()) {
     return next();
   }
-  res.redirect("/login");
+  next(createError(401));
 };
 
-app.use("/", indexRouter);
-app.use("/auth", authRouter);
-app.use("/users", checkAuthenticated, usersRouter);
+app.use('/', indexRouter);
+app.use('/auth', authRouter);
+app.use('/users', checkAuthenticated, usersRouter);
 
 // catch 404 and forward to error handler
 app.use(function (req: Request, res: Response, next: NextFunction) {

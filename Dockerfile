@@ -28,3 +28,5 @@ COPY --from=builder /usr/src/app/packages/backend/build ./packages/backend/build
 COPY --from=builder /usr/src/app/packages/frontend/build ./packages/frontend/build
 
 RUN yarn install --production
+
+ENTRYPOINT [ "packages/backend/build/index.js" ]
