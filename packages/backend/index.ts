@@ -10,6 +10,7 @@ import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import logger from 'morgan';
 import createError from 'http-errors';
+import FileSystem from 'fs';
 import path from 'path';
 import Knex from 'knex';
 import knexConfig from './knexfile';
@@ -28,11 +29,16 @@ const envFilePath = process.argv[2];
 
 console.log('envFilePath: ', envFilePath);
 
+const configPath = path.join(envFilePath);
+if (!FileSystem.existsSync(configPath)) {
+  console.log(`Config file not found at ${configPath}`);
+}
+
 //For env File
-dotenv.config({ path: path.join(__dirname, envFilePath) });
+dotenv.config({ path: configPath });
 const config = getConfig();
 
-console.log('config: ', config);
+console.log('running in ' + config.Environment + ' mode');
 
 // Initialize knex.
 const knex = Knex(knexConfig[config.Environment]);
@@ -92,7 +98,7 @@ passport.use(
         newUserModel.firstName = profile.name?.givenName ?? '';
         newUserModel.lastName = profile.name?.familyName ?? '';
 
-        const query = await User.query().insert(newUserModel);
+        const query = User.query().insert(newUserModel);
         const newUser = await query;
         console.log(newUser);
         return done(null, newUser);
@@ -121,9 +127,10 @@ const checkAuthenticated = (
   next(createError(401));
 };
 
-app.use('/', indexRouter);
-app.use('/auth', authRouter);
-app.use('/users', checkAuthenticated, usersRouter);
+app.use('/api/auth', authRouter);
+app.use('/api/users', checkAuthenticated, usersRouter);
+
+app.use('/', indexRouter); // this route should be last
 
 // catch 404 and forward to error handler
 app.use(function (req: Request, res: Response, next: NextFunction) {

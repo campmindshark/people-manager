@@ -7,6 +7,7 @@ import LogoutIcon from '@mui/icons-material/Logout';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import IconButton from '@mui/material/IconButton';
 import { useRecoilValue } from 'recoil';
+import { getConfig } from 'backend/config/config';
 import AppBar from './AppBar';
 import PageState from '../../state/store';
 
@@ -17,10 +18,11 @@ interface TopBarProps {
 
 export default function TopBar({ open, toggleDrawer }: TopBarProps) {
   const pageState = useRecoilValue(PageState);
+  const config = getConfig();
 
   const handleLogout = () => {
     console.log('logout');
-    window.location.href = 'http://localhost:3001/auth/logout';
+    window.location.href = `${config.BackendURL}/api/auth/logout`;
   };
 
   return (

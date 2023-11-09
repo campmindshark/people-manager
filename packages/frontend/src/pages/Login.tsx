@@ -13,7 +13,7 @@ export default function Login() {
   const config = getConfig();
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    window.open(`${config.BackendURL}/auth/google`, '_self');
+    window.open(`${config.BackendURL}/api/auth/google`, '_self');
   };
 
   useEffect(() => {

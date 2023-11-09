@@ -2,6 +2,8 @@ export interface Config {
   Environment: string;
   CORSWhitelist: string[];
 
+  PostgresConnectionURL: string;
+
   GoogleOAuthClientID: string;
   GoogleOAuthClientSecret: string;
   GoogleOAuthCallbackURL: string;
@@ -26,13 +28,16 @@ export function getConfig(): Config {
     Environment: (process.env.NODE_ENV as string) ?? 'development',
     CORSWhitelist: getCORSWhitelist(),
 
+    PostgresConnectionURL:
+      (process.env.POSTGRES_CONNECTION_URL as string) ?? '',
+
     GoogleOAuthClientID: process.env.GOOGLE_OAUTH_CLIENT_ID as string,
     GoogleOAuthClientSecret: process.env.GOOGLE_OAUTH_CLIENT_SECRET as string,
     GoogleOAuthCallbackURL:
       (process.env.GOOGLE_OAUTH_CALLBACK_URL as string) ??
-      'http://localhost:3001/auth/google/callback',
+      'http://localhost:3001/api/auth/google/callback',
 
-    Port: parseInt((process.env.PORT as string) ?? '3001'),
+    Port: parseInt((process.env.BACKEND_PORT as string) ?? '3001'),
     FrontendURL:
       (process.env.FRONTEND_URL as string) ?? 'http://localhost:3000',
     BackendURL: (process.env.BACKEND_URL as string) ?? 'http://localhost:3001',

@@ -11,7 +11,6 @@ terraform {
   }
 }
 
-
 resource "aws_ecr_repository" "app_ecr_repo" {
   name = "${var.project_name}-repo"
 }
@@ -35,7 +34,10 @@ resource "aws_ecs_task_definition" "app_task" {
         }
       ],
       "memory": 512,
-      "cpu": 256
+      "cpu": 256.
+      "secrets": [
+        
+      ]
     }
   ]
   DEFINITION
@@ -75,12 +77,12 @@ resource "aws_default_vpc" "default_vpc" {
 # Provide references to your default subnets
 resource "aws_default_subnet" "default_subnet_a" {
   # Use your own region here but reference to subnet 1a
-  availability_zone = "us-east-1a"
+  availability_zone = "us-west-2a"
 }
 
 resource "aws_default_subnet" "default_subnet_b" {
   # Use your own region here but reference to subnet 1b
-  availability_zone = "us-east-1b"
+  availability_zone = "us-west-2b"
 }
 
 resource "aws_alb" "application_load_balancer" {
@@ -112,7 +114,7 @@ resource "aws_security_group" "load_balancer_security_group" {
 }
 
 resource "aws_lb_target_group" "target_group" {
-  name        = "target-group"
+  name        = var.project_name
   port        = 80
   protocol    = "HTTP"
   target_type = "ip"

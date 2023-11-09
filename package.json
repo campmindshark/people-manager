@@ -1,18 +1,18 @@
 {
-    "private": true,
-    "name": "people-manager",
-    "workspaces": [
-        "packages/*"
-    ],
-    "scripts": {
-        "frontend-dev": "yarn workspace frontend start",
-        "backend-dev": "yarn workspace backend dev",
-        "dev": "concurrently --kill-others-on-fail \"yarn frontend-dev\"  \"yarn backend-dev\"",
-        "db-migrate": "yarn workspace backend migrate",
-
-        "build": "concurrently --kill-others-on-fail \"yarn workspace frontend build\"  \"yarn workspace backend build\""
-    },
-    "dependencies": {
-        "concurrently": "^8.2.2"
-    }
+  "private": true,
+  "name": "people-manager",
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "frontend-dev": "yarn workspace frontend start",
+    "backend-dev": "yarn workspace backend dev",
+    "dev": "concurrently --kill-others-on-fail \"yarn frontend-dev\"  \"yarn backend-dev\"",
+    "db-migrate": "yarn workspace backend migrate",
+    "build": "concurrently --kill-others-on-fail \"yarn workspace frontend build\"  \"yarn workspace backend build\""
+  },
+  "dependencies": {
+    "concurrently": "^8.2.2"
+  }
 }
