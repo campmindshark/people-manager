@@ -1,4 +1,4 @@
-name: 'EKS Cluster Deletion'
+name: 'Infrastructure Deletion'
 
 on:
   workflow_dispatch:

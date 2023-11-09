@@ -21,11 +21,7 @@ services:
     image: people-manager-migration-repo:latest
     entrypoint: /bin/sh -c
     command: 
-      - NODE_ENV=production yarn db-migrate
-      # - yarn add ts-node && yarn migrate
-      # - ts-node
-      # - -D
-      # - && yarn migrate
+      - yarn db-migrate
     volumes:
       - ./packages/backend/env:/env
     depends_on:
@@ -36,11 +32,11 @@ services:
       - BACKEND_URL=http://localhost:3001
       - FRONTEND_URL=http://localhost:3001
       - BACKEND_PORT=3001
+      - NODE_ENV=production
   app:
     image: people-manager-repo:latest
     ports:
       - 3001:3001
-    # entrypoint: /bin/sh -c
     command: /env/.env.docker.local
     volumes:
       - ./packages/backend/env:/env

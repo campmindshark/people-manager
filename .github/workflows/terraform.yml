@@ -1,4 +1,4 @@
-name: 'EKS Deployment'
+name: 'Infrastructure Deployment'
 
 on:
   workflow_dispatch:

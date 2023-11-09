@@ -5,7 +5,7 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
-    "dev": "nodemon index.ts .env.local",
+    "dev": "nodemon index.ts env/.env.local",
     "test": "echo 'TODO: implement server tests'",
     "migrate": "knex migrate:latest"
   },
