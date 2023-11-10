@@ -11,6 +11,11 @@ terraform {
   }
 }
 
+provider "aws" {
+  region = "us-west-2"
+  alias  = "main"
+}
+
 resource "aws_ecr_repository" "app_ecr_repo" {
   name = "${var.project_name}-repo"
 }
@@ -34,7 +39,7 @@ resource "aws_ecs_task_definition" "app_task" {
         }
       ],
       "memory": 512,
-      "cpu": 256.
+      "cpu": 256,
       "secrets": [
         
       ]
@@ -136,7 +141,7 @@ resource "aws_ecs_service" "app_service" {
   cluster         = aws_ecs_cluster.my_cluster.id        # Reference the created Cluster
   task_definition = aws_ecs_task_definition.app_task.arn # Reference the task that the service will spin up
   launch_type     = "FARGATE"
-  desired_count   = 3 # Set up the number of containers to 3
+  desired_count   = 1 # Set up the number of containers to 3
 
   load_balancer {
     target_group_arn = aws_lb_target_group.target_group.arn # Reference the target group
