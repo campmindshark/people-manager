@@ -1,5 +1,5 @@
 import { atom, selector } from 'recoil';
-import User from 'backend/user/user';
+import User from 'backend/models/user/user';
 import { getConfig } from 'backend/config/config';
 import BackendUserClient from '../api/users/client';
 
