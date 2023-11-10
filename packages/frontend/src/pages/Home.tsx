@@ -35,7 +35,7 @@ function Home() {
                 p: 2,
                 display: 'flex',
                 flexDirection: 'column',
-                height: "100%",
+                height: '100%',
               }}
             >
               {/* <Chart /> */}
@@ -54,9 +54,7 @@ function Home() {
                       sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
                     >
                       <TableCell component="th" scope="row">
-                        {user.firstName}
-                        {' '}
-                        {user.lastName}
+                        {user.firstName} {user.lastName}
                       </TableCell>
                       <TableCell component="th" scope="row">
                         {user.googleID}
@@ -65,7 +63,6 @@ function Home() {
                   ))}
                 </TableBody>
               </Table>
-
             </Paper>
           </Grid>
           {/* Recent Deposits */}
@@ -75,7 +72,7 @@ function Home() {
                 p: 2,
                 display: 'flex',
                 flexDirection: 'column',
-                height: "100%",
+                height: '100%',
               }}
             >
               <h1>Teams</h1>
@@ -92,7 +89,6 @@ function Home() {
         </Grid>
       </Container>
     </Dashboard>
-
   );
 }
 

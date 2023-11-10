@@ -1,6 +1,8 @@
 import express, { Request, Response, NextFunction } from "express";
 import passport from "passport";
+import { getConfig } from "../config/config";
 
+const config = getConfig();
 var router = express.Router();
 
 router.get("/login/success", (req, res) => {
@@ -28,7 +30,7 @@ router.get(
   passport.authenticate("google", { failureRedirect: "/error" }),
   function (req, res) {
     // Successful authentication, redirect success.
-    res.redirect("http://localhost:3000/");
+    res.redirect(`${config.FrontendURL}/`);
   }
 );
 
@@ -39,7 +41,7 @@ router.get("/logout", (req: Request, res: Response) => {
     }
     console.log(`-------> User Logged out`);
   });
-  res.redirect("http://localhost:3000/login");
+  res.redirect(`${config.FrontendURL}/login`);
 });
 
 export default router;

@@ -1,8 +1,5 @@
 import React from 'react';
-import {
-  createBrowserRouter,
-  RouterProvider,
-} from 'react-router-dom';
+import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import './App.css';
@@ -38,7 +35,11 @@ const router = createBrowserRouter([
   {
     path: '/settings',
     Component() {
-      return <Settings />;
+      return (
+        <AuthenticatedPage>
+          <Settings />
+        </AuthenticatedPage>
+      );
     },
   },
 ]);

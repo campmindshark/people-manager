@@ -22,9 +22,12 @@ WORKDIR /usr/src/app
 # Install app dependencies
 COPY package.json yarn.lock ./
 
-COPY --from=builder /usr/src/app/packages/backend/package.json /usr/src/app/packages/backend/package.json
-COPY --from=builder /usr/src/app/packages/backend/build ./packages/backend/build
+COPY --from=builder /usr/src/app/packages/backend/package.json /usr/src/app/package.json
+COPY --from=builder /usr/src/app/packages/backend/build /usr/src/app
+COPY --from=builder /usr/src/app/packages/backend/tsconfig.json /usr/src/app
 
-COPY --from=builder /usr/src/app/packages/frontend/build ./packages/frontend/build
+COPY --from=builder /usr/src/app/packages/frontend/build /usr/src/app/public
 
 RUN yarn install --production
+
+ENTRYPOINT [ "node", "index.js" ]
