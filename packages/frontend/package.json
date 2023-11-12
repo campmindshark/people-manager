@@ -48,7 +48,10 @@
     "extends": [
       "react-app",
       "react-app/jest"
-    ]
+    ],
+    "rules": {
+      "no-console": "off"
+    }
   },
   "eslintIgnore": [
     "src/react-app-env.d.ts"
