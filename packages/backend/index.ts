@@ -18,7 +18,7 @@ import passport from 'passport';
 import session from 'express-session';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import knexConfig from './knexfile';
-import { getConfig } from './config/config';
+import { Config, getConfig } from './config/config';
 
 import User from './user/user';
 import authRouter from './routes/auth';
@@ -36,7 +36,7 @@ if (!FileSystem.existsSync(configPath)) {
 
 // For env File
 dotenv.config({ path: configPath });
-const config = getConfig();
+const config: Config = getConfig();
 
 console.log(`running in ${config.Environment} mode`);
 
@@ -76,7 +76,7 @@ passport.serializeUser((user, cb) => {
   cb(null, user);
 });
 
-passport.deserializeUser((user: any, cb) => {
+passport.deserializeUser((user: never, cb) => {
   cb(null, user);
 });
 
