@@ -19,7 +19,7 @@ function getCORSWhitelist(): string[] {
   const corsWhitelistCSV =
     (process.env.CORS_WHITELIST_CSV as string) ??
     'http://localhost:3000,http://localhost:3001';
-  var corsWhitelist = corsWhitelistCSV.split(',');
+  const corsWhitelist = corsWhitelistCSV.split(',');
   return corsWhitelist;
 }
 
@@ -37,7 +37,7 @@ export function getConfig(): Config {
       (process.env.GOOGLE_OAUTH_CALLBACK_URL as string) ??
       'http://localhost:3001/api/auth/google/callback',
 
-    Port: parseInt((process.env.BACKEND_PORT as string) ?? '3001'),
+    Port: parseInt((process.env.BACKEND_PORT as string) ?? '3001', 10),
     FrontendURL:
       (process.env.FRONTEND_URL as string) ?? 'http://localhost:3000',
     BackendURL: (process.env.BACKEND_URL as string) ?? 'http://localhost:3001',

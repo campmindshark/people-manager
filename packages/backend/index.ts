@@ -1,11 +1,10 @@
 import express, {
-  Express,
+  Express, // eslint-disable-line
   Request,
   Response,
   Application,
   NextFunction,
 } from 'express';
-import { getConfig } from './config/config';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import logger from 'morgan';
@@ -13,12 +12,13 @@ import createError from 'http-errors';
 import FileSystem from 'fs';
 import path from 'path';
 import Knex from 'knex';
-import knexConfig from './knexfile';
 import { Model } from 'objection';
 import dotenv from 'dotenv';
 import passport from 'passport';
 import session from 'express-session';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
+import knexConfig from './knexfile';
+import { getConfig } from './config/config';
 
 import User from './user/user';
 import authRouter from './routes/auth';
@@ -34,11 +34,11 @@ if (!FileSystem.existsSync(configPath)) {
   console.log(`Config file not found at ${configPath}`);
 }
 
-//For env File
+// For env File
 dotenv.config({ path: configPath });
 const config = getConfig();
 
-console.log('running in ' + config.Environment + ' mode');
+console.log(`running in ${  config.Environment  } mode`);
 
 // Initialize knex.
 const knex = Knex(knexConfig[config.Environment]);
@@ -72,11 +72,11 @@ app.use(
 app.use(passport.initialize());
 app.use(passport.session());
 
-passport.serializeUser(function (user, cb) {
+passport.serializeUser((user, cb) => {
   cb(null, user);
 });
 
-passport.deserializeUser(function (user: any, cb) {
+passport.deserializeUser((user: any, cb) => {
   cb(null, user);
 });
 
@@ -88,7 +88,7 @@ passport.use(
       clientSecret: config.GoogleOAuthClientSecret,
       callbackURL: config.GoogleOAuthCallbackURL,
     },
-    async function (accessToken, refreshToken, profile, done) {
+    (async (accessToken, refreshToken, profile, done) => {
       const query = User.query();
       query.where('googleID', profile.id);
       const user = await query;
@@ -98,20 +98,20 @@ passport.use(
         newUserModel.firstName = profile.name?.givenName ?? '';
         newUserModel.lastName = profile.name?.familyName ?? '';
 
-        const query = User.query().insert(newUserModel);
-        const newUser = await query;
+        const innerQuery = User.query().insert(newUserModel);
+        const newUser = await innerQuery;
         console.log(newUser);
         return done(null, newUser);
       }
 
       console.log(profile);
       return done(null, profile);
-    },
+    }),
   ),
 );
 
 // Add this middleware BELOW passport middleware
-app.use(function (req, res, next) {
+app.use((req, res, next) => {
   res.locals.user = req.user;
   next();
 });
@@ -120,6 +120,7 @@ const checkAuthenticated = (
   req: Request,
   res: Response,
   next: NextFunction,
+  // eslint-disable-next-line consistent-return
 ) => {
   if (req.isAuthenticated()) {
     return next();
@@ -133,7 +134,7 @@ app.use('/api/users', checkAuthenticated, usersRouter);
 app.use('/', indexRouter); // this route should be last
 
 // catch 404 and forward to error handler
-app.use(function (req: Request, res: Response, next: NextFunction) {
+app.use((req: Request, res: Response, next: NextFunction) => {
   next(createError(404));
 });
 

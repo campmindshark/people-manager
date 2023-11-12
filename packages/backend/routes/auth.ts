@@ -1,9 +1,9 @@
-import express, { Request, Response, NextFunction } from "express";
+import express, { Request, Response } from "express";
 import passport from "passport";
 import { getConfig } from "../config/config";
 
 const config = getConfig();
-var router = express.Router();
+const router = express.Router();
 
 router.get("/login/success", (req, res) => {
   if (req.user && req.isAuthenticated()) {
@@ -28,13 +28,14 @@ router.get(
 router.get(
   "/google/callback",
   passport.authenticate("google", { failureRedirect: "/error" }),
-  function (req, res) {
+  (req, res) => {
     // Successful authentication, redirect success.
     res.redirect(`${config.FrontendURL}/`);
   }
 );
 
 router.get("/logout", (req: Request, res: Response) => {
+  // eslint-disable-next-line consistent-return
   req.logOut((err: any) => {
     if (err) {
       return console.log(err);
