@@ -1,17 +1,18 @@
-import express, { Request, Response, NextFunction } from "express";
-import User from "../user/user";
+import express, { Request, Response, NextFunction } from 'express';
+import User from '../user/user';
 
-var router = express.Router();
+const router = express.Router();
 
 /* GET users listing. */
 router.get(
-  "/",
-  async function (req: Request, res: Response, next: NextFunction) {
+  '/',
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async (req: Request, res: Response, next: NextFunction) => {
     const query = User.query();
 
     const users = await query;
     res.json(users);
-  }
+  },
 );
 
 export default router;

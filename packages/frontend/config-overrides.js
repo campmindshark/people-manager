@@ -1,13 +1,13 @@
-var path = require('path')
+var path = require('path');
 
-const { override, babelInclude } = require('customize-cra')
+const { override, babelInclude } = require('customize-cra');
 
 module.exports = function (config, env) {
   let loaders = config.resolve;
   loaders.fallback = {
-    "path": require.resolve("path-browserify")
+    path: require.resolve('path-browserify'),
   };
-  
+
   return Object.assign(
     config,
     override(
@@ -16,6 +16,6 @@ module.exports = function (config, env) {
         path.resolve('src'),
         path.resolve('../../packages'),
       ]),
-    )(config, env)
-  )
-}
+    )(config, env),
+  );
+};
