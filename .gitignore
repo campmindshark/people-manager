@@ -24,3 +24,5 @@ yarn-error.log*
 
 .terraform
 .terraform.*
+
+.idea

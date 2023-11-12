@@ -1,0 +1,53 @@
+name: Code Quality and Styles
+
+on:
+  push:
+
+jobs:
+  lint-and-format:
+    strategy:
+      matrix:
+        project:
+          - packages/backend
+          - packages/frontend
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Install Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: 21
+
+      - name: Install dependencies
+        run: |
+          cd ${{ matrix.project }}
+          yarn
+
+      - name: Style Check
+        run: |
+          cd ${{ matrix.project }}
+          yarn style
+
+      - name: Lint
+        run: |
+          cd ${{ matrix.project }}
+          yarn lint
+
+      - name: Build
+        run: |
+          cd ${{ matrix.project }}
+          yarn build
+
+#      - name: Test
+#        run: |
+#          cd ${{ matrix.project }}
+#          yarn test --all
+
+      - name: Clean up
+        run: |
+          cd ${{ matrix.project }}
+          rm -f eslint-report.json

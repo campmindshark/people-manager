@@ -1,10 +1,11 @@
 import express, { Request, Response, NextFunction } from 'express';
 import path from 'path';
 
-var router = express.Router();
+const router = express.Router();
 
 /* GET home page. */
-router.get('/*', function (req: Request, res: Response, next: NextFunction) {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+router.get('/*', (req: Request, res: Response, next: NextFunction) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
