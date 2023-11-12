@@ -25,7 +25,8 @@ jobs:
       - name: Install dependencies
         run: |
           cd ${{ matrix.project }}
-          yarn
+          wget -qO- https://get.pnpm.io/install.sh | sh -
+          pnpm install
 
       - name: Style Check
         run: |

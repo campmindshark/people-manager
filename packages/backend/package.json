@@ -9,8 +9,8 @@
     "test": "echo 'TODO: implement server tests'",
     "migrate": "knex migrate:latest",
     "lint": "eslint \"**/*.{ts,tsx}\"",
-    "style": "npx prettier --check '**/*.{js,jsx,ts,tsx}' --config prettierrc.json",
-    "style-fix": "npx prettier --write --check '**/*.{js,jsx,ts,tsx}' --config prettierrc.json"
+    "style": "pnpx prettier --check '**/*.{js,jsx,ts,tsx}' --config prettierrc.json",
+    "style-fix": "pnpx prettier --write --check '**/*.{js,jsx,ts,tsx}' --config prettierrc.json"
   },
   "eslintConfig": {
     "rules": {
