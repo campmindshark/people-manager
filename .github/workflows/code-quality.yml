@@ -27,15 +27,15 @@ jobs:
           cd ${{ matrix.project }}
           yarn
 
-      - name: Run Prettier
+      - name: Style Check
         run: |
           cd ${{ matrix.project }}
-          npx prettier --check '**/*.{js,jsx,ts,tsx}' --config prettierrc.json
+          yarn style
 
-      - name: Run ESLint
+      - name: Lint
         run: |
           cd ${{ matrix.project }}
-          npx eslint .
+          yarn lint
 
       - name: Clean up
         run: |
