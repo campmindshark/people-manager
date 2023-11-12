@@ -61,7 +61,8 @@
               "format": ["strictCamelCase"],
               "leadingUnderscore": "require"
             }
-        ]
+        ],
+        "no-console": "off",
     },
     "settings": {
         "import/resolver": {
