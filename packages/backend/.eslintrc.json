@@ -62,7 +62,7 @@
               "leadingUnderscore": "require"
             }
         ],
-        "no-console": "off",
+        "no-console": "off"
     },
     "settings": {
         "import/resolver": {
