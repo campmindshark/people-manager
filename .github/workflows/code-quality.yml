@@ -35,17 +35,17 @@ jobs:
       - name: Style Check
         run: |
           cd ${{ matrix.project }}
-          yarn style
+          pnpm style
 
       - name: Lint
         run: |
           cd ${{ matrix.project }}
-          yarn lint
+          pnpm lint
 
       - name: Build
         run: |
           cd ${{ matrix.project }}
-          yarn build
+          pnpm build
 
 #      - name: Test
 #        run: |
