@@ -14,9 +14,9 @@
   },
   "eslintConfig": {
     "rules": {
-    "no-console": "off"
-  }
-},
+      "no-console": "off"
+    }
+  },
   "dependencies": {
     "better-sqlite3": "^9.0.0",
     "better-sqlite3-session-store": "^0.1.0",

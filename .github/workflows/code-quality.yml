@@ -42,10 +42,10 @@ jobs:
           cd ${{ matrix.project }}
           yarn build
 
-      - name: Test
-        run: |
-          cd ${{ matrix.project }}
-          yarn build
+#      - name: Test
+#        run: |
+#          cd ${{ matrix.project }}
+#          yarn test --all
 
       - name: Clean up
         run: |

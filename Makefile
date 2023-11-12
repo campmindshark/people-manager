@@ -43,6 +43,22 @@ style-fix-frontend:
 
 style-fix: style-fix-backend style-fix-frontend
 
-ci: lint style
+build-backend:
+	cd packages/backend && yarn build
+
+build-frontend:
+	cd packages/frontend && yarn build
+
+build: build-backend build-frontend
+
+test-backend:
+	cd packages/backend && yarn test --all
+
+test-frontend:
+	cd packages/frontend && yarn test --all
+
+test: test-backend test-frontend
+
+ci: lint style build test
 
 ci-fix: lint-fix style-fix
