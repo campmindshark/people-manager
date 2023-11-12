@@ -17,7 +17,8 @@
   "eslintConfig": {
     "rules": {
       "no-console": "off"
-    },
+    }
+  },
   "dependencies": {
     "concurrently": "^8.2.2"
   }
