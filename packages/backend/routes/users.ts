@@ -1,7 +1,7 @@
-import express, { Request, Response, NextFunction } from 'express';
+import express, { Request, Response, NextFunction, Router } from 'express';
 import User from '../user/user';
 
-const router = express.Router();
+const router: Router = express.Router();
 
 /* GET users listing. */
 router.get(

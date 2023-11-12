@@ -1,7 +1,7 @@
-import express, { Request, Response, NextFunction } from 'express';
+import express, { Request, Response, NextFunction, Router } from 'express';
 import path from 'path';
 
-const router = express.Router();
+const router: Router = express.Router();
 
 /* GET home page. */
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
