@@ -10,3 +10,11 @@ docker-migration-build:
 
 docker-run:
 	docker run -p 3001:3001 -v $(pwd)/packages/backend:/backend people-manager-repo /backend/.env.local
+
+lint: lint-backend lint-frontend
+
+lint-backend:
+	cd packages/backend && yarn lint
+
+lint-frontend:
+	cd packages/frontend && yarn lint
