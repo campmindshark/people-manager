@@ -38,7 +38,7 @@ if (!FileSystem.existsSync(configPath)) {
 dotenv.config({ path: configPath });
 const config = getConfig();
 
-console.log(`running in ${  config.Environment  } mode`);
+console.log(`running in ${config.Environment} mode`);
 
 // Initialize knex.
 const knex = Knex(knexConfig[config.Environment]);
@@ -88,7 +88,7 @@ passport.use(
       clientSecret: config.GoogleOAuthClientSecret,
       callbackURL: config.GoogleOAuthCallbackURL,
     },
-    (async (accessToken, refreshToken, profile, done) => {
+    async (accessToken, refreshToken, profile, done) => {
       const query = User.query();
       query.where('googleID', profile.id);
       const user = await query;
@@ -106,7 +106,7 @@ passport.use(
 
       console.log(profile);
       return done(null, profile);
-    }),
+    },
   ),
 );
 

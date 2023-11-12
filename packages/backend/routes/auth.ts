@@ -1,40 +1,40 @@
-import express, { Request, Response } from "express";
-import passport from "passport";
-import { getConfig } from "../config/config";
+import express, { Request, Response } from 'express';
+import passport from 'passport';
+import { getConfig } from '../config/config';
 
 const config = getConfig();
 const router = express.Router();
 
-router.get("/login/success", (req, res) => {
+router.get('/login/success', (req, res) => {
   if (req.user && req.isAuthenticated()) {
     res.status(200).json({
       success: true,
-      message: "successful",
+      message: 'successful',
       user: req.user,
     });
   } else {
     res.status(401).json({
       success: false,
-      message: "user not authenticated",
+      message: 'user not authenticated',
     });
   }
 });
 
 router.get(
-  "/google",
-  passport.authenticate("google", { scope: ["profile", "email"] })
+  '/google',
+  passport.authenticate('google', { scope: ['profile', 'email'] }),
 );
 
 router.get(
-  "/google/callback",
-  passport.authenticate("google", { failureRedirect: "/error" }),
+  '/google/callback',
+  passport.authenticate('google', { failureRedirect: '/error' }),
   (req, res) => {
     // Successful authentication, redirect success.
     res.redirect(`${config.FrontendURL}/`);
-  }
+  },
 );
 
-router.get("/logout", (req: Request, res: Response) => {
+router.get('/logout', (req: Request, res: Response) => {
   // eslint-disable-next-line consistent-return
   req.logOut((err: any) => {
     if (err) {
