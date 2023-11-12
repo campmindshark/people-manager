@@ -36,14 +36,17 @@ jobs:
         run: |
           cd ${{ matrix.project }}
           yarn lint
+
       - name: Build
         run: |
           cd ${{ matrix.project }}
           yarn build
-      - name: Build
+
+      - name: Test
         run: |
           cd ${{ matrix.project }}
           yarn build
+
       - name: Clean up
         run: |
           cd ${{ matrix.project }}
