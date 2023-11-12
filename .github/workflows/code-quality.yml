@@ -1,0 +1,43 @@
+name: Code Quality and Styles
+
+on:
+  push:
+
+jobs:
+  lint-and-format:
+    strategy:
+      matrix:
+        project:
+          - packages/backend
+          - packages/frontend
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Install Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: 21
+
+      - name: Install dependencies
+        run: |
+          cd ${{ matrix.project }}
+          yarn
+
+      - name: Run Prettier
+        run: |
+          cd ${{ matrix.project }}
+          npx prettier --check '**/*.{js,jsx,ts,tsx}' --config prettierrc.json
+
+      - name: Run ESLint
+        run: |
+          cd ${{ matrix.project }}
+          npx eslint .
+
+      - name: Clean up
+        run: |
+          cd ${{ matrix.project }}
+          rm -f eslint-report.json
