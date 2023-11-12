@@ -22,10 +22,15 @@ jobs:
         with:
           node-version: 21
 
-      - name: Install dependencies
+      - name: Install PNPM
         run: |
-          cd ${{ matrix.project }}
-          yarn
+          npm install -g pnpm
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Verify PNPM installation
+        run: pnpm --version
 
       - name: Style Check
         run: |
