@@ -1,5 +1,5 @@
 import axios from 'axios';
-import User from 'backend/user/user';
+import User from 'backend/models/user/user';
 
 export interface UserClient {
   GetAllUsers(): Promise<User[]>;

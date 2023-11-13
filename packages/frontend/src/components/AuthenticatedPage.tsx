@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import User from 'backend/user/user';
+import User from 'backend/models/user/user';
 import { getConfig } from 'backend/config/config';
 import { useRecoilState } from 'recoil';
 import { useNavigate } from 'react-router-dom';

@@ -20,7 +20,7 @@ import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import knexConfig from './knexfile';
 import { Config, getConfig } from './config/config';
 
-import User from './user/user';
+import User from './models/user/user';
 import authRouter from './routes/auth';
 import indexRouter from './routes/index';
 import usersRouter from './routes/users';
