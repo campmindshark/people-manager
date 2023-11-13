@@ -1,9 +1,9 @@
-import express, { Request, Response } from 'express';
+import express, { Request, Response, Router } from 'express';
 import passport from 'passport';
 import { getConfig } from '../config/config';
 
 const config = getConfig();
-const router = express.Router();
+const router: Router = express.Router();
 
 router.get('/login/success', (req, res) => {
   if (req.user && req.isAuthenticated()) {
@@ -36,7 +36,7 @@ router.get(
 
 router.get('/logout', (req: Request, res: Response) => {
   // eslint-disable-next-line consistent-return
-  req.logOut((err: any) => {
+  req.logOut((err) => {
     if (err) {
       return console.log(err);
     }

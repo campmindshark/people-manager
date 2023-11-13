@@ -4,7 +4,7 @@ on:
   push:
 
 jobs:
-  lint-and-format:
+  code-quality-and-style:
     strategy:
       matrix:
         project:
@@ -22,10 +22,17 @@ jobs:
         with:
           node-version: 21
 
+      - name: Install Tools
+        run: |
+          npm install -g pnpm eslint
+
       - name: Install dependencies
         run: |
           cd ${{ matrix.project }}
-          yarn
+          pnpm install
+
+      - name: Verify PNPM installation
+        run: pnpm --version
 
       - name: Style Check
         run: |
@@ -40,6 +47,7 @@ jobs:
       - name: Build
         run: |
           cd ${{ matrix.project }}
+          yarn add typescript --save-dev
           yarn build
 
 #      - name: Test

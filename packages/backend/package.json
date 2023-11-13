@@ -8,9 +8,10 @@
     "dev": "nodemon index.ts env/.env.local",
     "test": "echo 'TODO: implement server tests'",
     "migrate": "knex migrate:latest",
-    "lint": "eslint \"**/*.{ts,tsx}\"",
-    "style": "npx prettier --check '**/*.{js,jsx,ts,tsx}' --config prettierrc.json",
-    "style-fix": "npx prettier --write --check '**/*.{js,jsx,ts,tsx}' --config prettierrc.json"
+    "lint": "pnpx eslint \"**/*.{ts,tsx}\"",
+    "lint-fix": "pnpx eslint --fix \"**/*.{ts,tsx}\"",
+    "style": "pnpx prettier --check '**/*.{js,jsx,ts,tsx}' --config prettierrc.json",
+    "style-fix": "pnpx prettier --write --check '**/*.{js,jsx,ts,tsx}' --config prettierrc.json"
   },
   "eslintConfig": {
     "rules": {
@@ -42,7 +43,8 @@
     "pg": "^8.11.3",
     "sqlite3": "^5.1.6",
     "ts-node": "^10.9.1",
-    "typeorm": "^0.3.17"
+    "typeorm": "^0.3.17",
+    "typescript": "^5.2.2"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.6",
@@ -54,8 +56,13 @@
     "@types/passport": "^1.0.14",
     "@types/passport-google-oauth2": "^0.1.7",
     "@types/passport-google-oauth20": "^2.0.13",
+    "eslint-config-airbnb": "^19.0.4",
+    "eslint-config-airbnb-typescript": "^17.1.0",
+    "eslint-config-prettier": "^9.0.0",
+    "eslint-plugin-airbnb": "0.0.1-security",
+    "eslint-plugin-prettier": "^5.0.1",
+    "eslint-plugin-react": "^7.33.2",
     "ts-node-dev": "^2.0.0",
-    "tsc": "^2.0.4",
     "typescript": "^5.2.2",
     "yarn": "^1.22.19"
   }
