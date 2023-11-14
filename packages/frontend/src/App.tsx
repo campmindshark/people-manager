@@ -7,6 +7,7 @@ import Home from './pages/Home';
 import Settings from './pages/Settings';
 import Login from './pages/Login';
 import AuthenticatedPage from './components/AuthenticatedPage';
+import Shifts from './pages/Shifts';
 
 const mdTheme = createTheme({
   palette: {
@@ -38,6 +39,16 @@ const router = createBrowserRouter([
       return (
         <AuthenticatedPage>
           <Settings />
+        </AuthenticatedPage>
+      );
+    },
+  },
+  {
+    path: '/shifts',
+    Component() {
+      return (
+        <AuthenticatedPage>
+          <Shifts />
         </AuthenticatedPage>
       );
     },
