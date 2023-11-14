@@ -18,7 +18,7 @@ export default class Shift extends Model {
   }
 
   // Table name is the only required property.
-  static tableName = 'schedules';
+  static tableName = 'shifts';
 
   // Optional JSON schema. This is not the database schema! Nothing is generated
   // based on this. This is only used for validation. Whenever a model instance
