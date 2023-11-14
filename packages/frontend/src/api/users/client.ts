@@ -3,6 +3,7 @@ import User from 'backend/models/user/user';
 
 export interface UserClient {
   GetAllUsers(): Promise<User[]>;
+  GetAuthenticatedUser(): Promise<User>;
 }
 
 export default class BackendUserClient implements UserClient {
