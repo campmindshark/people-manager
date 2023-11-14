@@ -36,7 +36,7 @@ export default class Schedule extends Model {
       relation: Model.HasManyRelation,
       modelClass: Shift,
       join: {
-        from: 'schedule.id',
+        from: 'schedules.id',
         to: 'shifts.scheduleID',
       },
     },

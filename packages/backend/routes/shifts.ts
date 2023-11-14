@@ -1,14 +1,31 @@
 import express, { Request, Response, NextFunction, Router } from 'express';
 import Shift from '../models/shift/shift';
+import Schedule from '../models/schedule/schedule';
 
 const router: Router = express.Router();
 
-/* GET Schedule(s). */
+/* GET Shift(s). */
 router.get(
   '/',
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async (req: Request, res: Response, next: NextFunction) => {
     const query = Shift.query();
+
+    const shifts = await query;
+    res.json(shifts);
+  },
+);
+
+/* GET Shifts by Schedule. */
+router.get(
+  '/by_schedule/:scheduleID',
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async (req: Request, res: Response, next: NextFunction) => {
+    const scheduleID = req.params.scheduleID;
+
+    const query = Schedule.relatedQuery('shifts')
+      .for(scheduleID)
+      .orderBy('startTime', 'asc');
 
     const shifts = await query;
     res.json(shifts);

@@ -1,29 +1,54 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import ArrowLeftIcon from '@mui/icons-material/ArrowLeft';
 import ArrowRightIcon from '@mui/icons-material/ArrowRight';
-// import Table from '@mui/material/Table';
-// import TableBody from '@mui/material/TableBody';
-// import TableCell from '@mui/material/TableCell';
 import TableContainer from '@mui/material/TableContainer';
-// import TableHead from '@mui/material/TableHead';
-// import TableRow from '@mui/material/TableRow';
 import Schedule from 'backend/models/schedule/schedule';
-// import Shift from 'backend/models/shift/shift';
 import Paper from '@mui/material/Paper';
-import { AppBar, Box, IconButton, Toolbar, Typography } from '@mui/material';
-import DayShifts from './DayShifts';
+import { getConfig } from 'backend/config/config';
+import {
+  AppBar,
+  Box,
+  Grid,
+  IconButton,
+  Stack,
+  Toolbar,
+  Typography,
+} from '@mui/material';
+import BackendScheduleClient from 'src/api/schedules/schedules';
+import { ShiftBlock } from './ShiftBlock';
+import ShiftStack from './ShiftStack';
 
-const getStubSchedules = (): Schedule[] => {
-  const stubs: Schedule[] = [];
-  stubs.push(new Schedule(1, 'Schedule 1', 'This is a schedule'));
-  stubs.push(new Schedule(2, 'Schedule 2', 'This is a second schedule'));
+const generateTimeSlotsByInterval = (
+  intervalMins: number,
+  start: Date,
+  end: Date,
+) => {
+  const timeSlots = [];
+  for (
+    let time = start;
+    time <= end;
+    time.setMinutes(time.getMinutes() + intervalMins)
+  ) {
+    timeSlots.push(new Date(time));
+  }
+  return timeSlots;
+};
 
-  return stubs;
+const generateDailyTimeSlots = (targetDay: Date) => {
+  const start = new Date(targetDay);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(targetDay);
+  end.setHours(23, 59, 59, 999);
+  const timeSlots = generateTimeSlotsByInterval(60, start, end);
+  return timeSlots;
 };
 
 export default function ShiftDisplay() {
+  const appConfig = getConfig();
+  const scheduleClient = new BackendScheduleClient(appConfig.BackendURL);
   const [currentDay, setCurrentDay] = React.useState(new Date('08/24/2024'));
-  const [_schedules, _] = useState<Schedule[]>(getStubSchedules());
+  const [schedules, setSchedules] = useState<Schedule[]>([]);
+  const [timeSlots, _] = useState<Date[]>(generateDailyTimeSlots(currentDay));
 
   const handleDayChange = (change: number) => {
     const newDate = new Date(currentDay);
@@ -38,6 +63,12 @@ export default function ShiftDisplay() {
   const handlePreviousDay = () => {
     handleDayChange(-1);
   };
+
+  useEffect(() => {
+    scheduleClient.GetAllSchedules().then((loadedSchedules) => {
+      setSchedules(loadedSchedules);
+    });
+  }, [scheduleClient]);
 
   return (
     <TableContainer component={Paper}>
@@ -60,7 +91,26 @@ export default function ShiftDisplay() {
             </IconButton>
           </Toolbar>
         </AppBar>
-        <DayShifts />
+        <Grid container>
+          <Grid item>
+            <Stack>
+              <ShiftBlock />
+              {timeSlots.map((timeSlot) => (
+                <ShiftBlock>
+                  {timeSlot.toLocaleTimeString('en-US', {
+                    hour: 'numeric',
+                    minute: 'numeric',
+                  })}
+                </ShiftBlock>
+              ))}
+            </Stack>
+          </Grid>
+          {schedules.map((schedule) => (
+            <Grid item>
+              <ShiftStack schedule={schedule} timeSlots={timeSlots} />
+            </Grid>
+          ))}
+        </Grid>
       </Box>
     </TableContainer>
   );

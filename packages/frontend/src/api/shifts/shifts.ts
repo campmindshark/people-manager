@@ -3,6 +3,7 @@ import Shift from 'backend/models/shift/shift';
 
 export interface ShiftClient {
   GetAllShifts(): Promise<Shift[]>;
+  GetShiftsBySchedule(scheduleID: number): Promise<Shift[]>;
 }
 
 export default class BackendShiftClient implements ShiftClient {
@@ -21,6 +22,21 @@ export default class BackendShiftClient implements ShiftClient {
         'Access-Control-Allow-Credentials': 'true',
       },
     });
+    return data;
+  }
+
+  async GetShiftsBySchedule(scheduleID: number): Promise<Shift[]> {
+    const { data } = await axios.get<Shift[]>(
+      `${this.baseApiURL}/api/shifts/by_schedule/${scheduleID}`,
+      {
+        withCredentials: true,
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Credentials': 'true',
+        },
+      },
+    );
     return data;
   }
 }

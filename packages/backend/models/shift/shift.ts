@@ -1,4 +1,5 @@
 import { Model } from 'objection';
+import { start } from 'repl';
 
 export default class Shift extends Model {
   id!: number;
@@ -25,7 +26,7 @@ export default class Shift extends Model {
   // is created it is checked against this schema. http://json-schema.org/.
   static jsonSchema = {
     type: 'object',
-    required: ['name'],
+    required: ['scheduleID', 'startTime', 'endTime'],
 
     properties: {
       id: { type: 'integer' },
@@ -33,7 +34,7 @@ export default class Shift extends Model {
   };
 
   static relationMappings = {
-    shifts: {
+    schedule: {
       relation: Model.HasOneRelation,
       modelClass: Shift,
       join: {
@@ -42,4 +43,10 @@ export default class Shift extends Model {
       },
     },
   };
+
+  getLengthMinutes(): number {
+    const diff =
+      new Date(this.endTime).getTime() - new Date(this.startTime).getTime();
+    return Math.floor(diff / 60000);
+  }
 }
