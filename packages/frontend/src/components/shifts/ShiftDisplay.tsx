@@ -70,9 +70,10 @@ export default function ShiftDisplay() {
   };
 
   useEffect(() => {
-    scheduleClient.GetAllSchedules().then((loadedSchedules) => {
+    async () => {
+      const loadedSchedules = await scheduleClient.GetAllSchedules();
       setSchedules(loadedSchedules);
-    });
+    };
   }, [currentDay]);
 
   return (
