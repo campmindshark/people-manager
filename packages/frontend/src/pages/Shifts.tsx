@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import Container from '@mui/material/Container';
 import { useSetRecoilState } from 'recoil';
 import ShiftDisplay from 'src/components/shifts/ShiftDisplay';
@@ -13,7 +13,7 @@ export default function Shifts() {
       title: 'Shifts',
       index: 'shifts',
     });
-  });
+  }, [PageState]);
 
   return (
     <Dashboard>

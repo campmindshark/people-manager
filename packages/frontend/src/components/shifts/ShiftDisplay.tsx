@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import ArrowLeftIcon from '@mui/icons-material/ArrowLeft';
 import ArrowRightIcon from '@mui/icons-material/ArrowRight';
 import TableContainer from '@mui/material/TableContainer';
@@ -17,6 +17,8 @@ import {
 import BackendScheduleClient from 'src/api/schedules/schedules';
 import { ShiftBlock } from './ShiftBlock';
 import ShiftStack from './ShiftStack';
+
+const appConfig = getConfig();
 
 const generateTimeSlotsByInterval = (
   intervalMins: number,
@@ -44,8 +46,11 @@ const generateDailyTimeSlots = (targetDay: Date) => {
 };
 
 export default function ShiftDisplay() {
-  const appConfig = getConfig();
-  const scheduleClient = new BackendScheduleClient(appConfig.BackendURL);
+  const scheduleClient = useMemo(
+    () => new BackendScheduleClient(appConfig.BackendURL),
+    [appConfig.BackendURL],
+  );
+
   const [currentDay, setCurrentDay] = React.useState(new Date('08/24/2024'));
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [timeSlots, _] = useState<Date[]>(generateDailyTimeSlots(currentDay));
@@ -68,7 +73,7 @@ export default function ShiftDisplay() {
     scheduleClient.GetAllSchedules().then((loadedSchedules) => {
       setSchedules(loadedSchedules);
     });
-  }, [scheduleClient]);
+  }, [currentDay]);
 
   return (
     <TableContainer component={Paper}>

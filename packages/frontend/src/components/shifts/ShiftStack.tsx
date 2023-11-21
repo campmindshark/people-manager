@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import Schedule from 'backend/models/schedule/schedule';
 import { Stack } from '@mui/material';
 import Shift from 'backend/models/shift/shift';
@@ -6,14 +6,18 @@ import BackendShiftClient from 'src/api/shifts/shifts';
 import { getConfig } from 'backend/config/config';
 import { ShiftBlock } from './ShiftBlock';
 
+const appConfig = getConfig();
+
 interface Props {
   schedule: Schedule;
   timeSlots: Date[];
 }
 
 export default function ShiftStack(props: Props) {
-  const appConfig = getConfig();
-  const shiftClient = new BackendShiftClient(appConfig.BackendURL);
+  const shiftClient = useMemo(
+    () => new BackendShiftClient(appConfig.BackendURL),
+    [appConfig.BackendURL],
+  );
   const { schedule, timeSlots } = props;
   const [shifts, setShifts] = React.useState<Shift[]>([]);
 
@@ -29,6 +33,7 @@ export default function ShiftStack(props: Props) {
   const generateShiftBlocks = () => {
     console.log(shifts);
     const shiftBlocks: JSX.Element[] = [];
+    console.log(timeSlots);
     const startTime = new Date(timeSlots[0]);
     for (let index = 0; index < shifts.length; index += 1) {
       const shift = Shift.fromJson(shifts[index]);

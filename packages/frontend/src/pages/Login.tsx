@@ -9,11 +9,12 @@ import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import Typography from '@mui/material/Typography';
 import { getConfig } from 'backend/config/config';
 
+const appConfig = getConfig();
+
 export default function Login() {
-  const config = getConfig();
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    window.open(`${config.BackendURL}/api/auth/google`, '_self');
+    window.open(`${appConfig.BackendURL}/api/auth/google`, '_self');
   };
 
   useEffect(() => {
