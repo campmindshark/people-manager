@@ -11,6 +11,8 @@ import { getConfig } from 'backend/config/config';
 import AppBar from './AppBar';
 import PageState from '../../state/store';
 
+const appConfig = getConfig();
+
 interface TopBarProps {
   open: boolean;
   toggleDrawer: () => void;
@@ -18,11 +20,10 @@ interface TopBarProps {
 
 export default function TopBar({ open, toggleDrawer }: TopBarProps) {
   const pageState = useRecoilValue(PageState);
-  const config = getConfig();
 
   const handleLogout = () => {
     console.log('logout');
-    window.location.href = `${config.BackendURL}/api/auth/logout`;
+    window.location.href = `${appConfig.BackendURL}/api/auth/logout`;
   };
 
   return (

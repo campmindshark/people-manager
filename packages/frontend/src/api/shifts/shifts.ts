@@ -1,20 +1,20 @@
 import axios from 'axios';
-import User from 'backend/models/user/user';
+import Shift from 'backend/models/shift/shift';
 
-export interface UserClient {
-  GetAllUsers(): Promise<User[]>;
-  GetAuthenticatedUser(): Promise<User>;
+export interface ShiftClient {
+  GetAllShifts(): Promise<Shift[]>;
+  GetShiftsBySchedule(scheduleID: number): Promise<Shift[]>;
 }
 
-export default class BackendUserClient implements UserClient {
+export default class BackendShiftClient implements ShiftClient {
   baseApiURL: string;
 
   constructor(baseApiURL: string) {
     this.baseApiURL = baseApiURL;
   }
 
-  async GetAllUsers(): Promise<User[]> {
-    const { data } = await axios.get<User[]>(`${this.baseApiURL}/api/users`, {
+  async GetAllShifts(): Promise<Shift[]> {
+    const { data } = await axios.get<Shift[]>(`${this.baseApiURL}/api/shifts`, {
       withCredentials: true,
       headers: {
         Accept: 'application/json',
@@ -25,9 +25,9 @@ export default class BackendUserClient implements UserClient {
     return data;
   }
 
-  async GetAuthenticatedUser(): Promise<User> {
-    const { data } = await axios.get<User>(
-      `${this.baseApiURL}/api/auth/login/success`,
+  async GetShiftsBySchedule(scheduleID: number): Promise<Shift[]> {
+    const { data } = await axios.get<Shift[]>(
+      `${this.baseApiURL}/api/shifts/by_schedule/${scheduleID}`,
       {
         withCredentials: true,
         headers: {
@@ -37,7 +37,6 @@ export default class BackendUserClient implements UserClient {
         },
       },
     );
-
     return data;
   }
 }

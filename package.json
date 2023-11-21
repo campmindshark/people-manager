@@ -6,13 +6,18 @@
     "packages/*"
   ],
   "scripts": {
+    "dev": "concurrently --kill-others-on-fail \"yarn frontend-dev\"  \"yarn backend-dev\"",
     "frontend-dev": "yarn workspace frontend start",
     "backend-dev": "yarn workspace backend dev",
-    "dev": "concurrently --kill-others-on-fail \"yarn frontend-dev\"  \"yarn backend-dev\"",
     "db-migrate": "yarn workspace backend migrate",
-    "build": "concurrently --kill-others-on-fail \"yarn workspace frontend build\"  \"yarn workspace backend build\"",
-    "lint-frontend": "cd packages/frontend && yarn lint",
-    "lint-backend": "cd packages/backend && yarn lint"
+    "db-seed": "yarn workspace backend seed",
+    "build": "concurrently \"yarn workspace frontend build\"  \"yarn workspace backend build\"",
+    "lint": "concurrently \"yarn lint-frontend\"  \"yarn lint-backend\"",
+    "lint-frontend": "yarn workspace frontend lint",
+    "lint-backend": "yarn workspace backend lint",
+    "style": "concurrently \"yarn style-frontend\"  \"yarn style-backend\"",
+    "style-frontend": "yarn workspace frontend style-fix",
+    "style-backend": "yarn workspace backend style-fix"
   },
   "eslintConfig": {
     "rules": {

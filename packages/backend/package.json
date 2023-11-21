@@ -8,6 +8,7 @@
     "dev": "nodemon index.ts env/.env.local",
     "test": "echo 'TODO: implement server tests'",
     "migrate": "knex migrate:latest",
+    "seed": "knex seed:run",
     "lint": "pnpx eslint \"**/*.{ts,tsx}\"",
     "lint-fix": "pnpx eslint --fix \"**/*.{ts,tsx}\"",
     "style": "pnpx prettier --check '**/*.{js,jsx,ts,tsx}' --config prettierrc.json",

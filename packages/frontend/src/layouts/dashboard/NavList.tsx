@@ -3,7 +3,8 @@ import ListItemButton from '@mui/material/ListItemButton';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import ListSubheader from '@mui/material/ListSubheader';
-import DashboardIcon from '@mui/icons-material/Dashboard';
+import HomeIcon from '@mui/icons-material/Home';
+import CelebrationIcon from '@mui/icons-material/Celebration';
 import SettingsIcon from '@mui/icons-material/Settings';
 import List from '@mui/material/List';
 import Divider from '@mui/material/Divider';
@@ -22,9 +23,19 @@ export default function NavList() {
         selected={pageState.index === 'home'}
       >
         <ListItemIcon>
-          <DashboardIcon />
+          <HomeIcon />
         </ListItemIcon>
         <ListItemText primary="Home" />
+      </ListItemButton>
+      <ListItemButton
+        component={Link}
+        to="/shifts"
+        selected={pageState.index === 'shifts'}
+      >
+        <ListItemIcon>
+          <CelebrationIcon />
+        </ListItemIcon>
+        <ListItemText primary="Shifts" />
       </ListItemButton>
       <Divider sx={{ my: 1 }} />
       <>
