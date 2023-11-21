@@ -10,7 +10,6 @@ const appConfig = getConfig();
 
 interface Props {
   schedule: Schedule;
-  timeSlots: Date[];
 }
 
 export default function ShiftStack(props: Props) {
@@ -18,7 +17,7 @@ export default function ShiftStack(props: Props) {
     () => new BackendShiftClient(appConfig.BackendURL),
     [appConfig.BackendURL],
   );
-  const { schedule, timeSlots } = props;
+  const { schedule } = props;
   const [shifts, setShifts] = React.useState<Shift[]>([]);
 
   // should only use this at the top level
@@ -27,23 +26,38 @@ export default function ShiftStack(props: Props) {
       const loadedShifts = await shiftClient.GetShiftsBySchedule(schedule.id);
       setShifts(loadedShifts);
     };
-    fetchShifts();
+    fetchShifts().catch(console.error);
   }, [schedule]);
 
   const generateShiftBlocks = () => {
-    console.log(shifts);
+    console.log('generateShiftBlocks');
     const shiftBlocks: JSX.Element[] = [];
-    console.log(timeSlots);
-    const startTime = new Date(timeSlots[0]);
+
+    const lastEndTime = new Date('08/24/2024 00:00:00');
+    console.log(`lastEndTime: ${lastEndTime}`);
     for (let index = 0; index < shifts.length; index += 1) {
       const shift = Shift.fromJson(shifts[index]);
       const differenceBetweenStartTimes =
-        new Date(shift.startTime).getTime() - startTime.getTime();
-      shiftBlocks.push(
-        <ShiftBlock timeFrameMinutes={differenceBetweenStartTimes / 600000}>
-          EMPTY
-        </ShiftBlock>,
+        new Date(shift.startTime).getTime() - lastEndTime.getTime();
+      const differenceBetweenStartTimesMinutes =
+        differenceBetweenStartTimes / 60000;
+
+      console.log(
+        `${new Date(
+          shift.startTime,
+        )} - ${lastEndTime} = ${differenceBetweenStartTimesMinutes} minutes`,
       );
+
+      if (differenceBetweenStartTimesMinutes > 0) {
+        console.log(`adding empty block ${differenceBetweenStartTimesMinutes}`);
+        shiftBlocks.push(
+          <ShiftBlock
+            timeFrameMinutes={differenceBetweenStartTimesMinutes}
+            isEmptySlot
+          />,
+        );
+      }
+
       shiftBlocks.push(
         <ShiftBlock timeFrameMinutes={shift.getLengthMinutes()}>
           {new Date(shift.startTime).toLocaleTimeString('en-US', {
@@ -52,8 +66,11 @@ export default function ShiftStack(props: Props) {
           })}
         </ShiftBlock>,
       );
-      startTime.setTime(new Date(shift.endTime).getTime());
+      lastEndTime.setTime(new Date(shift.endTime).getTime());
     }
+
+    console.log('shiftBlocks');
+    console.log(shiftBlocks);
 
     return shiftBlocks;
   };
@@ -61,15 +78,7 @@ export default function ShiftStack(props: Props) {
   return (
     <Stack>
       <ShiftBlock>{schedule.name}</ShiftBlock>
-      {generateShiftBlocks()}
-      {timeSlots.map((timeSlot) => (
-        <ShiftBlock>
-          {timeSlot.toLocaleTimeString('en-US', {
-            hour: 'numeric',
-            minute: 'numeric',
-          })}
-        </ShiftBlock>
-      ))}
+      {generateShiftBlocks().map((shiftBlock) => shiftBlock)}
     </Stack>
   );
 }

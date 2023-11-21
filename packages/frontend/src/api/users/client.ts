@@ -38,7 +38,6 @@ export default class BackendUserClient implements UserClient {
       },
     );
 
-    console.log(data);
     return data;
   }
 }

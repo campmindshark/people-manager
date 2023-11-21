@@ -48,10 +48,10 @@ const generateDailyTimeSlots = (targetDay: Date) => {
 export default function ShiftDisplay() {
   const scheduleClient = useMemo(
     () => new BackendScheduleClient(appConfig.BackendURL),
-    [appConfig.BackendURL],
+    [],
   );
 
-  const [currentDay, setCurrentDay] = React.useState(new Date('08/24/2024'));
+  const [currentDay, setCurrentDay] = useState(new Date('08/24/2024'));
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [timeSlots, _] = useState<Date[]>(generateDailyTimeSlots(currentDay));
 
@@ -71,10 +71,13 @@ export default function ShiftDisplay() {
 
   useEffect(() => {
     // eslint-disable-next-line @typescript-eslint/no-unused-expressions
-    async () => {
+    const fetchData = async () => {
       const loadedSchedules = await scheduleClient.GetAllSchedules();
+
       setSchedules(loadedSchedules);
     };
+
+    fetchData().catch(console.error);
   }, [currentDay]);
 
   return (
@@ -114,7 +117,7 @@ export default function ShiftDisplay() {
           </Grid>
           {schedules.map((schedule) => (
             <Grid item>
-              <ShiftStack schedule={schedule} timeSlots={timeSlots} />
+              <ShiftStack schedule={schedule} />
             </Grid>
           ))}
         </Grid>

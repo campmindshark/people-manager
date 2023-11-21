@@ -43,7 +43,7 @@ export async function seed(knex: Knex): Promise<void> {
   // Add 90 minute shifts for all hours.
   const wenchShifts = generateShiftsAtIntervalOverRange(
     90,
-    new Date('August 26, 2024 18:00'),
+    new Date('August 24, 2024 16:00'),
     new Date('August 29, 2024 18:00'),
     1,
     1,
@@ -55,38 +55,38 @@ export async function seed(knex: Knex): Promise<void> {
     {
       id: wenchShifts.length + 1,
       scheduleID: 2,
-      startTime: new Date('August 27, 2024 10:00'),
-      endTime: new Date('August 27, 2024 11:00'),
+      startTime: new Date('August 24, 2024 10:00'),
+      endTime: new Date('August 24, 2024 11:00'),
     },
     {
       id: wenchShifts.length + 2,
       scheduleID: 2,
-      startTime: new Date('August 27, 2024 18:00'),
-      endTime: new Date('August 27, 2024 19:00'),
+      startTime: new Date('August 24, 2024 18:00'),
+      endTime: new Date('August 24, 2024 19:00'),
     },
     {
       id: wenchShifts.length + 3,
       scheduleID: 2,
-      startTime: new Date('August 27, 2024 10:00'),
-      endTime: new Date('August 27, 2024 11:00'),
+      startTime: new Date('August 25, 2024 10:00'),
+      endTime: new Date('August 25, 2024 11:00'),
     },
     {
       id: wenchShifts.length + 4,
       scheduleID: 2,
-      startTime: new Date('August 27, 2024 18:00'),
-      endTime: new Date('August 27, 2024 19:00'),
+      startTime: new Date('August 25, 2024 18:00'),
+      endTime: new Date('August 25, 2024 19:00'),
     },
     {
       id: wenchShifts.length + 5,
       scheduleID: 2,
-      startTime: new Date('August 28, 2024 10:00'),
-      endTime: new Date('August 28, 2024 11:00'),
+      startTime: new Date('August 26, 2024 10:00'),
+      endTime: new Date('August 26, 2024 11:00'),
     },
     {
       id: wenchShifts.length + 6,
       scheduleID: 2,
-      startTime: new Date('August 28, 2024 18:00'),
-      endTime: new Date('August 28, 2024 19:00'),
+      startTime: new Date('August 26, 2024 18:00'),
+      endTime: new Date('August 26, 2024 19:00'),
     },
   ]);
 }
