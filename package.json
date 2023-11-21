@@ -6,9 +6,9 @@
     "packages/*"
   ],
   "scripts": {
+    "dev": "concurrently --kill-others-on-fail \"yarn frontend-dev\"  \"yarn backend-dev\"",
     "frontend-dev": "yarn workspace frontend start",
     "backend-dev": "yarn workspace backend dev",
-    "dev": "concurrently --kill-others-on-fail \"yarn frontend-dev\"  \"yarn backend-dev\"",
     "db-migrate": "yarn workspace backend migrate",
     "db-seed": "yarn workspace backend seed",
     "build": "concurrently \"yarn workspace frontend build\"  \"yarn workspace backend build\"",
