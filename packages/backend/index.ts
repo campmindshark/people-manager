@@ -26,6 +26,7 @@ import indexRouter from './routes/index';
 import usersRouter from './routes/users';
 import schedulesRouter from './routes/schedules';
 import shiftsRouter from './routes/shifts';
+import rostersRouter from './routes/rosters';
 
 const envFilePath = process.argv[2];
 
@@ -134,6 +135,7 @@ app.use('/api/auth', authRouter);
 app.use('/api/users', checkAuthenticated, usersRouter);
 app.use('/api/schedules', checkAuthenticated, schedulesRouter);
 app.use('/api/shifts', checkAuthenticated, shiftsRouter);
+app.use('/api/rosters', checkAuthenticated, rostersRouter);
 
 app.use('/', indexRouter); // this route should be last
 
