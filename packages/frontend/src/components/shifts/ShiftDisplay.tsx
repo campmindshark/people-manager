@@ -70,7 +70,6 @@ export default function ShiftDisplay() {
   };
 
   useEffect(() => {
-    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
     const fetchData = async () => {
       const loadedSchedules = await scheduleClient.GetAllSchedules();
 

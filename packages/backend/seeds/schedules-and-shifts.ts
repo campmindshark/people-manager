@@ -50,7 +50,7 @@ export async function seed(knex: Knex): Promise<void> {
   );
   await knex('shifts').insert(wenchShifts);
 
-  // Add a couple shifts here and there.
+  // Add a couple shifts here and there for the Ice Bitch schedule.
   await knex('shifts').insert([
     {
       id: wenchShifts.length + 1,

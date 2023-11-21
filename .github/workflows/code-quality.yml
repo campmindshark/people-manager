@@ -33,11 +33,6 @@ jobs:
           cd ${{ matrix.project }}
           yarn install
 
-      # - name: Verify PNPM installation
-      #   run: |
-      #     echo "Verifying PNPM installation..."
-      #     pnpm --version
-
       - name: Style Check
         run: |
           echo "Running style check..."

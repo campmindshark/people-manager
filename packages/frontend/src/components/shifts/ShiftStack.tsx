@@ -30,11 +30,9 @@ export default function ShiftStack(props: Props) {
   }, [schedule]);
 
   const generateShiftBlocks = () => {
-    console.log('generateShiftBlocks');
     const shiftBlocks: JSX.Element[] = [];
 
     const lastEndTime = new Date('08/24/2024 00:00:00');
-    console.log(`lastEndTime: ${lastEndTime}`);
     for (let index = 0; index < shifts.length; index += 1) {
       const shift = Shift.fromJson(shifts[index]);
       const differenceBetweenStartTimes =
@@ -42,14 +40,7 @@ export default function ShiftStack(props: Props) {
       const differenceBetweenStartTimesMinutes =
         differenceBetweenStartTimes / 60000;
 
-      console.log(
-        `${new Date(
-          shift.startTime,
-        )} - ${lastEndTime} = ${differenceBetweenStartTimesMinutes} minutes`,
-      );
-
       if (differenceBetweenStartTimesMinutes > 0) {
-        console.log(`adding empty block ${differenceBetweenStartTimesMinutes}`);
         shiftBlocks.push(
           <ShiftBlock
             timeFrameMinutes={differenceBetweenStartTimesMinutes}
@@ -69,16 +60,13 @@ export default function ShiftStack(props: Props) {
       lastEndTime.setTime(new Date(shift.endTime).getTime());
     }
 
-    console.log('shiftBlocks');
-    console.log(shiftBlocks);
-
     return shiftBlocks;
   };
 
   return (
     <Stack>
       <ShiftBlock>{schedule.name}</ShiftBlock>
-      {generateShiftBlocks().map((shiftBlock) => shiftBlock)}
+      {generateShiftBlocks()}
     </Stack>
   );
 }
