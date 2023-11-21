@@ -15,7 +15,7 @@ import {
   Typography,
 } from '@mui/material';
 import BackendScheduleClient from 'src/api/schedules/schedules';
-import { ShiftBlock } from './ShiftBlock';
+import ShiftBlock from './ShiftBlock';
 import ShiftStack from './ShiftStack';
 
 const appConfig = getConfig();
@@ -70,6 +70,7 @@ export default function ShiftDisplay() {
   };
 
   useEffect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
     async () => {
       const loadedSchedules = await scheduleClient.GetAllSchedules();
       setSchedules(loadedSchedules);

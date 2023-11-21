@@ -11,9 +11,10 @@
     "dev": "concurrently --kill-others-on-fail \"yarn frontend-dev\"  \"yarn backend-dev\"",
     "db-migrate": "yarn workspace backend migrate",
     "db-seed": "yarn workspace backend seed",
-    "build": "concurrently --kill-others-on-fail \"yarn workspace frontend build\"  \"yarn workspace backend build\"",
-    "lint-frontend": "cd packages/frontend && yarn lint",
-    "lint-backend": "cd packages/backend && yarn lint"
+    "build": "concurrently \"yarn workspace frontend build\"  \"yarn workspace backend build\"",
+    "lint": "concurrently \"yarn lint-frontend\"  \"yarn lint-backend\"",
+    "lint-frontend": "yarn workspace frontend lint",
+    "lint-backend": "yarn workspace backend lint"
   },
   "eslintConfig": {
     "rules": {

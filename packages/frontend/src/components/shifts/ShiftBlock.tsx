@@ -1,20 +1,11 @@
 import Paper from '@mui/material/Paper';
 import { styled } from '@mui/material/styles';
 
-const ShiftBlockOld = styled(Paper)(({ theme }) => ({
-  backgroundColor: theme.palette.mode === 'dark' ? '#1A2027' : '#fff',
-  ...theme.typography.body2,
-  padding: theme.spacing(1),
-  textAlign: 'center',
-  color: theme.palette.text.secondary,
-  height: '40px',
-}));
-
 interface RootProps {
   timeFrameMinutes?: number;
 }
 
-export const ShiftBlock = styled(Paper, {
+const ShiftBlock = styled(Paper, {
   shouldForwardProp: (prop) =>
     prop !== 'textColor' && prop !== 'buttonTextColor',
   name: 'MyThemeComponent',
@@ -28,3 +19,5 @@ export const ShiftBlock = styled(Paper, {
   color: theme.palette.text.secondary,
   height: ((timeFrameMinutes ?? 60) / 60) * 40,
 }));
+
+export default ShiftBlock;

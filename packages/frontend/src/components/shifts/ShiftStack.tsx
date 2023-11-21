@@ -4,7 +4,7 @@ import { Stack } from '@mui/material';
 import Shift from 'backend/models/shift/shift';
 import BackendShiftClient from 'src/api/shifts/shifts';
 import { getConfig } from 'backend/config/config';
-import { ShiftBlock } from './ShiftBlock';
+import ShiftBlock from './ShiftBlock';
 
 const appConfig = getConfig();
 
