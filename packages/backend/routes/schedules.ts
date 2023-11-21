@@ -31,7 +31,7 @@ router.delete(
   '/:id',
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async (req: Request, res: Response, next: NextFunction) => {
-    const id = req.params.id;
+    const {id} = req.params;
     const query = Schedule.query().deleteById(id);
 
     const schedules = await query;

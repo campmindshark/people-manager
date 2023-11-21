@@ -1,3 +1,4 @@
+/* eslint-disable import/prefer-default-export */
 import { Knex } from 'knex';
 import Shift from '../models/shift/shift';
 
@@ -10,20 +11,21 @@ const generateShiftsAtIntervalOverRange = (
 ) => {
   const shifts: Shift[] = [];
   let currTime = new Date(startTime);
+  let currentStartID = startID;
   while (currTime < endTime) {
     shifts.push(
       new Shift(
-        startID,
+        currentStartID,
         targetScheduleID,
         currTime,
         new Date(currTime.getTime() + intervalMins * 60000),
       ),
     );
     currTime = new Date(currTime.getTime() + intervalMins * 60000);
-    startID++;
+    currentStartID += 1;
   }
 
-  console.log(`Generated a (${shifts.length}) shifts: \n` + shifts);
+  console.log(`Generated a (${shifts.length}) shifts: \n${shifts}`);
   return shifts;
 };
 

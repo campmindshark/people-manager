@@ -21,7 +21,7 @@ router.get(
   '/by_schedule/:scheduleID',
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async (req: Request, res: Response, next: NextFunction) => {
-    const scheduleID = req.params.scheduleID;
+    const {scheduleID} = req.params;
 
     const query = Schedule.relatedQuery('shifts')
       .for(scheduleID)
@@ -48,7 +48,7 @@ router.delete(
   '/:id',
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async (req: Request, res: Response, next: NextFunction) => {
-    const id = req.params.id;
+    const {id} = req.params;
     const query = Shift.query().deleteById(id);
 
     const schedules = await query;

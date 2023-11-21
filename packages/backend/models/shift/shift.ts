@@ -1,5 +1,4 @@
 import { Model } from 'objection';
-import { start } from 'repl';
 
 export default class Shift extends Model {
   id!: number;
