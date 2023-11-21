@@ -24,38 +24,46 @@ jobs:
 
       - name: Install Tools
         run: |
+          echo "Installing tools..."
           npm install -g pnpm eslint
 
       - name: Install dependencies
         run: |
+          echo "Installing dependencies..."
           cd ${{ matrix.project }}
           pnpm install
 
       - name: Verify PNPM installation
-        run: pnpm --version
+        run: |
+          echo "Verifying PNPM installation..."
+          pnpm --version
 
       - name: Style Check
         run: |
+          echo "Running style check..."
           cd ${{ matrix.project }}
           yarn style
 
       - name: Lint
         run: |
+          echo "Running lint..."
           cd ${{ matrix.project }}
           yarn lint
 
       - name: Build
         run: |
+          echo "Running build..."
           cd ${{ matrix.project }}
           yarn add typescript --save-dev
           yarn build
 
-#      - name: Test
-#        run: |
-#          cd ${{ matrix.project }}
-#          yarn test --all
+      #      - name: Test
+      #        run: |
+      #          cd ${{ matrix.project }}
+      #          yarn test --all
 
       - name: Clean up
         run: |
+          echo "Cleaning up..."
           cd ${{ matrix.project }}
           rm -f eslint-report.json

@@ -14,7 +14,10 @@
     "build": "concurrently \"yarn workspace frontend build\"  \"yarn workspace backend build\"",
     "lint": "concurrently \"yarn lint-frontend\"  \"yarn lint-backend\"",
     "lint-frontend": "yarn workspace frontend lint",
-    "lint-backend": "yarn workspace backend lint"
+    "lint-backend": "yarn workspace backend lint",
+    "style": "concurrently \"yarn style-frontend\"  \"yarn style-backend\"",
+    "style-frontend": "yarn workspace frontend style-fix",
+    "style-backend": "yarn workspace backend style-fix"
   },
   "eslintConfig": {
     "rules": {
