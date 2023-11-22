@@ -1,4 +1,5 @@
 import { Model } from 'objection';
+import User from '../user/user';
 
 export default class Shift extends Model {
   id!: number;
@@ -9,12 +10,21 @@ export default class Shift extends Model {
 
   endTime!: Date;
 
-  constructor(id: number, scheduleID: number, startTime: Date, endTime: Date) {
+  requiredParticipants!: number;
+
+  constructor(
+    id: number,
+    scheduleID: number,
+    startTime: Date,
+    endTime: Date,
+    requiredParticipants: number,
+  ) {
     super();
     this.id = id;
     this.scheduleID = scheduleID;
     this.startTime = startTime;
     this.endTime = endTime;
+    this.requiredParticipants = requiredParticipants;
   }
 
   // Table name is the only required property.
@@ -39,6 +49,19 @@ export default class Shift extends Model {
       join: {
         from: 'shifts.scheduleID',
         to: 'schedules.id',
+      },
+    },
+    participants: {
+      relation: Model.ManyToManyRelation,
+      modelClass: User,
+      join: {
+        from: 'shifts.id',
+        through: {
+          // roster_participants is the join table.
+          from: 'shift_participants.shiftID',
+          to: 'shift_participants.userID',
+        },
+        to: 'users.id',
       },
     },
   };

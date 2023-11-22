@@ -1,4 +1,4 @@
-import { Model, Modifiers } from 'objection';
+import { Model } from 'objection';
 import User from '../user/user';
 
 export default class Roster extends Model {

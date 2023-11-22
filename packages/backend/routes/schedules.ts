@@ -1,5 +1,6 @@
 import express, { Request, Response, NextFunction, Router } from 'express';
 import Schedule from '../models/schedule/schedule';
+import Shift from '../models/shift/shift';
 
 const router: Router = express.Router();
 
@@ -12,6 +13,24 @@ router.get(
 
     const schedules = await query;
     res.json(schedules);
+  },
+);
+
+/* GET Shift(s). */
+router.get(
+  '/:id/shifts',
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async (req: Request, res: Response, next: NextFunction) => {
+    const { id } = req.params;
+
+    console.log(id);
+
+    const query = Schedule.relatedQuery('shifts')
+      .for(id)
+      .orderBy('startTime', 'asc');
+
+    const shifts = await query;
+    res.json(shifts);
   },
 );
 

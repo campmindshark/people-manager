@@ -27,7 +27,7 @@ export default class BackendShiftClient implements ShiftClient {
 
   async GetShiftsBySchedule(scheduleID: number): Promise<Shift[]> {
     const { data } = await axios.get<Shift[]>(
-      `${this.baseApiURL}/api/shifts/by_schedule/${scheduleID}`,
+      `${this.baseApiURL}/api/schedules/${scheduleID}/shifts`,
       {
         withCredentials: true,
         headers: {

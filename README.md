@@ -29,6 +29,9 @@ yarn
 # Do migrations
 yarn db-migrate
 
+# Seed DB with test data (optional, but convenient)
+yarn db-seed
+
 # Run locally
 yarn dev
 ```

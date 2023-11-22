@@ -1,6 +1,11 @@
 import express, { Request, Response, NextFunction, Router } from 'express';
 import Shift from '../models/shift/shift';
-import Schedule from '../models/schedule/schedule';
+import User from '../models/user/user';
+import knexConfig from '../knexfile';
+import Knex from 'knex';
+import { getConfig } from '../config/config';
+
+const knex = Knex(knexConfig[getConfig().Environment]);
 
 const router: Router = express.Router();
 
@@ -16,19 +21,31 @@ router.get(
   },
 );
 
-/* GET Shifts by Schedule. */
 router.get(
-  '/by_schedule/:scheduleID',
+  '/by_userID/:id',
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async (req: Request, res: Response, next: NextFunction) => {
-    const { scheduleID } = req.params;
+    // const query = Shift.query().where('userID', req.params.id);
 
-    const query = Schedule.relatedQuery('shifts')
-      .for(scheduleID)
-      .orderBy('startTime', 'asc');
+    const query = knex<Shift>('shifts')
+      .from('shift_participants')
+      .where('userID', req.params.id)
+      .join('shifts', 'shift_participants.shiftID', '=', 'shifts.id');
 
     const shifts = await query;
     res.json(shifts);
+  },
+);
+
+/* GET Participant(s). */
+router.get(
+  '/:id/participants',
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async (req: Request, res: Response, next: NextFunction) => {
+    const query = Shift.relatedQuery('participants').for(req.params.id);
+
+    const participants = await query;
+    res.json(participants);
   },
 );
 
@@ -41,6 +58,25 @@ router.post(
 
     const schedules = await query;
     res.json(schedules);
+  },
+);
+
+/* Sign up for a shift with the current user. */
+router.get(
+  '/:id/signup',
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async (req: Request, res: Response, next: NextFunction) => {
+    const user: User = res.locals.user;
+    const { id } = req.params;
+
+    const appUser = await User.query().where('googleID', user.id).first();
+    if (!appUser) {
+      res.json({ error: 'User not found' });
+      return;
+    }
+
+    await Shift.relatedQuery('participants').for(id).relate(appUser.id);
+    res.json({ success: true });
   },
 );
 
