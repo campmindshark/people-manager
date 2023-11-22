@@ -1,6 +1,5 @@
 import express, { Request, Response, NextFunction, Router } from 'express';
 import Schedule from '../models/schedule/schedule';
-import Shift from '../models/shift/shift';
 
 const router: Router = express.Router();
 

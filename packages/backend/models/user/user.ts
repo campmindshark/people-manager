@@ -1,5 +1,4 @@
 import { Model, Modifiers } from 'objection';
-import Shift from '../shift/shift';
 
 export default class User extends Model {
   id!: number;
@@ -28,22 +27,6 @@ export default class User extends Model {
       lastName: { type: 'string', minLength: 1, maxLength: 255 },
     },
   };
-
-  // static relationMappings = {
-  //   shifts: {
-  //     relation: Model.ManyToManyRelation,
-  //     modelClass: Shift,
-  //     join: {
-  //       from: 'users.id',
-  //       through: {
-  //         // roster_participants is the join table.
-  //         from: 'shift_participants.userID',
-  //         to: 'shift_participants.shiftID',
-  //       },
-  //       to: 'shifts.id',
-  //     },
-  //   },
-  // };
 
   // Modifiers are reusable query snippets that can be used in various places.
   static modifiers: Modifiers = {

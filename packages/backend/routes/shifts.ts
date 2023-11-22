@@ -1,8 +1,8 @@
 import express, { Request, Response, NextFunction, Router } from 'express';
+import Knex from 'knex';
 import Shift from '../models/shift/shift';
 import User from '../models/user/user';
 import knexConfig from '../knexfile';
-import Knex from 'knex';
 import { getConfig } from '../config/config';
 
 const knex = Knex(knexConfig[getConfig().Environment]);
@@ -66,7 +66,7 @@ router.get(
   '/:id/signup',
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async (req: Request, res: Response, next: NextFunction) => {
-    const user: User = res.locals.user;
+    const { user } = res.locals.user;
     const { id } = req.params;
 
     const appUser = await User.query().where('googleID', user.id).first();
