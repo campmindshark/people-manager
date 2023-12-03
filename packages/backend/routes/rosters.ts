@@ -3,15 +3,27 @@ import Roster from '../models/roster/roster';
 
 const router: Router = express.Router();
 
-/* GET Schedule(s). */
+/* GET Roster(s). */
 router.get(
   '/',
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async (req: Request, res: Response, next: NextFunction) => {
     const query = Roster.query();
 
-    const schedules = await query;
-    res.json(schedules);
+    const rosters = await query;
+    res.json(rosters);
+  },
+);
+
+/* GET Roster by ID. */
+router.get(
+  '/:id',
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async (req: Request, res: Response, next: NextFunction) => {
+    const query = Roster.query().findById(req.params.id);
+
+    const roster = await query;
+    res.json(roster);
   },
 );
 

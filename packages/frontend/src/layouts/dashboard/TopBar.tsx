@@ -1,15 +1,12 @@
 import * as React from 'react';
-import Toolbar from '@mui/material/Toolbar';
-import Typography from '@mui/material/Typography';
-import Badge from '@mui/material/Badge';
+import { Avatar, Badge, IconButton, Typography, Toolbar } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import LogoutIcon from '@mui/icons-material/Logout';
 import NotificationsIcon from '@mui/icons-material/Notifications';
-import IconButton from '@mui/material/IconButton';
 import { useRecoilValue } from 'recoil';
 import { getConfig } from 'backend/config/config';
 import AppBar from './AppBar';
-import PageState from '../../state/store';
+import PageState, { UserState } from '../../state/store';
 
 const appConfig = getConfig();
 
@@ -20,6 +17,7 @@ interface TopBarProps {
 
 export default function TopBar({ open, toggleDrawer }: TopBarProps) {
   const pageState = useRecoilValue(PageState);
+  const appUser = useRecoilValue(UserState);
 
   const handleLogout = () => {
     console.log('logout');
@@ -54,6 +52,10 @@ export default function TopBar({ open, toggleDrawer }: TopBarProps) {
         >
           {pageState.title}
         </Typography>
+        <Avatar>
+          {appUser.firstName[0]}
+          {appUser.lastName[0]}
+        </Avatar>
         <IconButton color="inherit">
           <Badge badgeContent={4} color="secondary">
             <NotificationsIcon />
