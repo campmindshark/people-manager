@@ -10,7 +10,7 @@ const knex = Knex(knexConfig[getConfig().Environment]);
 
 export default class ShiftController {
   // Path: packages/backend/controllers/shift.ts
-  public async GetShiftViewModelsByParticipantID(
+  public static async GetShiftViewModelsByParticipantID(
     participantID: number,
   ): Promise<ShiftViewModel[]> {
     const query = knex<Shift>('shifts')
@@ -20,10 +20,12 @@ export default class ShiftController {
 
     const shifts = await query;
 
-    return await this.loadViewModelsFromShifts(shifts);
+    const shiftViewModels =
+      await ShiftController.loadViewModelsFromShifts(shifts);
+    return shiftViewModels;
   }
 
-  private async loadViewModelsFromShifts(
+  private static async loadViewModelsFromShifts(
     shifts: Shift[],
   ): Promise<ShiftViewModel[]> {
     const shiftViewModels: Promise<ShiftViewModel>[] = shifts.map(
@@ -43,16 +45,17 @@ export default class ShiftController {
         }
 
         return {
-          shift: shift,
+          shift,
           scheduleName: Schedule.fromJson(schedule).name,
           participants: participants.map((participant) => {
             const thisUser = User.fromJson(participant);
-            return thisUser.firstName + ' ' + thisUser.lastName;
+            return `${thisUser.firstName} ${thisUser.lastName}`;
           }),
         };
       },
     );
 
-    return await Promise.all(shiftViewModels);
+    const shiftViewModelsResolved = await Promise.all(shiftViewModels);
+    return shiftViewModelsResolved;
   }
 }

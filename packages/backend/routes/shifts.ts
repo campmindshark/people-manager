@@ -1,16 +1,9 @@
 import express, { Request, Response, NextFunction, Router } from 'express';
-import Knex from 'knex';
 import Shift from '../models/shift/shift';
 import User from '../models/user/user';
-import knexConfig from '../knexfile';
-import { getConfig } from '../config/config';
 import ShiftController from '../controllers/shift';
 
-const knex = Knex(knexConfig[getConfig().Environment]);
-
 const router: Router = express.Router();
-
-const controller = new ShiftController();
 
 /* GET Shift(s). */
 router.get(
@@ -29,17 +22,9 @@ router.get(
   '/by_participantID/:id',
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async (req: Request, res: Response, next: NextFunction) => {
-    const participantID = parseInt(req.params.id);
-    // const query = knex<Shift>('shifts')
-    //   .from('shift_participants')
-    //   .where('userID', req.params.id)
-    //   .join('shifts', 'shift_participants.shiftID', '=', 'shifts.id');
-
-    // const shifts = await query;
-    // res.json(shifts);
-
+    const participantID = parseInt(req.params.id, 10);
     const shifts =
-      await controller.GetShiftViewModelsByParticipantID(participantID);
+      await ShiftController.GetShiftViewModelsByParticipantID(participantID);
     res.json(shifts);
   },
 );

@@ -46,7 +46,10 @@ export function getConfig(): Config {
 
     JWTSecret: (process.env.JWT_SECRET as string) ?? 'yerrrrr',
 
-    ActiveRosterID: parseInt((process.env.ACTIVE_ROSTER_ID as string) ?? '1'),
+    ActiveRosterID: parseInt(
+      (process.env.ACTIVE_ROSTER_ID as string) ?? '1',
+      10,
+    ),
   };
 
   return config;
