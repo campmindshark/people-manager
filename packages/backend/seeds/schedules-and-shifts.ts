@@ -102,5 +102,8 @@ export async function seed(knex: Knex): Promise<void> {
     { userID: 2, shiftID: 1 },
     { userID: 1, shiftID: 2 },
     { userID: 2, shiftID: 3 },
+    { userID: 3, shiftID: 1 },
+    { userID: 3, shiftID: 2 },
+    { userID: 3, shiftID: 3 },
   ]);
 }

@@ -4,10 +4,13 @@ import Shift from '../models/shift/shift';
 import User from '../models/user/user';
 import knexConfig from '../knexfile';
 import { getConfig } from '../config/config';
+import ShiftController from '../controllers/shift';
 
 const knex = Knex(knexConfig[getConfig().Environment]);
 
 const router: Router = express.Router();
+
+const controller = new ShiftController();
 
 /* GET Shift(s). */
 router.get(
@@ -21,23 +24,27 @@ router.get(
   },
 );
 
+/* GET Shifts by participantID. */
 router.get(
-  '/by_userID/:id',
+  '/by_participantID/:id',
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async (req: Request, res: Response, next: NextFunction) => {
-    // const query = Shift.query().where('userID', req.params.id);
+    const participantID = parseInt(req.params.id);
+    // const query = knex<Shift>('shifts')
+    //   .from('shift_participants')
+    //   .where('userID', req.params.id)
+    //   .join('shifts', 'shift_participants.shiftID', '=', 'shifts.id');
 
-    const query = knex<Shift>('shifts')
-      .from('shift_participants')
-      .where('userID', req.params.id)
-      .join('shifts', 'shift_participants.shiftID', '=', 'shifts.id');
+    // const shifts = await query;
+    // res.json(shifts);
 
-    const shifts = await query;
+    const shifts =
+      await controller.GetShiftViewModelsByParticipantID(participantID);
     res.json(shifts);
   },
 );
 
-/* GET Participant(s). */
+/* GET Participant(s) of a specific shift. */
 router.get(
   '/:id/participants',
   // eslint-disable-next-line @typescript-eslint/no-unused-vars

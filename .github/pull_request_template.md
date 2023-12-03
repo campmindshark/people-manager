@@ -9,6 +9,10 @@
 <!--- Why is this change required? What problem does it solve? -->
 <!--- If it fixes an open issue, please link to the issue here. -->
 
+## What steps did you take?
+
+<!--- Please describe what steps were taken to accomplish the PR's goal. -->
+
 ## How has this been tested?
 
 <!--- Please describe in detail how you tested your changes. -->

@@ -11,6 +11,7 @@ import { useRecoilValue, useSetRecoilState } from 'recoil';
 import User from 'backend/models/user/user';
 import Dashboard from '../layouts/dashboard/Dashboard';
 import PageState, { UsersState } from '../state/store';
+import MyShiftsTable from '../components/MyShiftsTable';
 
 function Home() {
   const setPageState = useSetRecoilState(PageState);
@@ -22,7 +23,7 @@ function Home() {
       title: 'Home',
       index: 'home',
     });
-  });
+  }, []);
 
   return (
     <Dashboard>
@@ -83,7 +84,7 @@ function Home() {
           <Grid item xs={12}>
             <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column' }}>
               <h1>Chores</h1>
-              {/* <Orders /> */}
+              <MyShiftsTable />
             </Paper>
           </Grid>
         </Grid>

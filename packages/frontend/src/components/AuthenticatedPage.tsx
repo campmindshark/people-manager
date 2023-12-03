@@ -1,9 +1,8 @@
 import React, { useEffect, useMemo } from 'react';
-import User from 'backend/models/user/user';
 import { getConfig } from 'backend/config/config';
 import { useRecoilState } from 'recoil';
 import { useNavigate } from 'react-router-dom';
-import BackendUserClient from '../api/users/client';
+import BackendUserClient, { AuthResponse } from '../api/users/client';
 import { UserState, UserIsAuthenticated } from '../state/store';
 
 const appConfig = getConfig();
@@ -26,16 +25,23 @@ function AuthenticatedPage(props: Props) {
   const { children } = props;
 
   useEffect(() => {
-    userClient
-      .GetAuthenticatedUser()
-      .then((user: User) => {
-        setUser(user);
-        setIsAuthenticated(true);
-      })
-      .catch((err) => {
+    const doAuth = async () => {
+      try {
+        const response: AuthResponse = await userClient.GetAuthenticatedUser();
+        if (response.success === true) {
+          setUser(response.user);
+          setIsAuthenticated(true);
+        } else {
+          console.log('auth failed');
+          navigate('/login');
+        }
+      } catch (err) {
         console.log(err);
         navigate('/login');
-      });
+      }
+    };
+
+    doAuth();
   }, []);
 
   if (!isAuthenticated) {
