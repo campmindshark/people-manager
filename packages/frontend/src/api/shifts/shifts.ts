@@ -4,7 +4,7 @@ import ShiftViewModel from 'backend/view_models/shift';
 
 export interface ShiftClient {
   GetAllShifts(): Promise<Shift[]>;
-  GetShiftsBySchedule(scheduleID: number): Promise<Shift[]>;
+  GetShiftViewModelsBySchedule(scheduleID: number): Promise<ShiftViewModel[]>;
   GetShiftsByParticipantID(scheduleID: number): Promise<ShiftViewModel[]>;
 }
 
@@ -27,8 +27,10 @@ export default class BackendShiftClient implements ShiftClient {
     return data;
   }
 
-  async GetShiftsBySchedule(scheduleID: number): Promise<Shift[]> {
-    const { data } = await axios.get<Shift[]>(
+  async GetShiftViewModelsBySchedule(
+    scheduleID: number,
+  ): Promise<ShiftViewModel[]> {
+    const { data } = await axios.get<ShiftViewModel[]>(
       `${this.baseApiURL}/api/schedules/${scheduleID}/shifts`,
       {
         withCredentials: true,

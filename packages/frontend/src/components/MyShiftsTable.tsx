@@ -9,20 +9,9 @@ import {
   TableBody,
 } from '@mui/material';
 import { useRecoilValue } from 'recoil';
+import User from 'backend/models/user/user';
 import { MyShifts } from '../state/store';
-
-const options: Intl.DateTimeFormatOptions = {
-  timeZone: 'America/Los_Angeles', // Set the timezone to Reno, Nevada (America/Los_Angeles)
-  weekday: 'long', // Format options
-  // year: 'numeric',
-  month: 'long',
-  day: 'numeric',
-  hour: 'numeric',
-  minute: 'numeric',
-  second: 'numeric',
-};
-
-const bmDateFormatter = new Intl.DateTimeFormat('en-US', options);
+import BurningManDateFormatter from '../utils/datetime/formatter';
 
 function MyShiftsTable() {
   const shifts = useRecoilValue(MyShifts);
@@ -50,13 +39,18 @@ function MyShiftsTable() {
                   {shift.scheduleName}
                 </TableCell>
                 <TableCell component="th" scope="row">
-                  {bmDateFormatter.format(shift.shift.startTime)}
+                  {BurningManDateFormatter.format(shift.shift.startTime)}
                 </TableCell>
                 <TableCell component="th" scope="row">
-                  {bmDateFormatter.format(shift.shift.endTime)}
+                  {BurningManDateFormatter.format(shift.shift.endTime)}
                 </TableCell>
                 <TableCell component="th" scope="row">
-                  {shift.participants.join(', ')}
+                  {shift.participants
+                    .map((participant) => {
+                      const participantUser = User.fromJson(participant);
+                      return participantUser.displayName();
+                    })
+                    .join(', ')}
                 </TableCell>
               </TableRow>
             ))}

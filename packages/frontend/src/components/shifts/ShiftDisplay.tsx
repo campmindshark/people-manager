@@ -105,7 +105,7 @@ export default function ShiftDisplay() {
             <Stack>
               <ShiftBlock />
               {timeSlots.map((timeSlot) => (
-                <ShiftBlock>
+                <ShiftBlock key={`time-slot-${timeSlot}`}>
                   {timeSlot.toLocaleTimeString('en-US', {
                     hour: 'numeric',
                     minute: 'numeric',
@@ -115,7 +115,7 @@ export default function ShiftDisplay() {
             </Stack>
           </Grid>
           {schedules.map((schedule) => (
-            <Grid item>
+            <Grid item key={`schedule-column-${schedule.id}`}>
               <ShiftStack schedule={schedule} />
             </Grid>
           ))}

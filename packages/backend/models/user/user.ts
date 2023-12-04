@@ -28,6 +28,10 @@ export default class User extends Model {
     },
   };
 
+  displayName(): string {
+    return `${this.firstName} ${this.lastName}`;
+  }
+
   // Modifiers are reusable query snippets that can be used in various places.
   static modifiers: Modifiers = {
     // Our example modifier is a semi-dumb fuzzy name match. We split the

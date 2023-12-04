@@ -25,6 +25,20 @@ export default class ShiftController {
     return shiftViewModels;
   }
 
+  public static async GetShiftViewModelsByScheduleID(
+    scheduleID: number,
+  ): Promise<ShiftViewModel[]> {
+    const query = knex<Shift>('shifts')
+      .where('scheduleID', scheduleID)
+      .orderBy('startTime', 'asc');
+
+    const shifts = await query;
+
+    const shiftViewModels =
+      await ShiftController.loadViewModelsFromShifts(shifts);
+    return shiftViewModels;
+  }
+
   private static async loadViewModelsFromShifts(
     shifts: Shift[],
   ): Promise<ShiftViewModel[]> {
@@ -47,10 +61,9 @@ export default class ShiftController {
         return {
           shift,
           scheduleName: Schedule.fromJson(schedule).name,
-          participants: participants.map((participant) => {
-            const thisUser = User.fromJson(participant);
-            return `${thisUser.firstName} ${thisUser.lastName}`;
-          }),
+          participants: participants.map((participant) =>
+            User.fromJson(participant),
+          ),
         };
       },
     );
