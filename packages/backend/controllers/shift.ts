@@ -44,15 +44,10 @@ export default class ShiftController {
   ): Promise<ShiftViewModel[]> {
     const shiftViewModels: Promise<ShiftViewModel>[] = shifts.map(
       async (shift): Promise<ShiftViewModel> => {
-        // Get participants for this shift.
-        const participantQuery = Shift.relatedQuery('participants').for(
-          shift.id,
-        );
-        const participants = await participantQuery;
-
-        // Get schedule name for this shift.
-        const scheduleQuery = Schedule.query().findById(shift.scheduleID);
-        const schedule = await scheduleQuery;
+        const [participants, schedule] = await Promise.all([
+          Shift.relatedQuery('participants').for(shift.id),
+          Schedule.query().findById(shift.scheduleID),
+        ]);
 
         if (!schedule) {
           throw new Error('Schedule not found for shift');

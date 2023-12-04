@@ -100,6 +100,7 @@ passport.use(
         newUserModel.googleID = profile.id ?? '';
         newUserModel.firstName = profile.name?.givenName ?? '';
         newUserModel.lastName = profile.name?.familyName ?? '';
+        newUserModel.email = profile.emails?.[0].value ?? '';
 
         const innerQuery = User.query().insert(newUserModel);
         const newUser = await innerQuery;
