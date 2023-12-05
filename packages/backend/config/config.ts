@@ -13,6 +13,8 @@ export interface Config {
   BackendURL: string;
 
   JWTSecret: string;
+
+  ActiveRosterID: number;
 }
 
 function getCORSWhitelist(): string[] {
@@ -43,6 +45,11 @@ export function getConfig(): Config {
     BackendURL: (process.env.BACKEND_URL as string) ?? 'http://localhost:3001',
 
     JWTSecret: (process.env.JWT_SECRET as string) ?? 'yerrrrr',
+
+    ActiveRosterID: parseInt(
+      (process.env.ACTIVE_ROSTER_ID as string) ?? '1',
+      10,
+    ),
   };
 
   return config;

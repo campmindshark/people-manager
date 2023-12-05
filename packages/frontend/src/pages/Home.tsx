@@ -1,20 +1,28 @@
 import React, { useEffect } from 'react';
-import Container from '@mui/material/Container';
-import Grid from '@mui/material/Grid';
-import Paper from '@mui/material/Paper';
-import Table from '@mui/material/Table';
-import TableBody from '@mui/material/TableBody';
-import TableCell from '@mui/material/TableCell';
-import TableHead from '@mui/material/TableHead';
-import TableRow from '@mui/material/TableRow';
-import { useRecoilValue, useSetRecoilState } from 'recoil';
-import User from 'backend/models/user/user';
+import {
+  Alert,
+  AlertTitle,
+  Button,
+  Container,
+  Grid,
+  Paper,
+  Typography,
+} from '@mui/material';
+import { useSetRecoilState, useRecoilValue } from 'recoil';
 import Dashboard from '../layouts/dashboard/Dashboard';
-import PageState, { UsersState } from '../state/store';
+import PageState, {
+  UserState,
+  UserIsSignedUpForCurrentRoster,
+} from '../state/store';
+import MyShiftsTable from '../components/MyShiftsTable';
+import RosterTable from '../components/RosterTable';
+import { CurrentRosterState } from '../state/roster';
 
 function Home() {
   const setPageState = useSetRecoilState(PageState);
-  const users = useRecoilValue(UsersState);
+  const appUser = useRecoilValue(UserState);
+  const currentRoster = useRecoilValue(CurrentRosterState);
+  const appUserIsSignedUp = useRecoilValue(UserIsSignedUpForCurrentRoster);
 
   useEffect(() => {
     document.title = 'MindShark Portal - Home';
@@ -22,7 +30,29 @@ function Home() {
       title: 'Home',
       index: 'home',
     });
-  });
+  }, []);
+
+  const rosterSignupCTA = () => {
+    if (!appUserIsSignedUp) {
+      return (
+        <Alert severity="warning" variant="filled">
+          <AlertTitle>
+            <Typography variant="h5">You are not signed up</Typography>
+          </AlertTitle>
+          <Typography>
+            Warning! You ({appUser.firstName} {appUser.lastName}) may be missing
+            out on the {currentRoster.year} burn.
+          </Typography>
+          <br />
+          <Button variant="contained" color="error">
+            Click here to sign up for Burning Man {currentRoster.year}!
+          </Button>
+        </Alert>
+      );
+    }
+
+    return <p>See you at the burn. :)</p>;
+  };
 
   return (
     <Dashboard>
@@ -40,32 +70,10 @@ function Home() {
             >
               {/* <Chart /> */}
               <h1>Current Roster</h1>
-              <Table sx={{ minWidth: 650 }} aria-label="simple table">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Name</TableCell>
-                    <TableCell>GoogleID</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {users.map((user: User) => (
-                    <TableRow
-                      key={user.id}
-                      sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
-                    >
-                      <TableCell component="th" scope="row">
-                        {user.firstName} {user.lastName}
-                      </TableCell>
-                      <TableCell component="th" scope="row">
-                        {user.googleID}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              {rosterSignupCTA()}
+              <RosterTable />
             </Paper>
           </Grid>
-          {/* Recent Deposits */}
           <Grid item xs={12} md={4} lg={3}>
             <Paper
               sx={{
@@ -76,15 +84,10 @@ function Home() {
               }}
             >
               <h1>Teams</h1>
-              {/* <Deposits /> */}
             </Paper>
           </Grid>
-          {/* Recent Orders */}
           <Grid item xs={12}>
-            <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column' }}>
-              <h1>Chores</h1>
-              {/* <Orders /> */}
-            </Paper>
+            <MyShiftsTable />
           </Grid>
         </Grid>
       </Container>

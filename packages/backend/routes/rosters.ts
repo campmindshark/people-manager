@@ -1,31 +1,41 @@
 import express, { Request, Response, NextFunction, Router } from 'express';
-import Schedule from '../models/schedule/schedule';
-import ShiftController from '../controllers/shift';
+import Roster from '../models/roster/roster';
 
 const router: Router = express.Router();
 
-/* GET Schedule(s). */
+/* GET Roster(s). */
 router.get(
   '/',
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async (req: Request, res: Response, next: NextFunction) => {
-    const query = Schedule.query();
+    const query = Roster.query();
 
-    const schedules = await query;
-    res.json(schedules);
+    const rosters = await query;
+    res.json(rosters);
   },
 );
 
-/* GET Shift(s). */
+/* GET Roster by ID. */
 router.get(
-  '/:id/shifts',
+  '/:id',
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async (req: Request, res: Response, next: NextFunction) => {
-    const { id } = req.params;
-    const shifts = await ShiftController.GetShiftViewModelsByScheduleID(
-      parseInt(id, 10),
-    );
-    res.json(shifts);
+    const query = Roster.query().findById(req.params.id);
+
+    const roster = await query;
+    res.json(roster);
+  },
+);
+
+/* Get Participants. */
+router.get(
+  '/:id/participants',
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async (req: Request, res: Response, next: NextFunction) => {
+    const query = Roster.relatedQuery('participants').for(req.params.id);
+
+    const participants = await query;
+    res.json(participants);
   },
 );
 
@@ -33,8 +43,8 @@ router.post(
   '/',
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async (req: Request, res: Response, next: NextFunction) => {
-    const newSchedule: Schedule = req.body;
-    const query = Schedule.query().insert(newSchedule);
+    const newRoster: Roster = req.body;
+    const query = Roster.query().insert(newRoster);
 
     const schedules = await query;
     res.json(schedules);
@@ -46,7 +56,7 @@ router.delete(
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
-    const query = Schedule.query().deleteById(id);
+    const query = Roster.query().deleteById(id);
 
     const schedules = await query;
     res.json(schedules);

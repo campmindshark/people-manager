@@ -1,6 +1,7 @@
 import express, { Request, Response, NextFunction, Router } from 'express';
 import Shift from '../models/shift/shift';
-import Schedule from '../models/schedule/schedule';
+import User from '../models/user/user';
+import ShiftController from '../controllers/shift';
 
 const router: Router = express.Router();
 
@@ -16,19 +17,27 @@ router.get(
   },
 );
 
-/* GET Shifts by Schedule. */
+/* GET Shifts by participantID. */
 router.get(
-  '/by_schedule/:scheduleID',
+  '/by_participantID/:id',
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async (req: Request, res: Response, next: NextFunction) => {
-    const { scheduleID } = req.params;
-
-    const query = Schedule.relatedQuery('shifts')
-      .for(scheduleID)
-      .orderBy('startTime', 'asc');
-
-    const shifts = await query;
+    const participantID = parseInt(req.params.id, 10);
+    const shifts =
+      await ShiftController.GetShiftViewModelsByParticipantID(participantID);
     res.json(shifts);
+  },
+);
+
+/* GET Participant(s) of a specific shift. */
+router.get(
+  '/:id/participants',
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async (req: Request, res: Response, next: NextFunction) => {
+    const query = Shift.relatedQuery('participants').for(req.params.id);
+
+    const participants = await query;
+    res.json(participants);
   },
 );
 
@@ -41,6 +50,25 @@ router.post(
 
     const schedules = await query;
     res.json(schedules);
+  },
+);
+
+/* Sign up for a shift with the current user. */
+router.get(
+  '/:id/signup',
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async (req: Request, res: Response, next: NextFunction) => {
+    const { user } = res.locals.user;
+    const { id } = req.params;
+
+    const appUser = await User.query().where('googleID', user.id).first();
+    if (!appUser) {
+      res.json({ error: 'User not found' });
+      return;
+    }
+
+    await Shift.relatedQuery('participants').for(id).relate(appUser.id);
+    res.json({ success: true });
   },
 );
 

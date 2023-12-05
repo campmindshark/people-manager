@@ -7,6 +7,7 @@ export async function up(knex: Knex): Promise<void> {
     table.foreign('scheduleID').references('id').inTable('schedules');
     table.date('startTime');
     table.date('endTime');
+    table.integer('requiredParticipants');
   });
 }
 

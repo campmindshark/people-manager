@@ -19,13 +19,13 @@ const generateShiftsAtIntervalOverRange = (
         targetScheduleID,
         currTime,
         new Date(currTime.getTime() + intervalMins * 60000),
+        2,
       ),
     );
     currTime = new Date(currTime.getTime() + intervalMins * 60000);
     currentStartID += 1;
   }
 
-  console.log(`Generated a (${shifts.length}) shifts: \n${shifts}`);
   return shifts;
 };
 
@@ -33,6 +33,7 @@ export async function seed(knex: Knex): Promise<void> {
   // Deletes ALL existing entries
   await knex('schedules').del();
   await knex('shifts').del();
+  await knex('shift_participants').del();
 
   // Inserts seed entries
   await knex('schedules').insert([
@@ -57,36 +58,52 @@ export async function seed(knex: Knex): Promise<void> {
       scheduleID: 2,
       startTime: new Date('August 24, 2024 10:00'),
       endTime: new Date('August 24, 2024 11:00'),
+      requiredParticipants: 2,
     },
     {
       id: wenchShifts.length + 2,
       scheduleID: 2,
       startTime: new Date('August 24, 2024 18:00'),
       endTime: new Date('August 24, 2024 19:00'),
+      requiredParticipants: 2,
     },
     {
       id: wenchShifts.length + 3,
       scheduleID: 2,
       startTime: new Date('August 25, 2024 10:00'),
       endTime: new Date('August 25, 2024 11:00'),
+      requiredParticipants: 2,
     },
     {
       id: wenchShifts.length + 4,
       scheduleID: 2,
       startTime: new Date('August 25, 2024 18:00'),
       endTime: new Date('August 25, 2024 19:00'),
+      requiredParticipants: 2,
     },
     {
       id: wenchShifts.length + 5,
       scheduleID: 2,
       startTime: new Date('August 26, 2024 10:00'),
       endTime: new Date('August 26, 2024 11:00'),
+      requiredParticipants: 2,
     },
     {
       id: wenchShifts.length + 6,
       scheduleID: 2,
       startTime: new Date('August 26, 2024 18:00'),
       endTime: new Date('August 26, 2024 19:00'),
+      requiredParticipants: 2,
     },
+  ]);
+
+  await knex('shift_participants').insert([
+    { userID: 1, shiftID: 1 },
+    { userID: 2, shiftID: 1 },
+    { userID: 1, shiftID: 2 },
+    { userID: 2, shiftID: 3 },
+    { userID: 3, shiftID: 1 },
+    { userID: 3, shiftID: 2 },
+    { userID: 3, shiftID: 3 },
   ]);
 }
