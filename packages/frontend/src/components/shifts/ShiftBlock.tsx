@@ -1,7 +1,12 @@
 import React from 'react';
+import { useRecoilRefresher_UNSTABLE } from 'recoil';
 import { Paper, IconButton } from '@mui/material';
 import { styled } from '@mui/material/styles';
-import ShiftViewModel from 'backend/view_models/shift';
+import ShiftViewModel, {
+  shiftSignUpStatus,
+  userIsSignedUpForShift,
+} from 'backend/view_models/shift';
+import CurrentRosterScheduleState from '../../state/schedules';
 import ShiftDetailDialog from './ShiftDetailDialog';
 
 interface RootProps {
@@ -9,13 +14,47 @@ interface RootProps {
   children?: React.ReactNode;
   timeFrameMinutes?: number;
   isEmptySlot?: boolean;
+  currentUserID?: number;
 }
 
-const determineBackgroundColor = (themeMode: string, isEmptySlot: boolean) => {
+const determineBackgroundColor = (
+  themeMode: string,
+  isEmptySlot: boolean,
+  shiftViewModel?: ShiftViewModel,
+) => {
   if (themeMode === 'dark') {
-    return isEmptySlot ? '#1A2027' : '#2D3748';
+    if (isEmptySlot) {
+      return '#1A2027';
+    }
+
+    if (!shiftViewModel) {
+      return '#2D3748';
+    }
+
+    switch (shiftSignUpStatus(shiftViewModel)) {
+      case 'understaffed':
+        return '#F8961E';
+      case 'staffed':
+        return '#90BE6D';
+      case 'overstaffed':
+        return '#F94144';
+      default:
+        return '#2D3748';
+    }
   }
+
   return isEmptySlot ? '#fff' : '#fff';
+};
+
+const determineBorderWidth = (
+  currentUserID: number,
+  shiftViewModel?: ShiftViewModel,
+) => {
+  if (shiftViewModel && userIsSignedUpForShift(shiftViewModel, currentUserID)) {
+    return 4;
+  }
+
+  return 0;
 };
 
 const StyledShiftBlock = styled(Paper, {
@@ -23,19 +62,31 @@ const StyledShiftBlock = styled(Paper, {
     prop !== 'textColor' && prop !== 'buttonTextColor',
   name: 'MyThemeComponent',
   slot: 'Root',
-})<RootProps>(({ theme, timeFrameMinutes, isEmptySlot }) => ({
-  backgroundColor: determineBackgroundColor(
-    theme.palette.mode,
-    isEmptySlot ?? false,
-  ),
-  ...theme.typography.body2,
-  padding: theme.spacing(0.5),
-  elevation: 2,
-  textAlign: 'center',
-  color: theme.palette.text.secondary,
-  width: '100%',
-  height: ((timeFrameMinutes ?? 60) / 60) * 40,
-}));
+})<RootProps>(
+  ({
+    theme,
+    timeFrameMinutes,
+    isEmptySlot,
+    shiftViewModel,
+    currentUserID,
+  }) => ({
+    backgroundColor: determineBackgroundColor(
+      theme.palette.mode,
+      isEmptySlot ?? false,
+      shiftViewModel,
+    ),
+    ...theme.typography.body2,
+    padding: theme.spacing(0.5),
+    elevation: 2,
+    textAlign: 'center',
+    color: theme.palette.text.secondary,
+    width: '100%',
+    borderColor: '#F94144',
+    borderStyle: 'solid',
+    borderWidth: determineBorderWidth(currentUserID ?? 0, shiftViewModel),
+    height: ((timeFrameMinutes ?? 60) / 60) * 40,
+  }),
+);
 
 const StyledIconButton = styled(IconButton)({
   borderRadius: 0,
@@ -44,8 +95,22 @@ const StyledIconButton = styled(IconButton)({
 });
 
 function ShiftBlock(props: RootProps) {
-  const { children, timeFrameMinutes, isEmptySlot, shiftViewModel } = props;
+  const {
+    children,
+    timeFrameMinutes,
+    isEmptySlot,
+    shiftViewModel,
+    currentUserID,
+  } = props;
   const [dialogIsOpen, setDialogIsOpen] = React.useState(false);
+  const refreshSchedules = useRecoilRefresher_UNSTABLE(
+    CurrentRosterScheduleState,
+  );
+
+  const handleClose = () => {
+    setDialogIsOpen(false);
+    refreshSchedules();
+  };
 
   const handleClick = () => {
     console.log('click');
@@ -58,13 +123,14 @@ function ShiftBlock(props: RootProps) {
         shiftViewModel={shiftViewModel}
         timeFrameMinutes={timeFrameMinutes}
         isEmptySlot={isEmptySlot}
+        currentUserID={currentUserID}
       >
         {children}
         {shiftViewModel && (
           <ShiftDetailDialog
             shiftViewModel={shiftViewModel}
             isOpen={dialogIsOpen}
-            handleClose={handleClick}
+            handleClose={handleClose}
           />
         )}
       </StyledShiftBlock>
@@ -77,6 +143,7 @@ ShiftBlock.defaultProps = {
   timeFrameMinutes: 60,
   isEmptySlot: false,
   shiftViewModel: undefined,
+  currentUserID: undefined,
 };
 
 export default ShiftBlock;

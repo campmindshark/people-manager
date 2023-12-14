@@ -1,10 +1,9 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState } from 'react';
+import { useRecoilValueLoadable } from 'recoil';
 import ArrowLeftIcon from '@mui/icons-material/ArrowLeft';
 import ArrowRightIcon from '@mui/icons-material/ArrowRight';
 import TableContainer from '@mui/material/TableContainer';
-import Schedule from 'backend/models/schedule/schedule';
 import Paper from '@mui/material/Paper';
-import { getConfig } from 'backend/config/config';
 import {
   AppBar,
   Box,
@@ -14,18 +13,16 @@ import {
   Toolbar,
   Typography,
 } from '@mui/material';
-import BackendScheduleClient from 'src/api/schedules/schedules';
+import CurrentRosterScheduleState from '../../state/schedules';
 import ShiftBlock from './ShiftBlock';
 import ShiftStack from './ShiftStack';
-
-const appConfig = getConfig();
 
 const generateTimeSlotsByInterval = (
   intervalMins: number,
   start: Date,
   end: Date,
 ) => {
-  const timeSlots = [];
+  const timeSlots: Date[] = [];
   for (
     let time = start;
     time <= end;
@@ -36,24 +33,21 @@ const generateTimeSlotsByInterval = (
   return timeSlots;
 };
 
-const generateDailyTimeSlots = (targetDay: Date) => {
-  const start = new Date(targetDay);
+const generateDailyTimeSlots = (startDay: Date, endDay: Date) => {
+  const start = new Date(startDay);
   start.setHours(0, 0, 0, 0);
-  const end = new Date(targetDay);
+  const end = new Date(endDay);
   end.setHours(23, 59, 59, 999);
   const timeSlots = generateTimeSlotsByInterval(60, start, end);
   return timeSlots;
 };
 
 export default function ShiftDisplay() {
-  const scheduleClient = useMemo(
-    () => new BackendScheduleClient(appConfig.BackendURL),
-    [],
-  );
-
   const [currentDay, setCurrentDay] = useState(new Date('08/24/2024'));
-  const [schedules, setSchedules] = useState<Schedule[]>([]);
-  const [timeSlots, _] = useState<Date[]>(generateDailyTimeSlots(currentDay));
+  const schedules = useRecoilValueLoadable(CurrentRosterScheduleState);
+  const [timeSlots, _] = useState<Date[]>(
+    generateDailyTimeSlots(new Date('08/24/2024'), new Date('09/01/2024')),
+  );
 
   const handleDayChange = (change: number) => {
     const newDate = new Date(currentDay);
@@ -69,15 +63,28 @@ export default function ShiftDisplay() {
     handleDayChange(-1);
   };
 
-  useEffect(() => {
-    const fetchData = async () => {
-      const loadedSchedules = await scheduleClient.GetAllSchedules();
+  function generateShiftStacks() {
+    const shiftStacks: JSX.Element[] = [];
+    switch (schedules.state) {
+      case 'hasError':
+        return <Typography>Error loading schedules</Typography>;
+      case 'loading':
+        return <Typography>Loading schedules...</Typography>;
+      case 'hasValue':
+        schedules.contents.forEach((schedule) => {
+          shiftStacks.push(
+            <Grid item key={`schedule-column-${schedule.id}`}>
+              <ShiftStack schedule={schedule} />
+            </Grid>,
+          );
+        });
+        break;
+      default:
+        return <Typography>Unknown state</Typography>;
+    }
 
-      setSchedules(loadedSchedules);
-    };
-
-    fetchData().catch(console.error);
-  }, [currentDay]);
+    return shiftStacks;
+  }
 
   return (
     <TableContainer component={Paper}>
@@ -109,16 +116,13 @@ export default function ShiftDisplay() {
                   {timeSlot.toLocaleTimeString('en-US', {
                     hour: 'numeric',
                     minute: 'numeric',
+                    weekday: 'short',
                   })}
                 </ShiftBlock>
               ))}
             </Stack>
           </Grid>
-          {schedules.map((schedule) => (
-            <Grid item key={`schedule-column-${schedule.id}`}>
-              <ShiftStack schedule={schedule} />
-            </Grid>
-          ))}
+          {generateShiftStacks()}
         </Grid>
       </Box>
     </TableContainer>

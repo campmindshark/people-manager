@@ -1,14 +1,11 @@
 import express, { Request, Response, Router } from 'express';
 import passport from 'passport';
+import UserRequest from '../models/requests/user';
 import User from '../models/user/user';
 import { getConfig } from '../config/config';
 
 const config = getConfig();
 const router: Router = express.Router();
-
-interface UserRequest extends Request {
-  user?: any;
-}
 
 router.get('/login/success', async (req: UserRequest, res) => {
   if (req.user && req.isAuthenticated()) {

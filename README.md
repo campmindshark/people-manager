@@ -42,3 +42,9 @@ yarn dev
 2. generate the migration image `make docker-migration-build`
 3. make sure you have an appropriate `.env` file stored at `./packages/backend/env/.env.docker.local`
 4. start the application with `docker-compose up`
+
+## Design Stuff
+
+The app is primarily powered by MaterialUI. Which is great for everyone that doesnt love doing a bunch of CSS.
+
+I picked this color pallette to give us some additional colors to mess with https://coolors.co/palette/f94144-f3722c-f8961e-f9844a-f9c74f-90be6d-43aa8b-4d908e-577590-277da1.

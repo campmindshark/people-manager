@@ -44,6 +44,36 @@ export default class BackendShiftClient implements ShiftClient {
     return data;
   }
 
+  async SignUpUpForShift(shiftID: number): Promise<ShiftViewModel[]> {
+    const { data } = await axios.get<ShiftViewModel[]>(
+      `${this.baseApiURL}/api/shifts/${shiftID}/signup`,
+      {
+        withCredentials: true,
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Credentials': 'true',
+        },
+      },
+    );
+    return data;
+  }
+
+  async UnregisterFromShift(shiftID: number): Promise<ShiftViewModel[]> {
+    const { data } = await axios.get<ShiftViewModel[]>(
+      `${this.baseApiURL}/api/shifts/${shiftID}/unregister`,
+      {
+        withCredentials: true,
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Credentials': 'true',
+        },
+      },
+    );
+    return data;
+  }
+
   async GetShiftsByParticipantID(userID: number): Promise<ShiftViewModel[]> {
     if (!userID) {
       console.log('undefined userID, cannot query shifts by participantID');

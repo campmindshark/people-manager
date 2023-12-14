@@ -127,6 +127,7 @@ const checkAuthenticated = (
   // eslint-disable-next-line consistent-return
 ) => {
   if (req.isAuthenticated()) {
+    console.log('user is authenticated');
     return next();
   }
   next(createError(401));
@@ -146,5 +147,5 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 });
 
 app.listen(config.Port, () => {
-  console.log(`Server is Fire at http://localhost:${config.Port}`);
+  console.log(`Server is running at http://localhost:${config.Port}`);
 });

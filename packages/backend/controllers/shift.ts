@@ -39,6 +39,20 @@ export default class ShiftController {
     return shiftViewModels;
   }
 
+  public static async UnregisterParticipantFromShift(
+    shiftID: number,
+    userID: number,
+  ): Promise<boolean> {
+    const query = knex('shift_participants')
+      .where('shiftID', shiftID)
+      .andWhere('userID', userID)
+      .del();
+
+    await query;
+
+    return true;
+  }
+
   private static async loadViewModelsFromShifts(
     shifts: Shift[],
   ): Promise<ShiftViewModel[]> {
