@@ -97,7 +97,7 @@ export default function ShiftDetailDialog(props: Props) {
     if (isSignedUpForThisShift) {
       return (
         <Button autoFocus variant="contained" onClick={handleShiftUnregister}>
-          Unsignup For Shift
+          Unregister From Shift
         </Button>
       );
     }

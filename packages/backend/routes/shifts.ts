@@ -69,7 +69,15 @@ router.get(
 
     console.log(`Signing up user ${appUser.id} for shift ${id}`);
 
-    await Shift.relatedQuery('participants').for(id).relate(appUser.id);
+    const success = await ShiftController.RegisterParticipantForShift(
+      parseInt(id, 10),
+      appUser.id,
+    );
+
+    if (!success) {
+      res.status(500).json({ error: 'Failed to register user for shift' });
+      return;
+    }
     res.json({ success: true });
   },
 );

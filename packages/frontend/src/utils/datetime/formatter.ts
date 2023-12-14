@@ -12,3 +12,14 @@ const options: Intl.DateTimeFormatOptions = {
 const BurningManDateFormatter = new Intl.DateTimeFormat('en-US', options);
 
 export default BurningManDateFormatter;
+
+const timeOfDayOptions: Intl.DateTimeFormatOptions = {
+  timeZone: 'America/Los_Angeles', // Set the timezone to Reno, Nevada (America/Los_Angeles)
+  hour: 'numeric',
+  minute: 'numeric',
+};
+
+export const TimeOfDayFormatter = new Intl.DateTimeFormat(
+  'en-US',
+  timeOfDayOptions,
+);

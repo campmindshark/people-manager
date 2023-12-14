@@ -127,7 +127,6 @@ const checkAuthenticated = (
   // eslint-disable-next-line consistent-return
 ) => {
   if (req.isAuthenticated()) {
-    console.log('user is authenticated');
     return next();
   }
   next(createError(401));

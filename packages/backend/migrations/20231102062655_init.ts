@@ -6,7 +6,6 @@ export async function up(knex: Knex): Promise<void> {
     table.string('firstName');
     table.string('lastName');
     table.string('email');
-    table.string('password');
     table.string('googleID');
   });
 }

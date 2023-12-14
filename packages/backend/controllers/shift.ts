@@ -53,6 +53,20 @@ export default class ShiftController {
     return true;
   }
 
+  public static async RegisterParticipantForShift(
+    shiftID: number,
+    userID: number,
+  ): Promise<boolean> {
+    const query = knex('shift_participants').insert({
+      shiftID,
+      userID,
+    });
+
+    await query;
+
+    return true;
+  }
+
   private static async loadViewModelsFromShifts(
     shifts: Shift[],
   ): Promise<ShiftViewModel[]> {

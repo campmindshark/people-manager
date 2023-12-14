@@ -1,11 +1,12 @@
 import React from 'react';
 import { useRecoilRefresher_UNSTABLE } from 'recoil';
-import { Paper, IconButton } from '@mui/material';
+import { Box, Paper, Popper, IconButton } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import ShiftViewModel, {
   shiftSignUpStatus,
   userIsSignedUpForShift,
 } from 'backend/view_models/shift';
+import { TimeOfDayFormatter } from '../../utils/datetime/formatter';
 import CurrentRosterScheduleState from '../../state/schedules';
 import ShiftDetailDialog from './ShiftDetailDialog';
 
@@ -106,6 +107,7 @@ function ShiftBlock(props: RootProps) {
   const refreshSchedules = useRecoilRefresher_UNSTABLE(
     CurrentRosterScheduleState,
   );
+  const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
 
   const handleClose = () => {
     setDialogIsOpen(false);
@@ -117,8 +119,25 @@ function ShiftBlock(props: RootProps) {
     setDialogIsOpen(!dialogIsOpen);
   };
 
+  const handlePopperOpen = (event: React.MouseEvent<HTMLElement>) => {
+    if (!isEmptySlot) {
+      setAnchorEl(event.currentTarget);
+    }
+  };
+
+  const handlePopperClose = () => {
+    setAnchorEl(null);
+  };
+
+  const popperOpen = Boolean(anchorEl);
+  const id = popperOpen ? 'simple-popper' : undefined;
+
   return (
-    <StyledIconButton onClick={handleClick}>
+    <StyledIconButton
+      onClick={handleClick}
+      onMouseEnter={handlePopperOpen}
+      onMouseLeave={handlePopperClose}
+    >
       <StyledShiftBlock
         shiftViewModel={shiftViewModel}
         timeFrameMinutes={timeFrameMinutes}
@@ -134,6 +153,19 @@ function ShiftBlock(props: RootProps) {
           />
         )}
       </StyledShiftBlock>
+      <Popper
+        id={id}
+        open={popperOpen}
+        anchorEl={anchorEl}
+        onMouseEnter={handlePopperClose}
+      >
+        <Box sx={{ border: 1, p: 1, bgcolor: 'background.paper' }}>
+          {shiftViewModel &&
+            `${shiftViewModel.scheduleName} -- ${TimeOfDayFormatter.format(
+              shiftViewModel.shift.startTime,
+            )} to ${TimeOfDayFormatter.format(shiftViewModel.shift.endTime)} `}
+        </Box>
+      </Popper>
     </StyledIconButton>
   );
 }
