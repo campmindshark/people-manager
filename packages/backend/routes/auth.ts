@@ -1,38 +1,28 @@
 import express, { Request, Response, Router } from 'express';
 import passport from 'passport';
-import UserRequest from '../models/requests/user';
 import User from '../models/user/user';
 import { getConfig } from '../config/config';
 
 const config = getConfig();
 const router: Router = express.Router();
 
-router.get('/login/success', async (req: UserRequest, res) => {
+router.get('/login/success', async (req: Request, res) => {
   if (req.user && req.isAuthenticated()) {
-    const query = User.query().where('googleID', req.user.id);
-
-    const appUsers = await query;
-    if (appUsers.length !== 1) {
-      console.log(
-        `issue querying the DB for the current user... google_id: ${req.user.id}, displayName: ${req.user.displayName} , appUsers.length: ${appUsers.length}`,
-      );
-      res.status(401).json({
-        success: false,
-        message: 'user not authenticated',
-      });
-    }
+    console.log(req.user);
 
     res.status(200).json({
       success: true,
       message: 'successful',
-      user: appUsers[0],
+      user: req.user as User,
     });
-  } else {
-    res.status(401).json({
-      success: false,
-      message: 'user not authenticated',
-    });
+
+    return;
   }
+
+  res.status(401).json({
+    success: false,
+    message: 'user not authenticated',
+  });
 });
 
 router.get(

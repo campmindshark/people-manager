@@ -2,7 +2,6 @@ import express, { Request, Response, NextFunction, Router } from 'express';
 import Shift from '../models/shift/shift';
 import User from '../models/user/user';
 import ShiftController from '../controllers/shift';
-import UserRequest from 'models/requests/user';
 
 const router: Router = express.Router();
 
@@ -58,20 +57,21 @@ router.post(
 router.get(
   '/:id/signup',
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  async (req: UserRequest, res: Response, next: NextFunction) => {
+  async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
 
-    const appUser = await User.query().where('googleID', req.user.id).first();
-    if (!appUser) {
+    if (!req.user) {
       res.json({ error: 'User not found' });
       return;
     }
 
-    console.log(`Signing up user ${appUser.id} for shift ${id}`);
+    const user = req.user as User;
+
+    console.log(`Signing up user ${user.id} for shift ${id}`);
 
     const success = await ShiftController.RegisterParticipantForShift(
       parseInt(id, 10),
-      appUser.id,
+      user.id,
     );
 
     if (!success) {
@@ -86,20 +86,20 @@ router.get(
 router.get(
   '/:id/unregister',
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  async (req: UserRequest, res: Response, next: NextFunction) => {
+  async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
-
-    const appUser = await User.query().where('googleID', req.user.id).first();
-    if (!appUser) {
+    if (!req.user) {
       res.json({ error: 'User not found' });
       return;
     }
 
-    console.log(`Unregistering user ${appUser.id} from shift ${id}`);
+    const user = req.user as User;
+
+    console.log(`Unregister user ${user.id} from shift ${id}`);
 
     const success = await ShiftController.UnregisterParticipantFromShift(
       parseInt(id, 10),
-      appUser.id,
+      user.id,
     );
 
     if (!success) {
