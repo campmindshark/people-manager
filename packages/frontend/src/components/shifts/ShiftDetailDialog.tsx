@@ -43,7 +43,7 @@ export default function ShiftDetailDialog(props: Props) {
   const appUser = useRecoilValue(UserState);
 
   const handleShiftSignup = useCallback(async () => {
-    const _ = await shiftClient.SignUpUpForShift(shiftViewModel.shift.id);
+    const _ = await shiftClient.SignUpForShift(shiftViewModel.shift.id);
     setTimeout(() => {
       refreshSchedules();
     }, 200);

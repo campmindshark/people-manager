@@ -44,7 +44,7 @@ export default class BackendShiftClient implements ShiftClient {
     return data;
   }
 
-  async SignUpUpForShift(shiftID: number): Promise<ShiftViewModel[]> {
+  async SignUpForShift(shiftID: number): Promise<ShiftViewModel[]> {
     const { data } = await axios.get<ShiftViewModel[]>(
       `${this.baseApiURL}/api/shifts/${shiftID}/signup`,
       {
