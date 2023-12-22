@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { useRecoilValue, useRecoilRefresher_UNSTABLE } from 'recoil';
 import { getConfig } from 'backend/config/config';
 import User from 'backend/models/user/user';
@@ -42,19 +42,19 @@ export default function ShiftDetailDialog(props: Props) {
   const { shiftViewModel, isOpen, handleClose } = props;
   const appUser = useRecoilValue(UserState);
 
-  const handleShiftSignup = async () => {
+  const handleShiftSignup = useCallback(async () => {
     const _ = await shiftClient.SignUpUpForShift(shiftViewModel.shift.id);
     setTimeout(() => {
       refreshSchedules();
     }, 200);
-  };
+  }, [shiftViewModel, refreshSchedules]);
 
-  const handleShiftUnregister = async () => {
+  const handleShiftUnregister = useCallback(async () => {
     const _ = await shiftClient.UnregisterFromShift(shiftViewModel.shift.id);
     setTimeout(() => {
       refreshSchedules();
     }, 200);
-  };
+  }, [shiftViewModel, refreshSchedules]);
 
   const generateParticipantList = () => {
     const participantList: JSX.Element[] = [];

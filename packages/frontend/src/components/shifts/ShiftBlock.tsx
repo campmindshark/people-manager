@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { useRecoilRefresher_UNSTABLE } from 'recoil';
 import { Box, Paper, Popper, IconButton } from '@mui/material';
 import { styled } from '@mui/material/styles';
@@ -17,6 +17,8 @@ interface RootProps {
   isEmptySlot?: boolean;
   currentUserID?: number;
 }
+
+const boxStyles = { border: 1, p: 1, bgcolor: 'background.paper' };
 
 const determineBackgroundColor = (
   themeMode: string,
@@ -109,28 +111,41 @@ function ShiftBlock(props: RootProps) {
   );
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     setDialogIsOpen(false);
     refreshSchedules();
-  };
+  }, [refreshSchedules, setDialogIsOpen]);
 
-  const handleClick = () => {
+  const handleClick = useCallback(() => {
     console.log('click');
     setDialogIsOpen(!dialogIsOpen);
-  };
+  }, [setDialogIsOpen, dialogIsOpen]);
 
-  const handlePopperOpen = (event: React.MouseEvent<HTMLElement>) => {
-    if (!isEmptySlot) {
-      setAnchorEl(event.currentTarget);
-    }
-  };
+  const handlePopperOpen = useCallback(
+    (event: React.MouseEvent<HTMLElement>) => {
+      if (!isEmptySlot) {
+        setAnchorEl(event.currentTarget);
+      }
+    },
+    [setAnchorEl, isEmptySlot],
+  );
 
-  const handlePopperClose = () => {
+  const handlePopperClose = useCallback(() => {
     setAnchorEl(null);
-  };
+  }, [setAnchorEl]);
 
   const popperOpen = Boolean(anchorEl);
   const id = popperOpen ? 'simple-popper' : undefined;
+
+  const shiftPopperText = useCallback((): string => {
+    if (!shiftViewModel) {
+      return '';
+    }
+
+    return `${shiftViewModel.scheduleName} -- ${TimeOfDayFormatter.format(
+      shiftViewModel.shift.startTime,
+    )} to ${TimeOfDayFormatter.format(shiftViewModel.shift.endTime)}`;
+  }, [shiftViewModel]);
 
   return (
     <StyledIconButton
@@ -159,12 +174,7 @@ function ShiftBlock(props: RootProps) {
         anchorEl={anchorEl}
         onMouseEnter={handlePopperClose}
       >
-        <Box sx={{ border: 1, p: 1, bgcolor: 'background.paper' }}>
-          {shiftViewModel &&
-            `${shiftViewModel.scheduleName} -- ${TimeOfDayFormatter.format(
-              shiftViewModel.shift.startTime,
-            )} to ${TimeOfDayFormatter.format(shiftViewModel.shift.endTime)} `}
-        </Box>
+        <Box sx={boxStyles}>{shiftPopperText()}</Box>
       </Popper>
     </StyledIconButton>
   );
