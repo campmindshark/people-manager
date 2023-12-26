@@ -105,11 +105,14 @@ function ShiftBlock(props: RootProps) {
     shiftViewModel,
     currentUserID,
   } = props;
+
   const [dialogIsOpen, setDialogIsOpen] = React.useState(false);
   const refreshSchedules = useRecoilRefresher_UNSTABLE(
     CurrentRosterScheduleState,
   );
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
+  const popperOpen = Boolean(anchorEl);
+  const id = popperOpen ? 'simple-popper' : undefined;
 
   const handleClose = useCallback(() => {
     setDialogIsOpen(false);
@@ -117,7 +120,6 @@ function ShiftBlock(props: RootProps) {
   }, [refreshSchedules, setDialogIsOpen]);
 
   const handleClick = useCallback(() => {
-    console.log('click');
     setDialogIsOpen(!dialogIsOpen);
   }, [setDialogIsOpen, dialogIsOpen]);
 
@@ -133,9 +135,6 @@ function ShiftBlock(props: RootProps) {
   const handlePopperClose = useCallback(() => {
     setAnchorEl(null);
   }, [setAnchorEl]);
-
-  const popperOpen = Boolean(anchorEl);
-  const id = popperOpen ? 'simple-popper' : undefined;
 
   const shiftPopperText = useCallback((): string => {
     if (!shiftViewModel) {

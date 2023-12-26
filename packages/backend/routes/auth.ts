@@ -8,8 +8,6 @@ const router: Router = express.Router();
 
 router.get('/login/success', async (req: Request, res) => {
   if (req.user && req.isAuthenticated()) {
-    console.log(req.user);
-
     res.status(200).json({
       success: true,
       message: 'successful',
