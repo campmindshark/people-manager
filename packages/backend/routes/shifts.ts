@@ -58,16 +58,55 @@ router.get(
   '/:id/signup',
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async (req: Request, res: Response, next: NextFunction) => {
-    const { user } = res.locals.user;
     const { id } = req.params;
 
-    const appUser = await User.query().where('googleID', user.id).first();
-    if (!appUser) {
+    if (!req.user) {
       res.json({ error: 'User not found' });
       return;
     }
 
-    await Shift.relatedQuery('participants').for(id).relate(appUser.id);
+    const user = req.user as User;
+
+    console.log(`Signing up user ${user.id} for shift ${id}`);
+
+    const success = await ShiftController.RegisterParticipantForShift(
+      parseInt(id, 10),
+      user.id,
+    );
+
+    if (!success) {
+      res.status(500).json({ error: 'Failed to register user for shift' });
+      return;
+    }
+    res.json({ success: true });
+  },
+);
+
+/* Unregister the current user from a specific shift. */
+router.get(
+  '/:id/unregister',
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async (req: Request, res: Response, next: NextFunction) => {
+    const { id } = req.params;
+    if (!req.user) {
+      res.json({ error: 'User not found' });
+      return;
+    }
+
+    const user = req.user as User;
+
+    console.log(`Unregister user ${user.id} from shift ${id}`);
+
+    const success = await ShiftController.UnregisterParticipantFromShift(
+      parseInt(id, 10),
+      user.id,
+    );
+
+    if (!success) {
+      res.status(500).json({ error: 'Failed to unregister user from shift' });
+      return;
+    }
+
     res.json({ success: true });
   },
 );

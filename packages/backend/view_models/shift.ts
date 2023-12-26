@@ -7,7 +7,7 @@ export default interface ShiftViewModel {
   participants: User[];
 }
 
-export function shiftSignupStatus(
+export function shiftSignUpStatus(
   shiftViewModel: ShiftViewModel,
 ): 'understaffed' | 'staffed' | 'overstaffed' {
   if (

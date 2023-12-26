@@ -1,9 +1,10 @@
-import React from 'react';
-import { useRecoilValue } from 'recoil';
+import React, { useCallback, useMemo } from 'react';
+import { useRecoilValue, useRecoilRefresher_UNSTABLE } from 'recoil';
+import { getConfig } from 'backend/config/config';
 import User from 'backend/models/user/user';
 import ShiftViewModel, {
   userIsSignedUpForShift,
-  shiftSignupStatus,
+  shiftSignUpStatus,
 } from 'backend/view_models/shift';
 import {
   Button,
@@ -17,8 +18,12 @@ import {
   Typography,
 } from '@mui/material';
 import PersonIcon from '@mui/icons-material/Person';
+import CurrentRosterScheduleState from '../../state/schedules';
 import BurningManDateFormatter from '../../utils/datetime/formatter';
 import { UserState } from '../../state/store';
+import BackendShiftClient from '../../api/shifts/shifts';
+
+const appConfig = getConfig();
 
 interface Props {
   shiftViewModel: ShiftViewModel;
@@ -27,12 +32,29 @@ interface Props {
 }
 
 export default function ShiftDetailDialog(props: Props) {
+  const refreshSchedules = useRecoilRefresher_UNSTABLE(
+    CurrentRosterScheduleState,
+  );
+  const shiftClient = useMemo(
+    () => new BackendShiftClient(appConfig.BackendURL),
+    [],
+  );
   const { shiftViewModel, isOpen, handleClose } = props;
   const appUser = useRecoilValue(UserState);
 
-  const handleShiftSignup = () => {
-    console.log('signup');
-  };
+  const handleShiftSignup = useCallback(async () => {
+    const _ = await shiftClient.SignUpForShift(shiftViewModel.shift.id);
+    setTimeout(() => {
+      refreshSchedules();
+    }, 200);
+  }, [shiftViewModel, refreshSchedules]);
+
+  const handleShiftUnregister = useCallback(async () => {
+    const _ = await shiftClient.UnregisterFromShift(shiftViewModel.shift.id);
+    setTimeout(() => {
+      refreshSchedules();
+    }, 200);
+  }, [shiftViewModel, refreshSchedules]);
 
   const generateParticipantList = () => {
     const participantList: JSX.Element[] = [];
@@ -74,13 +96,13 @@ export default function ShiftDetailDialog(props: Props) {
     );
     if (isSignedUpForThisShift) {
       return (
-        <Button autoFocus variant="contained" onClick={handleShiftSignup}>
-          Unsignup For Shift
+        <Button autoFocus variant="contained" onClick={handleShiftUnregister}>
+          Unregister From Shift
         </Button>
       );
     }
 
-    const signupStatus = shiftSignupStatus(shiftViewModel);
+    const signupStatus = shiftSignUpStatus(shiftViewModel);
     switch (signupStatus) {
       case 'understaffed':
         return (

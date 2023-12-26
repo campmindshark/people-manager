@@ -20,13 +20,21 @@ import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import knexConfig from './knexfile';
 import { Config, getConfig } from './config/config';
 
-import User from './models/user/user';
+import AppUser from './models/user/user';
 import authRouter from './routes/auth';
 import indexRouter from './routes/index';
 import usersRouter from './routes/users';
 import schedulesRouter from './routes/schedules';
 import shiftsRouter from './routes/shifts';
 import rostersRouter from './routes/rosters';
+
+declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
+  namespace Express {
+    // eslint-disable-next-line @typescript-eslint/no-empty-interface,@typescript-eslint/no-namespace
+    interface User extends AppUser {}
+  }
+}
 
 const envFilePath = process.argv[2];
 
@@ -92,24 +100,28 @@ passport.use(
       callbackURL: config.GoogleOAuthCallbackURL,
     },
     async (accessToken, refreshToken, profile, done) => {
-      const query = User.query();
+      const query = AppUser.query();
       query.where('googleID', profile.id);
       const user = await query;
       if (user.length === 0) {
-        const newUserModel = new User();
+        const newUserModel = new AppUser();
         newUserModel.googleID = profile.id ?? '';
         newUserModel.firstName = profile.name?.givenName ?? '';
         newUserModel.lastName = profile.name?.familyName ?? '';
         newUserModel.email = profile.emails?.[0].value ?? '';
 
-        const innerQuery = User.query().insert(newUserModel);
+        const innerQuery = AppUser.query().insert(newUserModel);
         const newUser = await innerQuery;
-        console.log(newUser);
         return done(null, newUser);
       }
 
-      console.log(profile);
-      return done(null, profile);
+      if (user.length > 1) {
+        return done(
+          new Error('More than one user with the same Google ID was found'),
+        );
+      }
+
+      return done(null, user[0]);
     },
   ),
 );
@@ -126,7 +138,7 @@ const checkAuthenticated = (
   next: NextFunction,
   // eslint-disable-next-line consistent-return
 ) => {
-  if (req.isAuthenticated()) {
+  if (req.isAuthenticated() && req.user.googleID !== '') {
     return next();
   }
   next(createError(401));
@@ -146,5 +158,5 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 });
 
 app.listen(config.Port, () => {
-  console.log(`Server is Fire at http://localhost:${config.Port}`);
+  console.log(`Server is running at http://localhost:${config.Port}`);
 });

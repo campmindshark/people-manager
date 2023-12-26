@@ -1,13 +1,25 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useRecoilValue } from 'recoil';
 import Schedule from 'backend/models/schedule/schedule';
-import { Stack, Typography } from '@mui/material';
+import { Paper, Stack, Typography } from '@mui/material';
+import { styled } from '@mui/material/styles';
 import Shift from 'backend/models/shift/shift';
 import ShiftViewModel from 'backend/view_models/shift';
 import { getConfig } from 'backend/config/config';
 import BackendShiftClient from 'src/api/shifts/shifts';
 import ShiftBlock from './ShiftBlock';
+import { UserState } from '../../state/store';
 
 const appConfig = getConfig();
+
+const ShiftHeader = styled(Paper)({
+  color: 'darkslategray',
+  backgroundColor: 'aliceblue',
+  padding: 8,
+  borderRadius: 4,
+  position: 'sticky',
+  top: 0,
+});
 
 interface Props {
   schedule: Schedule;
@@ -18,6 +30,7 @@ export default function ShiftStack(props: Props) {
     () => new BackendShiftClient(appConfig.BackendURL),
     [appConfig.BackendURL],
   );
+  const appUser = useRecoilValue(UserState);
   const { schedule } = props;
   const [shiftViewModels, setShifts] = useState<ShiftViewModel[]>([]);
 
@@ -58,6 +71,7 @@ export default function ShiftStack(props: Props) {
           timeFrameMinutes={shift.getLengthMinutes()}
           shiftViewModel={shiftViewModels[index]}
           key={`shift-block-${index}-${schedule.id}`}
+          currentUserID={appUser.id}
         >
           <Typography variant="caption" display="block">
             ({shiftViewModels[index].participants.length}/
@@ -73,7 +87,7 @@ export default function ShiftStack(props: Props) {
 
   return (
     <Stack>
-      <ShiftBlock>{schedule.name}</ShiftBlock>
+      <ShiftHeader elevation={3}>{schedule.name}</ShiftHeader>
       {generateShiftBlocks()}
     </Stack>
   );
