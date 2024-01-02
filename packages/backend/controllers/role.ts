@@ -6,7 +6,7 @@ import RoleConfigCollection, { RoleConfig } from '../roles/role';
 const knex = Knex(knexConfig[getConfig().Environment]);
 
 export default class RoleController {
-  public static async getRolesByUserId(userId: number): Promise<RoleConfig[]> {
+  public static async getRolesByUserID(userId: number): Promise<RoleConfig[]> {
     const query = knex<RoleConfig>('roles')
       .from('user_roles')
       .where('userID', userId);
