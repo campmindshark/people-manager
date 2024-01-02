@@ -27,9 +27,7 @@ export async function seed(knex: Knex): Promise<void> {
 
   await knex('user_roles').insert([
     { roleID: 1, userID: 1 },
-    { roleID: 2, userID: 1 },
     { roleID: 1, userID: 3 },
-    { roleID: 2, userID: 3 },
   ]);
 
   await knex('roster_participants').insert([

@@ -3,14 +3,15 @@
     {
       "id": 1,
       "name": "admin",
-      "description": "Administrator",
-      "permissions": []
-    },
-    {
-      "id": 2,
-      "name": "user",
-      "description": "User",
-      "permissions": []
+      "description": "A Web Administrator.",
+      "permissions": [
+        "schedules:create",
+        "schedules:delete",
+        "shifts:create",
+        "shifts:delete",
+        "rosters:create",
+        "rosters:delete"
+      ]
     }
   ]
 }

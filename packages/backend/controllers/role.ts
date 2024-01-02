@@ -2,7 +2,7 @@ import Knex from 'knex';
 import knexConfig from '../knexfile';
 import { getConfig } from '../config/config';
 import { RoleConfig } from '../roles/role';
-import Role from '../roles/role';
+import RoleConfigCollection from '../roles/role';
 
 const knex = Knex(knexConfig[getConfig().Environment]);
 
@@ -14,7 +14,9 @@ export default class RoleController {
 
     const roles = await query;
 
-    const roleConfigs = roles.map((role) => Role.getRoleByID(role.roleID));
+    const roleConfigs = roles.map((role) =>
+      RoleConfigCollection.getRoleByID(role.roleID),
+    );
 
     return roleConfigs;
   }
@@ -26,7 +28,9 @@ export default class RoleController {
 
     const roles = await query;
 
-    const roleConfigs = roles.map((role) => Role.getRoleByID(role.roleID));
+    const roleConfigs = roles.map((role) =>
+      RoleConfigCollection.getRoleByID(role.roleID),
+    );
 
     return roleConfigs;
   }

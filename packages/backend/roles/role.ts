@@ -6,7 +6,7 @@ export interface RoleConfig {
   permissions: string[];
 }
 
-export default class Role {
+export default class RoleConfigCollection {
   private static roles: RoleConfig[] = Config.roles;
 
   static getRoleByName(name: string): RoleConfig {
@@ -31,5 +31,12 @@ export default class Role {
 
   static getPermissions(): string[] {
     return this.roles.flatMap((role) => role.permissions);
+  }
+
+  static hasPermission(roleIDs: number[], permission: string): boolean {
+    console.log(`Checking if roleIDs ${roleIDs} have permission ${permission}`);
+    const roles = roleIDs.map((id) => this.getRoleByID(id));
+    const permissions = roles.flatMap((role) => role.permissions);
+    return permissions.includes(permission);
   }
 }

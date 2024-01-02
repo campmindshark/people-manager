@@ -16,16 +16,4 @@ router.get(
   },
 );
 
-/* GET user by ID. */
-router.get(
-  '/:id',
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  async (req: Request, res: Response, next: NextFunction) => {
-    const query = User.query().findById(req.params.id);
-
-    const users = await query;
-    res.json(users);
-  },
-);
-
 export default router;
