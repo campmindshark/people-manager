@@ -34,7 +34,6 @@ export default class RoleConfigCollection {
   }
 
   static hasPermission(roleIDs: number[], permission: string): boolean {
-    console.log(`Checking if roleIDs ${roleIDs} have permission ${permission}`);
     const roles = roleIDs.map((id) => this.getRoleByID(id));
     const permissions = roles.flatMap((role) => role.permissions);
     return permissions.includes(permission);
