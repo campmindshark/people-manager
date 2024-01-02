@@ -10,7 +10,7 @@ router.get(
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async (req: Request, res: Response, next: NextFunction) => {
     const user = req.user as User;
-    const roles = await RoleController.getRolesByUserId(user.id);
+    const roles = await RoleController.getRolesByUserID(user.id);
 
     res.json(roles);
   },
