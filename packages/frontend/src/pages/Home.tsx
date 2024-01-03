@@ -22,7 +22,9 @@ function Home() {
   const setPageState = useSetRecoilState(PageState);
   const appUser = useRecoilValue(UserState);
   const currentRoster = useRecoilValue(CurrentRosterState);
-  const appUserIsSignedUp = useRecoilValue(UserIsSignedUpForCurrentRoster);
+  const appUserIsSignedUpForCurrentBurn = useRecoilValue(
+    UserIsSignedUpForCurrentRoster,
+  );
 
   useEffect(() => {
     document.title = 'MindShark Portal - Home';
@@ -33,7 +35,7 @@ function Home() {
   }, []);
 
   const rosterSignupCTA = () => {
-    if (!appUserIsSignedUp) {
+    if (!appUserIsSignedUpForCurrentBurn) {
       return (
         <Alert severity="warning" variant="filled">
           <AlertTitle>

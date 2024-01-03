@@ -3,6 +3,7 @@ import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import './App.css';
+import Admin from './pages/Admin';
 import Home from './pages/Home';
 import Settings from './pages/Settings';
 import Login from './pages/Login';
@@ -18,11 +19,20 @@ const mdTheme = createTheme({
 const router = createBrowserRouter([
   {
     path: '/',
-    loader: async () => ({}),
     Component() {
       return (
         <AuthenticatedPage>
           <Home />
+        </AuthenticatedPage>
+      );
+    },
+  },
+  {
+    path: '/admin',
+    Component() {
+      return (
+        <AuthenticatedPage>
+          <Admin />
         </AuthenticatedPage>
       );
     },
