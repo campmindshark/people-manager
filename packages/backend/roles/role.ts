@@ -14,6 +14,7 @@ export default class RoleConfigCollection {
     if (!role) {
       throw new Error(`Role ${name} does not exist`);
     }
+
     return role;
   }
 
@@ -25,17 +26,10 @@ export default class RoleConfigCollection {
     return role;
   }
 
-  static getRoles(): RoleConfig[] {
-    return this.roles;
-  }
-
-  static getPermissions(): string[] {
-    return this.roles.flatMap((role) => role.permissions);
-  }
-
   static hasPermission(roleIDs: number[], permission: string): boolean {
     const roles = roleIDs.map((id) => this.getRoleByID(id));
     const permissions = roles.flatMap((role) => role.permissions);
+
     return permissions.includes(permission);
   }
 }
