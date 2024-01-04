@@ -1,5 +1,6 @@
 import express, { Request, Response, NextFunction, Router } from 'express';
 import Roster from '../models/roster/roster';
+import hasPermission from '../middleware/rbac';
 
 const router: Router = express.Router();
 
@@ -41,6 +42,7 @@ router.get(
 
 router.post(
   '/',
+  hasPermission('rosters:create'),
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async (req: Request, res: Response, next: NextFunction) => {
     const newRoster: Roster = req.body;
@@ -53,6 +55,7 @@ router.post(
 
 router.delete(
   '/:id',
+  hasPermission('rosters:delete'),
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;

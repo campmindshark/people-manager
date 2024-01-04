@@ -26,6 +26,7 @@ import indexRouter from './routes/index';
 import usersRouter from './routes/users';
 import schedulesRouter from './routes/schedules';
 import shiftsRouter from './routes/shifts';
+import rolesRouter from './routes/roles';
 import rostersRouter from './routes/rosters';
 
 declare global {
@@ -146,6 +147,7 @@ const checkAuthenticated = (
 
 app.use('/api/auth', authRouter);
 app.use('/api/users', checkAuthenticated, usersRouter);
+app.use('/api/roles', checkAuthenticated, rolesRouter);
 app.use('/api/schedules', checkAuthenticated, schedulesRouter);
 app.use('/api/shifts', checkAuthenticated, shiftsRouter);
 app.use('/api/rosters', checkAuthenticated, rostersRouter);

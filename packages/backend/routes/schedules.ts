@@ -1,6 +1,7 @@
 import express, { Request, Response, NextFunction, Router } from 'express';
 import Schedule from '../models/schedule/schedule';
 import ShiftController from '../controllers/shift';
+import hasPermission from '../middleware/rbac';
 
 const router: Router = express.Router();
 
@@ -31,6 +32,7 @@ router.get(
 
 router.post(
   '/',
+  hasPermission('schedules:create'),
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async (req: Request, res: Response, next: NextFunction) => {
     const newSchedule: Schedule = req.body;
@@ -43,6 +45,7 @@ router.post(
 
 router.delete(
   '/:id',
+  hasPermission('schedules:delete'),
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;

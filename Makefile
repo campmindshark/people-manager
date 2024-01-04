@@ -2,6 +2,11 @@
 run:
 	PORT=3001 yarn start
 
+db-reset:
+	rm packages/backend/dev.sqlite3
+	yarn db-migrate
+	yarn db-seed
+
 docker-build:
 	docker build -f ./docker/Dockerfile -t people-manager-repo .
 

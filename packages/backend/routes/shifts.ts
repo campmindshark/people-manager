@@ -2,6 +2,7 @@ import express, { Request, Response, NextFunction, Router } from 'express';
 import Shift from '../models/shift/shift';
 import User from '../models/user/user';
 import ShiftController from '../controllers/shift';
+import hasPermission from '../middleware/rbac';
 
 const router: Router = express.Router();
 
@@ -43,6 +44,7 @@ router.get(
 
 router.post(
   '/',
+  hasPermission('shifts:create'),
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async (req: Request, res: Response, next: NextFunction) => {
     const newSchedule: Shift = req.body;
@@ -113,6 +115,7 @@ router.get(
 
 router.delete(
   '/:id',
+  hasPermission('shifts:delete'),
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;

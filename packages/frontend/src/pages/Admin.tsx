@@ -6,14 +6,14 @@ import { useRecoilValue, useSetRecoilState } from 'recoil';
 import Dashboard from '../layouts/dashboard/Dashboard';
 import PageState, { MyRolesState } from '../state/store';
 
-export default function Settings() {
+export default function Admin() {
   const setPageState = useSetRecoilState(PageState);
   const myRoles = useRecoilValue(MyRolesState);
 
   useEffect(() => {
     setPageState({
-      title: 'Settings',
-      index: 'settings',
+      title: 'Admin',
+      index: 'admin',
     });
   });
 

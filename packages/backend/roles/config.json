@@ -1,0 +1,17 @@
+{
+  "roles": [
+    {
+      "id": 1,
+      "name": "admin",
+      "description": "A Web Administrator.",
+      "permissions": [
+        "schedules:create",
+        "schedules:delete",
+        "shifts:create",
+        "shifts:delete",
+        "rosters:create",
+        "rosters:delete"
+      ]
+    }
+  ]
+}

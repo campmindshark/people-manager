@@ -30,7 +30,9 @@ function AuthenticatedPage(props: Props) {
         const response: AuthResponse = await userClient.GetAuthenticatedUser();
         if (response.success === true) {
           setUser(response.user);
-          setIsAuthenticated(true);
+          if (isAuthenticated === false) {
+            setIsAuthenticated(true);
+          }
         } else {
           console.log('auth failed');
           navigate('/login');
