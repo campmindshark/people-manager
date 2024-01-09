@@ -43,7 +43,7 @@ resource "aws_ecs_task_definition" "app_task" {
           "logDriver": "awslogs",
           "options": {
             "awslogs-group": "${var.project_name}-logs",
-            "awslogs-region": "eu-central-1",
+            "awslogs-region": "${var.region}",
             "awslogs-stream-prefix": "ecs"
           }
         },
