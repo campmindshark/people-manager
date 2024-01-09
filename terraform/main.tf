@@ -13,7 +13,6 @@ terraform {
 
 provider "aws" {
   region = var.region
-  alias  = "main"
 }
 
 resource "aws_ecr_repository" "app_ecr_repo" {
@@ -77,6 +76,7 @@ resource "aws_iam_role_policy_attachment" "ecsTaskExecutionRole_policy" {
 
 # Provide a reference to your default VPC
 resource "aws_default_vpc" "default_vpc" {
+
 }
 
 # Provide references to your default subnets
