@@ -23,6 +23,14 @@ resource "aws_ecs_cluster" "my_cluster" {
   name = "${var.project_name}-cluster"
 }
 
+module "log_group" {
+  source  = "terraform-aws-modules/cloudwatch/aws//modules/log-group"
+  version = "~> 3.0"
+
+  name              = var.project_name
+  retention_in_days = 120
+}
+
 resource "aws_ecs_task_definition" "app_task" {
   family                   = "${var.project_name}-task"
   container_definitions    = <<DEFINITION
@@ -42,7 +50,7 @@ resource "aws_ecs_task_definition" "app_task" {
       "logConfiguration": {
           "logDriver": "awslogs",
           "options": {
-            "awslogs-group": "${var.project_name}-logs",
+            "awslogs-group": "${var.project_name}",
             "awslogs-region": "${var.region}",
             "awslogs-stream-prefix": "ecs"
           }
