@@ -39,6 +39,14 @@ resource "aws_ecs_task_definition" "app_task" {
       ],
       "memory": 512,
       "cpu": 256,
+      "logConfiguration": {
+          "logDriver": "awslogs",
+          "options": {
+            "awslogs-group": "${var.project_name}-logs",
+            "awslogs-region": "eu-central-1",
+            "awslogs-stream-prefix": "ecs"
+          }
+        },
       "secrets": [
         
       ]
