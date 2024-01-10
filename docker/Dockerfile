@@ -6,6 +6,8 @@ WORKDIR /usr/src/app
 # Install app dependencies
 COPY package.json yarn.lock ./
 
+ENV NODE_ENV development
+
 RUN yarn install
 
 COPY . .
