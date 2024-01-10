@@ -41,13 +41,13 @@ const envFilePath = process.argv[2];
 
 console.log('envFilePath: ', envFilePath);
 
-const configPath = path.join(envFilePath);
-if (!FileSystem.existsSync(configPath)) {
-  console.log(`Config file not found at ${configPath}`);
+if (!FileSystem.existsSync(envFilePath)) {
+  console.log(`env file not found at ${envFilePath}`);
+} else {
+  console.log(`env file found at ${envFilePath}`);
+  dotenv.config({ path: envFilePath });
 }
 
-// For env File
-dotenv.config({ path: configPath });
 const config: Config = getConfig();
 
 console.log(`running in ${config.Environment} mode`);
