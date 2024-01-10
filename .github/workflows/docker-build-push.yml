@@ -1,9 +1,8 @@
 name: Docker Build, and Push to Dockerhub
 
 on:
-  workflow_dispatch:
   push:
-    branches: [main]
+    branches: [main, feat/tf-improvements]
   pull_request:
     branches: [main]
 
