@@ -53,15 +53,15 @@ resource "aws_ecs_task_definition" "app_task" {
       },
       "secrets": [
         {
-          "value": "${var.google_oauth_client_id}",
+          "value": "${var.GOOGLE_OAUTH_CLIENT_ID}",
           "name": "GOOGLE_OAUTH_CLIENT_ID"
         },
         {
-          "value": "${var.google_oauth_client_secret}",
+          "value": "${var.google_GOOGLE_OAUTH_CLIENT_SECRET}",
           "name": "GOOGLE_OAUTH_CLIENT_SECRET"
         },
         {
-          "value": "${var.jwt_secret}",
+          "value": "${var.JWT_SECRET}",
           "name": "JWT_SECRET"
         }
       ]
