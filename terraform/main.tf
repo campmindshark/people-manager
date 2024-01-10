@@ -44,15 +44,26 @@ resource "aws_ecs_task_definition" "app_task" {
       "memory": 512,
       "cpu": 256,
       "logConfiguration": {
-          "logDriver": "awslogs",
-          "options": {
-            "awslogs-group": "${var.project_name}",
-            "awslogs-region": "${var.region}",
-            "awslogs-stream-prefix": "ecs"
-          }
-        },
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "${var.project_name}",
+          "awslogs-region": "${var.region}",
+          "awslogs-stream-prefix": "ecs"
+        }
+      },
       "secrets": [
-        
+        {
+          "value": "${var.google_oauth_client_id}",
+          "name": "GOOGLE_OAUTH_CLIENT_ID"
+        },
+        {
+          "value": "${var.google_oauth_client_secret}",
+          "name": "GOOGLE_OAUTH_CLIENT_SECRET"
+        },
+        {
+          "value": "${var.jwt_secret}",
+          "name": "JWT_SECRET"
+        }
       ]
     }
   ]
