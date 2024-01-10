@@ -12,3 +12,8 @@ variable "region" {
   type    = string
   default = "us-west-2"
 }
+
+variable "docker_repo" {
+  type    = string
+  default = "rnavt/people-manager"
+}

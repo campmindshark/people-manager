@@ -15,10 +15,6 @@ provider "aws" {
   region = var.region
 }
 
-resource "aws_ecr_repository" "app_ecr_repo" {
-  name = "${var.project_name}-repo"
-}
-
 resource "aws_ecs_cluster" "my_cluster" {
   name = "${var.project_name}-cluster"
 }
@@ -37,7 +33,7 @@ resource "aws_ecs_task_definition" "app_task" {
   [
     {
       "name": "${var.project_name}-task",
-      "image": "${aws_ecr_repository.app_ecr_repo.repository_url}",
+      "image": "${var.docker_repo}",
       "essential": true,
       "portMappings": [
         {
