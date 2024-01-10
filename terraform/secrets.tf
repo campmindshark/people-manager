@@ -5,7 +5,7 @@ variable "GOOGLE_OAUTH_CLIENT_ID" {
   sensitive   = true
 }
 
-variable "google_GOOGLE_OAUTH_CLIENT_SECRET" {
+variable "GOOGLE_OAUTH_CLIENT_SECRET" {
   description = "Google Oauth Client Secret"
   type        = string
   sensitive   = true

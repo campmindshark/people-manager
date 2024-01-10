@@ -57,7 +57,7 @@ resource "aws_ecs_task_definition" "app_task" {
           "name": "GOOGLE_OAUTH_CLIENT_ID"
         },
         {
-          "value": "${var.google_GOOGLE_OAUTH_CLIENT_SECRET}",
+          "value": "${var.GOOGLE_OAUTH_CLIENT_SECRET}",
           "name": "GOOGLE_OAUTH_CLIENT_SECRET"
         },
         {
