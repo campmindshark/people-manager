@@ -22,7 +22,6 @@ import { Config, getConfig } from './config/config';
 
 import AppUser from './models/user/user';
 import authRouter from './routes/auth';
-import indexRouter from './routes/index';
 import usersRouter from './routes/users';
 import schedulesRouter from './routes/schedules';
 import shiftsRouter from './routes/shifts';
@@ -152,12 +151,20 @@ app.use('/api/schedules', checkAuthenticated, schedulesRouter);
 app.use('/api/shifts', checkAuthenticated, shiftsRouter);
 app.use('/api/rosters', checkAuthenticated, rostersRouter);
 
-app.use('/', indexRouter); // this route should be last
-
-// catch 404 and forward to error handler
-app.use((req: Request, res: Response, next: NextFunction) => {
-  next(createError(404));
+app.use('/api/health', (req: Request, res: Response) => {
+  res.status(200).send('healthy');
 });
+
+/* GET home page. */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+app.use('/*', (req: Request, res: Response) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// // catch 404 and forward to error handler
+// app.use((req: Request, res: Response, next: NextFunction) => {
+//   next(createError(404));
+// });
 
 app.listen(config.Port, () => {
   console.log(`Server is running at http://localhost:${config.Port}`);
