@@ -20,15 +20,6 @@ resource "aws_ecs_cluster" "my_cluster" {
   name = "${var.project_name}-cluster"
 }
 
-# Define CloudWatch Log Group for log collection
-module "log_group" {
-  source  = "terraform-aws-modules/cloudwatch/aws//modules/log-group"
-  version = "~> 3.0"
-
-  name              = var.project_name
-  retention_in_days = 120
-}
-
 # Define Primary ECS Task Definition for running people-manager
 resource "aws_ecs_task_definition" "app_task" {
   family                   = "${var.project_name}-task"
@@ -78,6 +69,16 @@ resource "aws_ecs_task_definition" "app_task" {
   execution_role_arn       = aws_iam_role.ecsTaskExecutionRole.arn
 }
 
+# Define CloudWatch Log Group for log collection
+module "log_group" {
+  source  = "terraform-aws-modules/cloudwatch/aws//modules/log-group"
+  version = "~> 3.0"
+
+  name              = var.project_name
+  retention_in_days = 120
+}
+
+# Define IAM Role for the running containers
 resource "aws_iam_role" "ecsTaskExecutionRole" {
   name               = "ecsTaskExecutionRole"
   assume_role_policy = data.aws_iam_policy_document.assume_role_policy.json
@@ -97,6 +98,29 @@ data "aws_iam_policy_document" "assume_role_policy" {
 resource "aws_iam_role_policy_attachment" "ecsTaskExecutionRole_policy" {
   role       = aws_iam_role.ecsTaskExecutionRole.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+}
+
+resource "aws_iam_policy" "container_access_policy" {
+  name        = "container_access_policy"
+  description = "Policy for the container"
+  policy      = <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+  {
+    "Effect": "Allow",
+    "Action": [
+      "secretsmanager:GetSecretValue"
+    ],
+  }
+}
+EOF
+}
+
+resource "aws_iam_policy_attachment" "ecsTaskExecutionRole_access_policy_bind" {
+  name       = "ecsTaskExecutionRole_access_policy_bind"
+  roles      = [aws_iam_role.ecsTaskExecutionRole.name]
+  policy_arn = aws_iam_policy.container_access_policy.arn
 }
 
 
