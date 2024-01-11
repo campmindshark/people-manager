@@ -177,15 +177,15 @@ resource "aws_lb_target_group" "target_group" {
   target_type = "ip"
   vpc_id      = aws_default_vpc.default_vpc.id # Referencing the default VPC
 
-  health_check {
-    healthy_threshold   = "3"
-    interval            = "300"
-    protocol            = "HTTP"
-    matcher             = "200"
-    timeout             = "3"
-    path                = "/v1/api/health"
-    unhealthy_threshold = "2"
-  }
+  # health_check {
+  #   healthy_threshold   = "3"
+  #   interval            = "300"
+  #   protocol            = "HTTP"
+  #   matcher             = "200"
+  #   timeout             = "3"
+  #   path                = "/v1/api/health"
+  #   unhealthy_threshold = "2"
+  # }
 }
 
 resource "aws_lb_listener" "listener" {
