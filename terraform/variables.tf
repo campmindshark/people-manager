@@ -5,7 +5,7 @@ variable "project_name" {
 
 variable "port_number" {
   type    = number
-  default = "3000"
+  default = "3001"
 }
 
 variable "region" {
