@@ -15,10 +15,12 @@ provider "aws" {
   region = var.region
 }
 
+# Define ECS Cluster
 resource "aws_ecs_cluster" "my_cluster" {
   name = "${var.project_name}-cluster"
 }
 
+# Define CloudWatch Log Group for log collection
 module "log_group" {
   source  = "terraform-aws-modules/cloudwatch/aws//modules/log-group"
   version = "~> 3.0"
@@ -27,6 +29,7 @@ module "log_group" {
   retention_in_days = 120
 }
 
+# Define Primary ECS Task Definition for running people-manager
 resource "aws_ecs_task_definition" "app_task" {
   family                   = "${var.project_name}-task"
   container_definitions    = <<DEFINITION
@@ -53,15 +56,15 @@ resource "aws_ecs_task_definition" "app_task" {
       },
       "secrets": [
         {
-          "value": "${var.GOOGLE_OAUTH_CLIENT_ID}",
+          "valueFrom": "${aws_secretsmanager_secret.googleClientID.arn}",
           "name": "GOOGLE_OAUTH_CLIENT_ID"
         },
         {
-          "value": "${var.GOOGLE_OAUTH_CLIENT_SECRET}",
+          "valueFrom": "${aws_secretsmanager_secret.googleClientSecret.arn}",
           "name": "GOOGLE_OAUTH_CLIENT_SECRET"
         },
         {
-          "value": "${var.JWT_SECRET}",
+          "valueFrom": "${aws_secretsmanager_secret.jwtSecret.arn}",
           "name": "JWT_SECRET"
         }
       ]
