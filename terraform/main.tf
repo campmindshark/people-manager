@@ -111,7 +111,7 @@ resource "aws_iam_policy" "container_access_policy" {
     "Effect": "Allow",
     "Action": [
       "secretsmanager:GetSecretValue"
-    ],
+    ]
   }
 }
 EOF
