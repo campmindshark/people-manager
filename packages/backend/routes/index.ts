@@ -9,4 +9,8 @@ router.get('/*', (req: Request, res: Response, next: NextFunction) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+router.get('/health', (req: Request, res: Response) => {
+  res.status(200).send('healthy');
+});
+
 export default router;
