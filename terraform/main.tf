@@ -172,7 +172,7 @@ resource "aws_security_group" "load_balancer_security_group" {
 
 resource "aws_lb_target_group" "target_group" {
   name        = var.project_name
-  port        = 80
+  port        = 3001
   protocol    = "HTTP"
   target_type = "ip"
   vpc_id      = aws_default_vpc.default_vpc.id # Referencing the default VPC
