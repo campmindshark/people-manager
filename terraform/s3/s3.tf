@@ -8,13 +8,6 @@ resource "aws_s3_bucket" "bucket" {
   bucket = "${var.project_name}-bucket-0"
 }
 
-resource "aws_s3_bucket_versioning" "versioning_example" {
-  bucket = aws_s3_bucket.bucket.id
-  versioning_configuration {
-    status = "Enabled"
-  }
-}
-
 resource "aws_s3_bucket_public_access_block" "public_access_block" {
   bucket = aws_s3_bucket.bucket.id
 
