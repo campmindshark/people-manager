@@ -15,6 +15,12 @@ provider "aws" {
   region = var.region
 }
 
+module "s3" {
+  source = "./s3"
+
+  project_name = var.project_name
+}
+
 # Define ECS Cluster
 resource "aws_ecs_cluster" "my_cluster" {
   name = "${var.project_name}-cluster"
@@ -235,7 +241,17 @@ resource "aws_security_group" "service_security_group" {
   }
 }
 
-#Log the load balancer app url
-output "app_url" {
+# Log the url to the backend
+output "backend_url" {
   value = aws_alb.application_load_balancer.dns_name
+}
+
+# Log the url to the frontend
+output "frontend_url" {
+  value = module.s3.website_url
+}
+
+# Log the url to the frontend's s3 bucket
+output "s3_url" {
+  value = module.s3.s3_url
 }
