@@ -8,6 +8,14 @@ resource "aws_s3_bucket" "bucket" {
   bucket = "${var.project_name}-bucket-0"
 }
 
+resource "aws_s3_bucket_public_access_block" "public_access_block" {
+  bucket = aws_s3_bucket.bucket.id
+
+  block_public_acls       = false
+  block_public_policy     = false
+  ignore_public_acls      = false
+  restrict_public_buckets = false
+}
 
 resource "aws_s3_bucket_policy" "bucket_policy" {
   bucket = aws_s3_bucket.bucket.id
@@ -25,6 +33,8 @@ resource "aws_s3_bucket_policy" "bucket_policy" {
       ]
     }
   )
+
+  depends_on = [aws_s3_bucket_public_access_block.public_access_block]
 }
 
 resource "aws_s3_bucket_website_configuration" "hosting" {
