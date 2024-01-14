@@ -155,16 +155,10 @@ app.use('/api/health', (req: Request, res: Response) => {
   res.status(200).send('healthy');
 });
 
-/* GET home page. */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-app.use('/*', (req: Request, res: Response) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+// catch 404 and forward to error handler
+app.use((req: Request, res: Response, next: NextFunction) => {
+  next(createError(404));
 });
-
-// // catch 404 and forward to error handler
-// app.use((req: Request, res: Response, next: NextFunction) => {
-//   next(createError(404));
-// });
 
 app.listen(config.Port, () => {
   console.log(`Server is running at http://localhost:${config.Port}`);
