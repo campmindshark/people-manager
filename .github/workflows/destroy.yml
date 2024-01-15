@@ -46,4 +46,3 @@ jobs:
       - name: Terraform Destroy
         working-directory: terraform/
         run: TF_LOG=info terraform destroy -auto-approve
-        timeout-minutes: 5
