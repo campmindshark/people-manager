@@ -5,7 +5,7 @@ variable "project_name" {
 }
 
 resource "aws_s3_bucket" "bucket" {
-  bucket = "${var.project_name}-bucket-0"
+  bucket = "${var.project_name}-bucket-1"
 }
 
 resource "aws_s3_bucket_public_access_block" "public_access_block" {

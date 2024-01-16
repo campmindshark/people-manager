@@ -1,8 +1,8 @@
 terraform {
   backend "s3" {
-    bucket = "home-terraform-1"
+    bucket = "terraform-state-nilo2024"
     key    = "people-manager.tfstate"
-    region = "us-east-1"
+    region = "us-west-2"
   }
   required_providers {
     aws = {
