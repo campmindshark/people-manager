@@ -37,7 +37,7 @@ jobs:
 
       - name: Terraform Init
         working-directory: terraform/
-        run: terraform init -backend-config "bucket=home-terraform-1" -backend-config "key=people-manager.tfstate"
+        run: terraform init -backend-config "bucket=terraform-state-nilo2024" -backend-config "key=people-manager.tfstate"
 
       - name: Terraform Format
         working-directory: terraform/
