@@ -17,3 +17,8 @@ variable "docker_repo" {
   type    = string
   default = "rnavt/people-manager"
 }
+
+variable "docker_image_tag" {
+  type    = string
+  default = "latest"
+}

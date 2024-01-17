@@ -33,7 +33,7 @@ resource "aws_ecs_task_definition" "app_task" {
   [
     {
       "name": "${var.project_name}-task",
-      "image": "${var.docker_repo}",
+      "image": "${var.docker_repo}:${var.docker_image_tag}",
       "essential": true,
       "portMappings": [
         {
