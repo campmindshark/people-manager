@@ -11,6 +11,9 @@ RUN yarn build
 
 FROM node:20-alpine
 
+# Add bash for debugging
+RUN apk update && apk add bash
+
 ENV NODE_ENV production
 
 # Create app directory
