@@ -30,4 +30,4 @@ jobs:
           context: .
           file: ./docker/Dockerfile
           push: true
-          tags: rnavt/people-manager:latest,rnavt/people-manager:${{ github.sha }}
+          tags: rnavt/people-manager:latest,rnavt/people-manager:${GITHUB_SHA::6}

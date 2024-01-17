@@ -37,6 +37,7 @@ jobs:
       - name: Terraform Plan Check
         working-directory: terraform/
         env:
+          TF_VAR_google_image_tage: ${GITHUB_SHA::6}
           TF_VAR_GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
           TF_VAR_GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
           TF_VAR_JWT_SECRET: ${{ secrets.JWT_SECRET }}
