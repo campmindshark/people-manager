@@ -5,12 +5,12 @@ import { Paper, Stack, Typography } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import Shift from 'backend/models/shift/shift';
 import ShiftViewModel from 'backend/view_models/shift';
-import { getConfig } from 'backend/config/config';
 import BackendShiftClient from 'src/api/shifts/shifts';
+import { GetFrontendConfig } from '../../config/config';
 import ShiftBlock from './ShiftBlock';
 import { UserState } from '../../state/store';
 
-const appConfig = getConfig();
+const frontendConfig = GetFrontendConfig();
 
 const ShiftHeader = styled(Paper)({
   color: 'darkslategray',
@@ -27,8 +27,8 @@ interface Props {
 
 export default function ShiftStack(props: Props) {
   const shiftClient = useMemo(
-    () => new BackendShiftClient(appConfig.BackendURL),
-    [appConfig.BackendURL],
+    () => new BackendShiftClient(frontendConfig.BackendURL),
+    [frontendConfig.BackendURL],
   );
   const appUser = useRecoilValue(UserState);
   const { schedule } = props;

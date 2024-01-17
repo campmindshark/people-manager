@@ -1,11 +1,11 @@
 import React, { useEffect, useMemo } from 'react';
-import { getConfig } from 'backend/config/config';
 import { useRecoilState } from 'recoil';
 import { useNavigate } from 'react-router-dom';
+import { GetFrontendConfig } from '../config/config';
 import BackendUserClient, { AuthResponse } from '../api/users/client';
 import { UserState, UserIsAuthenticated } from '../state/store';
 
-const appConfig = getConfig();
+const frontendConfig = GetFrontendConfig();
 
 interface Props {
   children: React.ReactNode;
@@ -17,8 +17,8 @@ function AuthenticatedPage(props: Props) {
   const [_, setUser] = useRecoilState(UserState);
 
   const userClient = useMemo(
-    () => new BackendUserClient(appConfig.BackendURL),
-    [appConfig.BackendURL],
+    () => new BackendUserClient(frontendConfig.BackendURL),
+    [frontendConfig.BackendURL],
   );
 
   const navigate = useNavigate();

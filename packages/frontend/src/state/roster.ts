@@ -1,16 +1,16 @@
 import { selector } from 'recoil';
 import Roster from 'backend/models/roster/roster';
-import { getConfig } from 'backend/config/config';
 import User from 'backend/models/user/user';
+import { GetFrontendConfig } from '../config/config';
 import BackendRosterClient from '../api/roster/roster';
 
-const appConfig = getConfig();
-const rosterClient = new BackendRosterClient(appConfig.BackendURL);
+const frontendConfig = GetFrontendConfig();
+const rosterClient = new BackendRosterClient(frontendConfig.BackendURL);
 
 export const CurrentRosterState = selector<Roster>({
   key: 'currentRoster',
   get: async () => {
-    const roster = await rosterClient.GetRosterByID(appConfig.ActiveRosterID);
+    const roster = await rosterClient.GetRosterByID(1);
     console.log(roster);
     return roster;
   },
