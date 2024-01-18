@@ -7,10 +7,10 @@ import express, {
 } from 'express';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
+import genFunc from 'connect-pg-simple';
 import logger from 'morgan';
 import createError from 'http-errors';
 import FileSystem from 'fs';
-import path from 'path';
 import Knex from 'knex';
 import { Model } from 'objection';
 import dotenv from 'dotenv';
@@ -70,13 +70,30 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 
-app.use(
-  session({
-    secret: config.JWTSecret,
-    resave: false,
-    saveUninitialized: true,
-  }),
-);
+if (config.Environment === 'production') {
+  const PostgresqlStore = genFunc(session);
+  const sessionStore = new PostgresqlStore({
+    conString: config.PostgresConnectionURL,
+  });
+
+  app.use(
+    session({
+      secret: 'secret',
+      resave: false,
+      saveUninitialized: false,
+      cookie: { secure: true },
+      store: sessionStore,
+    }),
+  );
+} else {
+  app.use(
+    session({
+      secret: config.JWTSecret,
+      resave: false,
+      saveUninitialized: true,
+    }),
+  );
+}
 
 // configure passport
 app.use(passport.initialize());

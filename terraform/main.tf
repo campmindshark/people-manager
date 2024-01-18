@@ -318,3 +318,7 @@ output "frontend_url" {
 output "s3_url" {
   value = module.s3.s3_url
 }
+
+output "db_endpoint" {
+  value = module.rds.db_endpoint
+}
