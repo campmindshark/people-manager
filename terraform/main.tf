@@ -51,6 +51,28 @@ resource "aws_ecs_task_definition" "app_task" {
           "awslogs-stream-prefix": "ecs"
         }
       },
+      "environment": [
+        {
+          "name": "NODE_ENV",
+          "value": "production"
+        },
+        {
+          "name": "BACKEND_URL",
+          "value": "${aws_alb.application_load_balancer.dns_name}"
+        },
+        {
+          "name": "CORS_WHITELIST_CSV",
+          "value": "${module.s3.website_url}"
+        },
+        {
+          "name": "GOOGLE_OAUTH_CALLBACK_URL",
+          "value": "${aws_alb.application_load_balancer.dns_name}/api/auth/google/callback"
+        },
+        {
+          "name": "FRONTEND_URL",
+          "value": "${module.s3.website_url}"
+        },
+      ],
       "secrets": [
         {
           "valueFrom": "${aws_secretsmanager_secret.googleClientID.arn}",
@@ -63,6 +85,10 @@ resource "aws_ecs_task_definition" "app_task" {
         {
           "valueFrom": "${aws_secretsmanager_secret.jwtSecret.arn}",
           "name": "JWT_SECRET"
+        },
+        {
+          "valueFrom": "${aws_secretsmanager_secret.googleClientID.arn}",
+          "name": "POSTGRES_CONNECTION_URL"
         }
       ]
     }
