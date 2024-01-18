@@ -54,5 +54,5 @@ resource "aws_secretsmanager_secret" "postgresConnectionURL" {
 
 resource "aws_secretsmanager_secret_version" "postgresSecretVersion" {
   secret_id     = aws_secretsmanager_secret.postgresConnectionURL.id
-  secret_string = "postgresql://${rds.db_username}:${rds.db_password}@${rds.db_endpoint}"
+  secret_string = "postgresql://${module.rds.db_username}:${module.rds.db_password}@${module.rds.db_endpoint}"
 }
