@@ -20,10 +20,10 @@ resource "aws_security_group" "rds" {
 }
 resource "aws_db_instance" "people_manager_postgres" {
   identifier             = "${var.project_name}-db"
-  instance_class         = "db.t2.micro"
+  instance_class         = "db.t3.micro"
   allocated_storage      = 5
   engine                 = "postgres"
-  engine_version         = "14"
+  engine_version         = "15.4-R3"
   skip_final_snapshot    = true
   publicly_accessible    = true
   vpc_security_group_ids = [aws_security_group.rds.id]
