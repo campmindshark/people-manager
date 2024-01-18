@@ -23,7 +23,7 @@ resource "aws_db_instance" "people_manager_postgres" {
   instance_class         = "db.t3.micro"
   allocated_storage      = 5
   engine                 = "postgres"
-  engine_version         = "15.4-R3"
+  engine_version         = "15.4"
   skip_final_snapshot    = true
   publicly_accessible    = true
   vpc_security_group_ids = [aws_security_group.rds.id]
