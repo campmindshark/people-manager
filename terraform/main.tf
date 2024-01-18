@@ -71,7 +71,7 @@ resource "aws_ecs_task_definition" "app_task" {
         {
           "name": "FRONTEND_URL",
           "value": "${module.s3.website_url}"
-        },
+        }
       ],
       "secrets": [
         {
