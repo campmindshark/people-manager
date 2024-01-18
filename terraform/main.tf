@@ -87,7 +87,7 @@ resource "aws_ecs_task_definition" "app_task" {
           "name": "JWT_SECRET"
         },
         {
-          "valueFrom": "${aws_secretsmanager_secret.googleClientID.arn}",
+          "valueFrom": "${aws_secretsmanager_secret.postgresConnectionURL.arn}",
           "name": "POSTGRES_CONNECTION_URL"
         }
       ]
@@ -151,10 +151,44 @@ resource "aws_iam_policy" "container_access_policy" {
 EOF
 }
 
-resource "aws_iam_policy_attachment" "ecsTaskExecutionRole_access_policy_bind" {
-  name       = "ecsTaskExecutionRole_access_policy_bind"
+resource "aws_iam_policy_attachment" "ecsTaskExecutionRole_rds_policy_bind" {
+  name       = "ecsTaskExecutionRole_rds_policy_bind"
   roles      = [aws_iam_role.ecsTaskExecutionRole.name]
   policy_arn = aws_iam_policy.container_access_policy.arn
+}
+
+resource "aws_iam_policy" "rds_access_policy" {
+  name        = "rds_access_policy"
+  description = "Allow access to RDS"
+  policy      = <<EOF
+{
+   "Version": "2012-10-17",
+   "Statement": [
+      {
+         "Effect": "Allow",
+         "Action": [
+             "rds-db:connect"
+         ],
+         "Resource": [
+             "${rds.arn}"
+         ]
+      }
+   ]
+}
+EOF
+}
+
+resource "aws_iam_policy_attachment" "ecsTaskExecutionRole_rds_policy_bind" {
+  name       = "ecsTaskExecutionRole_rds_policy_bind"
+  roles      = [aws_iam_role.ecsTaskExecutionRole.name]
+  policy_arn = aws_iam_policy.ecsTaskExecutionRole_rds_policy_bind.arn
+}
+
+# Define Postgres RDS
+module "rds" {
+  source = "./rds"
+
+  project_name = var.project_name
 }
 
 
