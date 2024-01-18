@@ -52,7 +52,7 @@ resource "aws_secretsmanager_secret" "postgresConnectionURL" {
   name = "${var.project_name}-postgres-connection-url"
 }
 
-resource "aws_secretsmanager_secret_version" "jwtSecretVersion" {
+resource "aws_secretsmanager_secret_version" "postgresSecretVersion" {
   secret_id     = aws_secretsmanager_secret.postgresConnectionURL.id
   secret_string = "postgresql://${rds.db_username}:${rds.db_password}@${rds.db_endpoint}"
 }
