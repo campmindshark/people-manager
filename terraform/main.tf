@@ -155,6 +155,8 @@ resource "aws_iam_policy_attachment" "ecsTaskExecutionRole_container_access_poli
   name       = "ecsTaskExecutionRole_container_access_policy_bind"
   roles      = [aws_iam_role.ecsTaskExecutionRole.name]
   policy_arn = aws_iam_policy.container_access_policy.arn
+
+  depends_on = [aws_iam_policy.container_access_policy]
 }
 
 resource "aws_iam_policy" "rds_access_policy" {
@@ -182,6 +184,7 @@ resource "aws_iam_policy_attachment" "ecsTaskExecutionRole_rds_policy_bind" {
   name       = "ecsTaskExecutionRole_rds_policy_bind"
   roles      = [aws_iam_role.ecsTaskExecutionRole.name]
   policy_arn = aws_iam_policy.rds_access_policy.arn
+  depends_on = [aws_iam_policy.rds_access_policy]
 }
 
 # Define Postgres RDS
