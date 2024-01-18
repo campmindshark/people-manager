@@ -27,7 +27,7 @@ resource "aws_db_instance" "people_manager_postgres" {
   skip_final_snapshot    = true
   publicly_accessible    = true
   vpc_security_group_ids = [aws_security_group.rds.id]
-  username               = var.project_name
+  username               = "postgres"
   password               = random_password.db_password.result
 }
 output "db_arn" {
