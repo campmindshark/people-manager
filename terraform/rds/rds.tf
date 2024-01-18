@@ -9,7 +9,6 @@ resource "random_password" "db_password" {
   special = false
 }
 resource "aws_security_group" "rds" {
-  vpc_id      = data.aws_vpc.default.id
   name        = "${var.project_name}-rds"
   description = "Allow all inbound for Postgres"
   ingress {

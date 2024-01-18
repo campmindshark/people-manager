@@ -170,7 +170,7 @@ resource "aws_iam_policy" "rds_access_policy" {
              "rds-db:connect"
          ],
          "Resource": [
-             "${module.rds.arn}"
+             "${module.rds.db_arn}"
          ]
       }
    ]
@@ -181,7 +181,7 @@ EOF
 resource "aws_iam_policy_attachment" "ecsTaskExecutionRole_rds_policy_bind" {
   name       = "ecsTaskExecutionRole_rds_policy_bind"
   roles      = [aws_iam_role.ecsTaskExecutionRole.name]
-  policy_arn = aws_iam_policy.ecsTaskExecutionRole_rds_policy_bind.arn
+  policy_arn = aws_iam_policy.rds_access_policy.arn
 }
 
 # Define Postgres RDS
