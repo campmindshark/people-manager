@@ -107,7 +107,7 @@ resource "aws_ecs_task_definition" "db_migration_task" {
   [
     {
       "name": "${var.project_name}-db-migration",
-      "image": "${var.docker_repo}:${var.docker_image_tag}",
+      "image": "${var.docker_repo}:latest-migration",
       "essential": true,
       "memory": 512,
       "cpu": 256,
@@ -119,6 +119,9 @@ resource "aws_ecs_task_definition" "db_migration_task" {
           "awslogs-stream-prefix": "ecs"
         }
       },
+      "command": [
+        "yarn db-migrate"
+      ],
       "environment": [
         {
           "name": "NODE_ENV",

@@ -29,4 +29,4 @@ jobs:
           context: .
           file: ./docker/Dockerfile.migration
           push: true
-          tags: rnavt/people-manager:latest,rnavt/people-manager:${{ github.sha }}
+          tags: rnavt/people-manager:latest-migration,rnavt/people-manager:${{ github.sha }}-migration
