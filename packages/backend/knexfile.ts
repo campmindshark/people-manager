@@ -26,6 +26,7 @@ const config: { [key: string]: Knex.Config } = {
   },
 
   production: {
+    debug: true,
     client: 'postgresql',
     connection: appConfig.PostgresConnectionURL,
     pool: {

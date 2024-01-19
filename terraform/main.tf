@@ -101,6 +101,46 @@ resource "aws_ecs_task_definition" "app_task" {
   execution_role_arn       = aws_iam_role.ecsTaskExecutionRole.arn
 }
 
+resource "aws_ecs_task_definition" "db_migration_task" {
+  family                   = "${var.project_name}-task"
+  container_definitions    = <<DEFINITION
+  [
+    {
+      "name": "${var.project_name}-db-migration",
+      "image": "${var.docker_repo}:${var.docker_image_tag}",
+      "essential": true,
+      "memory": 512,
+      "cpu": 256,
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "${var.project_name}",
+          "awslogs-region": "${var.region}",
+          "awslogs-stream-prefix": "ecs"
+        }
+      },
+      "environment": [
+        {
+          "name": "NODE_ENV",
+          "value": "production"
+        }
+      ],
+      "secrets": [
+        {
+          "valueFrom": "${aws_secretsmanager_secret.postgresConnectionURL.arn}",
+          "name": "POSTGRES_CONNECTION_URL"
+        }
+      ]
+    }
+  ]
+  DEFINITION
+  requires_compatibilities = ["FARGATE"]
+  network_mode             = "awsvpc"
+  memory                   = 512
+  cpu                      = 256
+  execution_role_arn       = aws_iam_role.ecsTaskExecutionRole.arn
+}
+
 # Define CloudWatch Log Group for log collection
 module "log_group" {
   source  = "terraform-aws-modules/cloudwatch/aws//modules/log-group"
@@ -317,8 +357,4 @@ output "frontend_url" {
 # Log the url to the frontend's s3 bucket
 output "s3_url" {
   value = module.s3.s3_url
-}
-
-output "db_endpoint" {
-  value = module.rds.db_endpoint
 }

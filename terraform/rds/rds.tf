@@ -30,6 +30,7 @@ resource "aws_db_instance" "people_manager_postgres" {
   username               = "postgres"
   password               = random_password.db_password.result
 }
+
 output "db_arn" {
   value = aws_db_instance.people_manager_postgres.arn
 }
