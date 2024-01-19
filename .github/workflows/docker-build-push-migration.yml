@@ -1,7 +1,10 @@
-name: Docker Build, and Push the db migration image to Dockerhub
+name: Docker Build, and Push to Dockerhub [migration]
 
+# on:
+#   workflow_dispatch:
 on:
-  workflow_dispatch:
+  pull_request:
+    branches: [main]
 
 jobs:
   push_to_registry:
