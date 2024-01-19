@@ -119,8 +119,11 @@ resource "aws_ecs_task_definition" "db_migration_task" {
           "awslogs-stream-prefix": "ecs"
         }
       },
+      "entryPoint": [
+        "yarn"
+      ],
       "command": [
-        "yarn db-migrate"
+        "db-migrate"
       ],
       "environment": [
         {
@@ -133,7 +136,10 @@ resource "aws_ecs_task_definition" "db_migration_task" {
           "valueFrom": "${aws_secretsmanager_secret.postgresConnectionURL.arn}",
           "name": "POSTGRES_CONNECTION_URL"
         }
-      ]
+      ],
+      "runtimePlatform": {
+        "operatingSystemFamily": "LINUX"
+      }
     }
   ]
   DEFINITION
