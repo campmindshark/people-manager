@@ -102,7 +102,7 @@ resource "aws_ecs_task_definition" "app_task" {
 }
 
 resource "aws_ecs_task_definition" "db_migration_task" {
-  family                   = "${var.project_name}-task"
+  family                   = "${var.project_name}-db-migration-task"
   container_definitions    = <<DEFINITION
   [
     {
