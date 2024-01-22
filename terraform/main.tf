@@ -238,15 +238,13 @@ resource "aws_iam_policy_attachment" "ecsTaskExecutionRole_rds_policy_bind" {
 
 # Define Postgres RDS
 module "rds" {
-  source = "./rds"
-
+  source       = "./rds"
   project_name = var.project_name
 }
 
 
 # Provide a reference to your default VPC
 resource "aws_default_vpc" "default_vpc" {
-
 }
 
 # Provide references to your default subnets
