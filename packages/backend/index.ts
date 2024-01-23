@@ -38,7 +38,7 @@ declare global {
 
 const envFilePath = process.argv[2];
 
-console.log('envFilePath: ', envFilePath);
+console.log(`Starting people-manager backend with env file: ${envFilePath}`);
 
 if (!FileSystem.existsSync(envFilePath)) {
   console.log(`env file not found at ${envFilePath}`);
@@ -70,30 +70,32 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 
-if (config.Environment === 'production') {
-  const PostgresqlStore = genFunc(session);
-  const sessionStore = new PostgresqlStore({
-    conString: config.PostgresConnectionURL,
-  });
+// if (config.Environment === 'production') {
+//   console.log('using postgres session store');
+//   const PostgresqlStore = genFunc(session);
+//   const sessionStore = new PostgresqlStore({
+//     conString: config.PostgresConnectionURL,
+//   });
 
-  app.use(
-    session({
-      secret: 'secret',
-      resave: false,
-      saveUninitialized: false,
-      cookie: { secure: true },
-      store: sessionStore,
-    }),
-  );
-} else {
-  app.use(
-    session({
-      secret: config.JWTSecret,
-      resave: false,
-      saveUninitialized: true,
-    }),
-  );
-}
+//   app.use(
+//     session({
+//       secret: 'secret',
+//       resave: false,
+//       saveUninitialized: false,
+//       cookie: { secure: true },
+//       store: sessionStore,
+//     }),
+//   );
+// } else {
+console.log('using in-memory session store');
+app.use(
+  session({
+    secret: config.JWTSecret,
+    resave: false,
+    saveUninitialized: true,
+  }),
+);
+// }
 
 // configure passport
 app.use(passport.initialize());
