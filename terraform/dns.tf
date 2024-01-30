@@ -1,8 +1,11 @@
 resource "aws_alb_listener" "https" {
+  for_each = aws_acm_certificate_validation.cert
+
   load_balancer_arn = aws_alb.application_load_balancer.id
   port              = var.https_port
   protocol          = "HTTPS"
-  certificate_arn   = aws_acm_certificate_validation.cert.certificate_arn
+
+  certificate_arn = each.value.certificate_arn
 
   default_action {
     type             = "forward"
