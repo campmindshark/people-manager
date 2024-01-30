@@ -1,8 +1,3 @@
-# The port to listen on for HTTPS, always use 443
-variable "https_port" {
-  default = "443"
-}
-
 resource "aws_alb_listener" "https" {
   load_balancer_arn = aws_alb.application_load_balancer.id
   port              = var.https_port
@@ -23,11 +18,6 @@ resource "aws_security_group_rule" "ingress_lb_https" {
   protocol          = "tcp"
   cidr_blocks       = ["0.0.0.0/0"]
   security_group_id = aws_security_group.load_balancer_security_group.id
-}
-
-variable "domain" {
-  type    = string
-  default = var.domain
 }
 
 data "aws_route53_zone" "app" {
