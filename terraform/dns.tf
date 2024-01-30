@@ -9,7 +9,7 @@ resource "aws_alb_listener" "https" {
 
   default_action {
     type             = "forward"
-    target_group_arn = aws_alb_target_group.application_load_balancer.id
+    target_group_arn = aws_alb_target_group.target_group.id
   }
 }
 
