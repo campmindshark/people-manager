@@ -29,5 +29,5 @@ variable "docker_image_tag" {
 
 variable "domain" {
   type    = string
-  default = "campmindshark.com"
+  default = "mindsharkportal.com"
 }
