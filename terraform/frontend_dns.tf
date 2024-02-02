@@ -8,7 +8,7 @@ resource "aws_route53_record" "frontend" {
   name    = var.domain
 
   alias {
-    name                   = module.s3.website_url
+    name                   = module.s3.cloudfront_domain
     zone_id                = module.s3.hosted_zone_id
     evaluate_target_health = false
   }

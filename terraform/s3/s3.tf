@@ -104,9 +104,9 @@ resource "aws_cloudfront_distribution" "distribution" {
   }
 }
 
-output "website_url" {
+output "cloudfront_domain" {
   description = "Website URL (HTTPS)"
-  value       = var.domain_name
+  value       = aws_cloudfront_distribution.distribution.domain_name
 }
 
 output "s3_url" {
