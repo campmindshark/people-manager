@@ -5,7 +5,7 @@ output "backend_url" {
 
 # Log the url to the frontend
 output "frontend_url" {
-  value = module.s3.website_url
+  value = module.s3.cloudfront_domain
 }
 
 # Log the url to the frontend's s3 bucket
