@@ -63,10 +63,10 @@ resource "aws_route53_record" "cert_validation" {
   ttl     = 60
 }
 
-resource "aws_acm_certificate_validation" "cert" {
-  for_each                = aws_route53_record.cert_validation
-  certificate_arn         = aws_acm_certificate.cert.arn
-  validation_record_fqdns = [each.value.fqdn]
+# resource "aws_acm_certificate_validation" "cert" {
+#   for_each                = aws_route53_record.cert_validation
+#   certificate_arn         = aws_acm_certificate.cert.arn
+#   validation_record_fqdns = [each.value.fqdn]
 
-  depends_on = [aws_route53_record.cert_validation]
-}
+#   depends_on = [aws_route53_record.cert_validation]
+# }
