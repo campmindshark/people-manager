@@ -39,10 +39,6 @@ resource "aws_ecs_task_definition" "app_task" {
         {
           "containerPort": ${var.port_number},
           "hostPort": ${var.port_number}
-        },
-        {
-          "containerPort": ${var.port_number},
-          "hostPort": ${var.https_port}
         }
       ],
       "memory": 512,
