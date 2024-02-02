@@ -21,6 +21,8 @@ module "s3" {
   project_name    = var.project_name
   domain_name     = local.frontend_subdomain
   certificate_arn = aws_acm_certificate.frontend.arn
+
+  depends_on = [aws_acm_certificate.frontend]
 }
 
 # Define ECS Cluster
