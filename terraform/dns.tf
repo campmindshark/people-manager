@@ -1,17 +1,17 @@
-# resource "aws_alb_listener" "https" {
-#   for_each = aws_acm_certificate_validation.cert
+resource "aws_alb_listener" "https" {
+  for_each = aws_acm_certificate_validation.cert
 
-#   load_balancer_arn = aws_alb.application_load_balancer.id
-#   port              = var.https_port
-#   protocol          = "HTTPS"
+  load_balancer_arn = aws_alb.application_load_balancer.id
+  port              = var.https_port
+  protocol          = "HTTPS"
 
-#   certificate_arn = each.value.certificate_arn
+  certificate_arn = each.value.certificate_arn
 
-#   default_action {
-#     type             = "forward"
-#     target_group_arn = aws_lb_target_group.target_group.id
-#   }
-# }
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.target_group.id
+  }
+}
 
 resource "aws_security_group_rule" "ingress_lb_https" {
   type              = "ingress"
@@ -63,10 +63,10 @@ resource "aws_route53_record" "cert_validation" {
   ttl     = 60
 }
 
-# resource "aws_acm_certificate_validation" "cert" {
-#   for_each                = aws_route53_record.cert_validation
-#   certificate_arn         = aws_acm_certificate.cert.arn
-#   validation_record_fqdns = [each.value.fqdn]
+resource "aws_acm_certificate_validation" "cert" {
+  for_each                = aws_route53_record.cert_validation
+  certificate_arn         = aws_acm_certificate.cert.arn
+  validation_record_fqdns = [each.value.fqdn]
 
-#   depends_on = [aws_route53_record.cert_validation]
-# }
+  depends_on = [aws_route53_record.cert_validation]
+}
