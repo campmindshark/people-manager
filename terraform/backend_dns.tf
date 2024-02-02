@@ -1,11 +1,11 @@
 locals {
-  backend_subdomain = "people-manager.${var.domain}"
+  backend_domain = "people-manager.${var.domain}"
 }
 
 resource "aws_route53_record" "backend" {
   zone_id = data.aws_route53_zone.app.zone_id
   type    = "CNAME"
-  name    = local.backend_subdomain
+  name    = local.backend_domain
   records = [aws_alb.application_load_balancer.dns_name]
   ttl     = "30"
 }
@@ -27,7 +27,7 @@ resource "aws_route53_record" "backend_cert_validation" {
 
 
 resource "aws_acm_certificate" "backend" {
-  domain_name       = local.backend_subdomain
+  domain_name       = local.backend_domain
   validation_method = "DNS"
 
   lifecycle {

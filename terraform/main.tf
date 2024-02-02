@@ -2,7 +2,7 @@ module "s3" {
   source = "./s3"
 
   project_name    = var.project_name
-  domain_name     = local.frontend_subdomain
+  domain_name     = local.frontend_domain
   certificate_arn = aws_acm_certificate.frontend.arn
 }
 
@@ -43,19 +43,19 @@ resource "aws_ecs_task_definition" "app_task" {
         },
         {
           "name": "BACKEND_URL",
-          "value": "http://${aws_alb.application_load_balancer.dns_name}"
+          "value": "https://people-manager.${var.domain}"
         },
         {
           "name": "CORS_WHITELIST_CSV",
-          "value": "http://${module.s3.website_url},http://${aws_alb.application_load_balancer.dns_name}"
+          "value": "https://${var.domain},https://people-manager.${var.domain}"
         },
         {
           "name": "GOOGLE_OAUTH_CALLBACK_URL",
-          "value": "http://${aws_alb.application_load_balancer.dns_name}/api/auth/google/callback"
+          "value": "https://people-manager.${var.domain}/api/auth/google/callback"
         },
         {
           "name": "FRONTEND_URL",
-          "value": "http://${module.s3.website_url}"
+          "value": "https://${var.domain}"
         }
       ],
       "secrets": [
