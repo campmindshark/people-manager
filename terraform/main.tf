@@ -18,7 +18,9 @@ provider "aws" {
 module "s3" {
   source = "./s3"
 
-  project_name = var.project_name
+  project_name    = var.project_name
+  domain_name     = local.frontend_subdomain
+  certificate_arn = aws_acm_certificate.frontend.arn
 }
 
 # Define ECS Cluster

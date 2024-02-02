@@ -4,6 +4,17 @@ variable "project_name" {
   default = "people-manager"
 }
 
+variable "domain_name" {
+  type    = string
+  default = "www.mindsharkportal.com"
+}
+
+variable "certificate_arn" {
+  type    = string
+  default = "arn:aws:acm:us-west-2:123456789012:certificate/12345678-1234-1234-1234-123456789012"
+
+}
+
 resource "aws_s3_bucket" "bucket" {
   bucket = "${var.project_name}-bucket-1"
 }
@@ -55,7 +66,7 @@ resource "aws_cloudfront_distribution" "distribution" {
 
   origin {
     domain_name = aws_s3_bucket_website_configuration.hosting.website_endpoint
-    origin_id   = aws_s3_bucket.bucket.bucket_regional_domain_name
+    origin_id   = var.domain_name
 
     custom_origin_config {
       http_port                = 80
@@ -70,7 +81,8 @@ resource "aws_cloudfront_distribution" "distribution" {
   }
 
   viewer_certificate {
-    cloudfront_default_certificate = true
+    acm_certificate_arn = var.certificate_arn
+    ssl_support_method  = "sni-only"
   }
 
   restrictions {
@@ -84,9 +96,9 @@ resource "aws_cloudfront_distribution" "distribution" {
     cache_policy_id        = "658327ea-f89d-4fab-a63d-7e88639e58f6"
     viewer_protocol_policy = "redirect-to-https"
     compress               = true
-    allowed_methods        = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
+    allowed_methods        = ["GET", "HEAD"]
     cached_methods         = ["GET", "HEAD"]
-    target_origin_id       = aws_s3_bucket.bucket.bucket_regional_domain_name
+    target_origin_id       = var.domain_name
   }
 }
 
