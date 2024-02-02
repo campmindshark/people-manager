@@ -27,6 +27,8 @@ resource "aws_route53_record" "frontend_cert_validation" {
 
 
 resource "aws_acm_certificate" "frontend" {
+  provider = aws.us-east-1
+
   domain_name       = local.frontend_subdomain
   validation_method = "DNS"
 
