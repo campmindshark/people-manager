@@ -1,13 +1,17 @@
 locals {
-  frontend_subdomain = "www.${var.domain}"
+  frontend_subdomain = var.domain
 }
 
 resource "aws_route53_record" "frontend" {
   zone_id = data.aws_route53_zone.app.zone_id
-  type    = "CNAME"
-  name    = local.frontend_subdomain
-  records = [module.s3.website_url]
-  ttl     = "30"
+  type    = "A"
+  name    = var.domain
+
+  alias {
+    name                   = module.s3.website_url
+    zone_id                = module.s3.hosted_zone_id
+    evaluate_target_health = false
+  }
 }
 
 resource "aws_route53_record" "frontend_cert_validation" {
