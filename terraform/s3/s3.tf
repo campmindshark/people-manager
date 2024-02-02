@@ -64,6 +64,8 @@ resource "aws_cloudfront_distribution" "distribution" {
   enabled         = true
   is_ipv6_enabled = true
 
+  aliases = [var.domain_name]
+
   origin {
     domain_name = aws_s3_bucket_website_configuration.hosting.website_endpoint
     origin_id   = var.domain_name
