@@ -38,6 +38,8 @@ resource "aws_acm_certificate" "frontend" {
 }
 
 resource "aws_acm_certificate_validation" "frontend" {
+  provider = aws.us-east-1
+
   for_each                = aws_route53_record.frontend_cert_validation
   certificate_arn         = aws_acm_certificate.frontend.arn
   validation_record_fqdns = [each.value.fqdn]
