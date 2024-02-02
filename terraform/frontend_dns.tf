@@ -1,10 +1,10 @@
 locals {
-  frontend_subdomain = var.domain
+  frontend_subdomain = "www.${var.domain}"
 }
 
 resource "aws_route53_record" "frontend" {
   zone_id = data.aws_route53_zone.app.zone_id
-  type    = "CNAME"
+  type    = "A"
   name    = local.frontend_subdomain
   records = [module.s3.website_url]
   ttl     = "30"
