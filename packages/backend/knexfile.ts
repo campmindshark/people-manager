@@ -1,6 +1,6 @@
 import type { Knex } from 'knex';
-import { getConfig } from './config/config';
 import { readFileSync } from 'fs';
+import { getConfig } from './config/config';
 
 // Update with your config settings.
 const appConfig = getConfig();
