@@ -36,6 +36,7 @@ const config: { [key: string]: Knex.Config } = {
           '/usr/local/certs/ca-certificates/rds-ca-2015-root.pem',
         ).toString(),
         maxVersion: 'TLSv1.2',
+        rejectUnauthorized: false,
       },
     },
     pool: {
