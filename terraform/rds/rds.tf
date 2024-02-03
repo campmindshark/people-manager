@@ -16,7 +16,7 @@ data "aws_rds_certificate" "cert" {
 resource "aws_db_subnet_group" "rds_subnet_group" {
   name        = "${var.project_name}-rds-subnet-group"
   description = "RDS subnet group"
-  subnet_ids  = ["${var.subnet_ids}"]
+  subnet_ids  = var.subnet_ids
 }
 
 resource "random_password" "db_password" {
