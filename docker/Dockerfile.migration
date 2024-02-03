@@ -3,9 +3,12 @@ FROM node:20-alpine as builder
 # Create app directory
 WORKDIR /usr/src/app
 
+RUN apk update && apk add bash curl
+
+RUN mkdir -p /usr/local/certs/ca-certificates
+RUN curl -ks 'https://s3.amazonaws.com/rds-downloads/rds-ca-2015-root.pem' -o '/usr/local/certs/ca-certificates/rds-ca-2015-root.pem'
+
 # Install app dependencies
 COPY . .
 
 RUN yarn install
-
-RUN curl -ks 'https://s3.amazonaws.com/rds-downloads/rds-ca-2015-root.pem' -o '/usr/local/certs/ca-certificates/rds-ca-2015-root.pem'
