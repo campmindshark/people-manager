@@ -23,7 +23,7 @@ resource "aws_secretsmanager_secret" "googleClientSecret" {
 
 resource "aws_secretsmanager_secret_version" "googleClientSecretVersion" {
   secret_id     = aws_secretsmanager_secret.googleClientSecret.id
-  secret_string = var.GOOGLE_OAUTH_CLIENT_ID
+  secret_string = var.GOOGLE_OAUTH_CLIENT_SECRET
 }
 
 # Create and set JWT secret
