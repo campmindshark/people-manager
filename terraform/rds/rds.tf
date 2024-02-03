@@ -3,6 +3,10 @@ variable "project_name" {
   default = "people-manager"
 }
 
+data "aws_rds_certificate" "cert" {
+  latest_valid_till = true
+}
+
 resource "random_password" "db_password" {
   length  = 32
   upper   = true
@@ -29,6 +33,7 @@ resource "aws_db_instance" "people_manager_postgres" {
   vpc_security_group_ids = [aws_security_group.rds.id]
   username               = "postgres"
   password               = random_password.db_password.result
+  ca_cert_identifier     = data.aws_rds_certificate.cert.id
 }
 
 output "db_arn" {
