@@ -27,6 +27,11 @@ variable "docker_image_tag" {
   default = "latest"
 }
 
+variable "migration_docker_image_tag" {
+  type    = string
+  default = "latest-migration"
+}
+
 variable "domain" {
   type    = string
   default = "mindsharkportal.com"

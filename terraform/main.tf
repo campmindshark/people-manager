@@ -92,7 +92,7 @@ resource "aws_ecs_task_definition" "db_migration_task" {
   [
     {
       "name": "${var.project_name}-db-migration",
-      "image": "${var.docker_repo}:latest-migration",
+      "image": "${var.docker_repo}:${var.migration_docker_image_tag}",
       "essential": true,
       "memory": 512,
       "cpu": 256,
