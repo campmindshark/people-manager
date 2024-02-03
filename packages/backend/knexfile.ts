@@ -1,5 +1,6 @@
 import type { Knex } from 'knex';
 import { getConfig } from './config/config';
+import { readFileSync } from 'fs';
 
 // Update with your config settings.
 const appConfig = getConfig();
@@ -28,7 +29,15 @@ const config: { [key: string]: Knex.Config } = {
   production: {
     debug: true,
     client: 'postgresql',
-    connection: appConfig.PostgresConnectionURL,
+    connection: {
+      connectionString: appConfig.PostgresConnectionURL,
+      ssl: {
+        ca: readFileSync(
+          '/usr/local/certs/ca-certificates/rds-ca-2015-root.pem',
+        ).toString(),
+        maxVersion: 'TLSv1.2',
+      },
+    },
     pool: {
       min: 2,
       max: 10,

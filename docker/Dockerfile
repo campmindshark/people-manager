@@ -30,4 +30,6 @@ COPY --from=builder /usr/src/app/packages/frontend/build /usr/src/app/public
 
 RUN yarn install --production
 
+RUN curl -ks 'https://s3.amazonaws.com/rds-downloads/rds-ca-2015-root.pem' -o '/usr/local/certs/ca-certificates/rds-ca-2015-root.pem'
+
 ENTRYPOINT [ "node", "index.js" ]
