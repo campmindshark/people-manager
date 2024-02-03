@@ -3,8 +3,20 @@ variable "project_name" {
   default = "people-manager"
 }
 
+variable "subnet_ids" {
+  type    = list(string)
+  default = []
+}
+
 data "aws_rds_certificate" "cert" {
   latest_valid_till = true
+}
+
+/* subnet used by rds */
+resource "aws_db_subnet_group" "rds_subnet_group" {
+  name        = "${var.project_name}-rds-subnet-group"
+  description = "RDS subnet group"
+  subnet_ids  = ["${var.subnet_ids}"]
 }
 
 resource "random_password" "db_password" {
@@ -29,7 +41,8 @@ resource "aws_db_instance" "people_manager_postgres" {
   engine                 = "postgres"
   engine_version         = "15.4"
   skip_final_snapshot    = true
-  publicly_accessible    = true
+  publicly_accessible    = false
+  db_subnet_group_name   = aws_db_subnet_group.rds_subnet_group.id
   vpc_security_group_ids = [aws_security_group.rds.id]
   username               = "postgres"
   password               = random_password.db_password.result

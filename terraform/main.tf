@@ -225,6 +225,7 @@ resource "aws_iam_policy_attachment" "ecsTaskExecutionRole_rds_policy_bind" {
 module "rds" {
   source       = "./rds"
   project_name = var.project_name
+  subnet_ids   = [aws_default_subnet.default_subnet_a.id, aws_default_subnet.default_subnet_b.id]
 }
 
 resource "aws_ecs_service" "app_service" {
