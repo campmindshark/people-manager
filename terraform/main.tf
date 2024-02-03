@@ -47,7 +47,7 @@ resource "aws_ecs_task_definition" "app_task" {
         },
         {
           "name": "CORS_WHITELIST_CSV",
-          "value": "https://${var.domain},https://people-manager.${var.domain}"
+          "value": "https://${var.domain}"
         },
         {
           "name": "GOOGLE_OAUTH_CALLBACK_URL",

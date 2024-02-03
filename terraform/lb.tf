@@ -33,6 +33,14 @@ resource "aws_security_group" "load_balancer_security_group" {
     cidr_blocks = ["0.0.0.0/0"] # Allowing traffic in from all sources
   }
 
+  ingress {
+    description = "HTTPS"
+    from_port   = var.https_port
+    to_port     = var.port_number
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
   egress {
     from_port   = 0
     to_port     = 0
