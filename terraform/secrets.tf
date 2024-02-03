@@ -2,7 +2,6 @@
 variable "GOOGLE_OAUTH_CLIENT_ID" {
   description = "Google Oauth Client ID"
   type        = string
-  sensitive   = true
 }
 
 variable "GOOGLE_OAUTH_CLIENT_SECRET" {
@@ -15,16 +14,6 @@ variable "JWT_SECRET" {
   description = "Secret random string for JWT signing"
   type        = string
   sensitive   = true
-}
-
-# Create and set Google Oauth client ID
-resource "aws_secretsmanager_secret" "googleClientID" {
-  name = "${var.project_name}-google-client-id"
-}
-
-resource "aws_secretsmanager_secret_version" "googleClientIDVersion" {
-  secret_id     = aws_secretsmanager_secret.googleClientID.id
-  secret_string = var.GOOGLE_OAUTH_CLIENT_ID
 }
 
 # Create and set Google Client Secret

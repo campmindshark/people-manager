@@ -56,13 +56,13 @@ resource "aws_ecs_task_definition" "app_task" {
         {
           "name": "FRONTEND_URL",
           "value": "https://${var.domain}"
+        },
+        {
+          "name": "GOOGLE_OAUTH_CLIENT_ID",
+          "value": "${var.GOOGLE_OAUTH_CLIENT_ID}"
         }
       ],
       "secrets": [
-        {
-          "valueFrom": "${aws_secretsmanager_secret.googleClientID.arn}",
-          "name": "GOOGLE_OAUTH_CLIENT_ID"
-        },
         {
           "valueFrom": "${aws_secretsmanager_secret.googleClientSecret.arn}",
           "name": "GOOGLE_OAUTH_CLIENT_SECRET"
