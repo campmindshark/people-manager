@@ -57,15 +57,16 @@ Model.knex(knex);
 
 const app: Application = express();
 
-console.log('CORS Whitelist:', config.CORSWhitelist);
-app.use(
-  cors({
-    origin: config.CORSWhitelist,
-    methods: 'GET,POST,PUT,DELETE,OPTIONS',
-    credentials: true,
-    optionsSuccessStatus: 200,
-  }),
-);
+// console.log('CORS Whitelist:', config.CORSWhitelist);
+// app.use(
+//   cors({
+//     origin: config.CORSWhitelist,
+//     methods: 'GET,POST,PUT,DELETE,OPTIONS',
+//     credentials: true,
+//     optionsSuccessStatus: 200,
+//   }),
+// );
+app.use(cors());
 
 app.use(logger('dev'));
 app.use(express.json());
