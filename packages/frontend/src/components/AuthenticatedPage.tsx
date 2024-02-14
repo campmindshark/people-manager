@@ -29,6 +29,7 @@ function AuthenticatedPage(props: Props) {
       try {
         const response: AuthResponse = await userClient.GetAuthenticatedUser();
         if (response.success === true) {
+          console.log('auth success');
           setUser(response.user);
           if (isAuthenticated === false) {
             setIsAuthenticated(true);
@@ -38,7 +39,7 @@ function AuthenticatedPage(props: Props) {
           navigate('/login');
         }
       } catch (err) {
-        console.log(err);
+        console.log('auth error', err);
         navigate('/login');
       }
     };
