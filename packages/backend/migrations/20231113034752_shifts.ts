@@ -5,7 +5,7 @@ export async function up(knex: Knex): Promise<void> {
     table.increments('id').primary();
     table.integer('scheduleID');
     table.foreign('scheduleID').references('id').inTable('schedules');
-    table.dateTime('startTime');
+    table.dateTime('startTime', { useTz: false }); // always store in UTC
     table.dateTime('endTime');
     table.integer('requiredParticipants');
   });
