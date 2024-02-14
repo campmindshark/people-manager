@@ -29,7 +29,7 @@ resource "aws_db_instance" "people_manager_postgres" {
   engine                 = "postgres"
   engine_version         = "15.5"
   skip_final_snapshot    = true
-  publicly_accessible    = false
+  publicly_accessible    = true
   vpc_security_group_ids = [aws_security_group.rds.id]
   username               = "postgres"
   password               = random_password.db_password.result
