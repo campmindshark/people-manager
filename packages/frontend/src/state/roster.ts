@@ -10,7 +10,7 @@ const rosterClient = new BackendRosterClient(frontendConfig.BackendURL);
 export const CurrentRosterState = selector<Roster>({
   key: 'currentRoster',
   get: async () => {
-    const roster = await rosterClient.GetRosterByID(0);
+    const roster = await rosterClient.GetRosterByID(1);
     console.log(roster);
     return roster;
   },
