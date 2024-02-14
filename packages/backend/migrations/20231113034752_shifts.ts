@@ -5,8 +5,8 @@ export async function up(knex: Knex): Promise<void> {
     table.increments('id').primary();
     table.integer('scheduleID');
     table.foreign('scheduleID').references('id').inTable('schedules');
-    table.date('startTime');
-    table.date('endTime');
+    table.dateTime('startTime');
+    table.dateTime('endTime');
     table.integer('requiredParticipants');
   });
 }
