@@ -135,7 +135,7 @@ resource "aws_ecs_task_definition" "db_migration_task" {
   execution_role_arn       = aws_iam_role.ecsTaskExecutionRole.arn
 }
 
-resource "aws_ecs_task_definition" "db_migration_task" {
+resource "aws_ecs_task_definition" "db_seed_task" {
   family                   = "${var.project_name}-db-seed-task"
   container_definitions    = <<DEFINITION
   [
