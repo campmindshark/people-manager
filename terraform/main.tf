@@ -135,6 +135,55 @@ resource "aws_ecs_task_definition" "db_migration_task" {
   execution_role_arn       = aws_iam_role.ecsTaskExecutionRole.arn
 }
 
+resource "aws_ecs_task_definition" "db_migration_task" {
+  family                   = "${var.project_name}-db-seed-task"
+  container_definitions    = <<DEFINITION
+  [
+    {
+      "name": "${var.project_name}-db-seed",
+      "image": "${var.docker_repo}:${var.migration_docker_image_tag}",
+      "essential": true,
+      "memory": 512,
+      "cpu": 256,
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "${var.project_name}",
+          "awslogs-region": "${var.region}",
+          "awslogs-stream-prefix": "ecs"
+        }
+      },
+      "entryPoint": [
+        "yarn"
+      ],
+      "command": [
+        "db-seed"
+      ],
+      "environment": [
+        {
+          "name": "NODE_ENV",
+          "value": "production"
+        }
+      ],
+      "secrets": [
+        {
+          "valueFrom": "${aws_secretsmanager_secret.postgresConnectionURL.arn}",
+          "name": "POSTGRES_CONNECTION_URL"
+        }
+      ],
+      "runtimePlatform": {
+        "operatingSystemFamily": "LINUX"
+      }
+    }
+  ]
+  DEFINITION
+  requires_compatibilities = ["FARGATE"]
+  network_mode             = "awsvpc"
+  memory                   = 512
+  cpu                      = 256
+  execution_role_arn       = aws_iam_role.ecsTaskExecutionRole.arn
+}
+
 # Define CloudWatch Log Group for log collection
 module "log_group" {
   source  = "terraform-aws-modules/cloudwatch/aws//modules/log-group"
