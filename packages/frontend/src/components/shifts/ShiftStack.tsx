@@ -41,6 +41,7 @@ export default function ShiftStack(props: Props) {
         schedule.id,
       );
       setShifts(loadedShifts);
+      console.log(loadedShifts);
     };
     fetchShifts().catch(console.error);
   }, [schedule]);
