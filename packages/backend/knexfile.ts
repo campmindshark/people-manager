@@ -30,7 +30,6 @@ const config: { [key: string]: Knex.Config } = {
     debug: true,
     client: 'postgresql',
     connection: {
-      database: 'people-manager',
       connectionString: appConfig.PostgresConnectionURL,
       ssl: {
         ca: readFileSync(

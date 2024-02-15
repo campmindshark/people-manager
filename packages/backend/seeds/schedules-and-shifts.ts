@@ -16,8 +16,10 @@ const generateShiftsAtIntervalOverRange = (
     shifts.push({
       id: currentStartID,
       scheduleID: targetScheduleID,
-      startTime: currTime,
-      endTime: new Date(currTime.getTime() + intervalMins * 60000),
+      startTime: currTime.toUTCString(),
+      endTime: new Date(
+        currTime.getTime() + intervalMins * 60000,
+      ).toUTCString(),
       requiredParticipants: 2,
     });
     currTime = new Date(currTime.getTime() + intervalMins * 60000);
@@ -42,8 +44,8 @@ export async function seed(knex: Knex): Promise<void> {
   // Add 90 minute shifts for all hours.
   const wenchShifts = generateShiftsAtIntervalOverRange(
     90,
-    new Date('August 24, 2024 16:00'),
-    new Date('August 29, 2024 18:00'),
+    new Date('August 24, 2024 16:00 -08:00'),
+    new Date('August 29, 2024 18:00 -08:00'),
     1,
     1,
   );
@@ -54,43 +56,43 @@ export async function seed(knex: Knex): Promise<void> {
     {
       id: wenchShifts.length + 1,
       scheduleID: 2,
-      startTime: new Date('August 24, 2024 10:00'),
-      endTime: new Date('August 24, 2024 11:00'),
+      startTime: new Date('August 24, 2024 10:00 -08:00').toUTCString(),
+      endTime: new Date('August 24, 2024 11:00 -08:00').toUTCString(),
       requiredParticipants: 2,
     },
     {
       id: wenchShifts.length + 2,
       scheduleID: 2,
-      startTime: new Date('August 24, 2024 18:00'),
-      endTime: new Date('August 24, 2024 19:00'),
+      startTime: new Date('August 24, 2024 18:00 -08:00').toUTCString(),
+      endTime: new Date('August 24, 2024 19:00 -08:00').toUTCString(),
       requiredParticipants: 2,
     },
     {
       id: wenchShifts.length + 3,
       scheduleID: 2,
-      startTime: new Date('August 25, 2024 10:00'),
-      endTime: new Date('August 25, 2024 11:00'),
+      startTime: new Date('August 25, 2024 10:00 -08:00').toUTCString(),
+      endTime: new Date('August 25, 2024 11:00 -08:00').toUTCString(),
       requiredParticipants: 2,
     },
     {
       id: wenchShifts.length + 4,
       scheduleID: 2,
-      startTime: new Date('August 25, 2024 18:00'),
-      endTime: new Date('August 25, 2024 19:00'),
+      startTime: new Date('August 25, 2024 18:00 -08:00').toUTCString(),
+      endTime: new Date('August 25, 2024 19:00').toUTCString(),
       requiredParticipants: 2,
     },
     {
       id: wenchShifts.length + 5,
       scheduleID: 2,
-      startTime: new Date('August 26, 2024 10:00'),
-      endTime: new Date('August 26, 2024 11:00'),
+      startTime: new Date('August 26, 2024 10:00 -08:00').toUTCString(),
+      endTime: new Date('August 26, 2024 11:00 -08:00').toUTCString(),
       requiredParticipants: 2,
     },
     {
       id: wenchShifts.length + 6,
       scheduleID: 2,
-      startTime: new Date('August 26, 2024 18:00'),
-      endTime: new Date('August 26, 2024 19:00'),
+      startTime: new Date('August 26, 2024 18:00').toUTCString(),
+      endTime: new Date('August 26, 2024 19:00').toUTCString(),
       requiredParticipants: 2,
     },
   ]);
