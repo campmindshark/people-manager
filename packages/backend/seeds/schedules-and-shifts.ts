@@ -1,6 +1,5 @@
 /* eslint-disable import/prefer-default-export */
 import { Knex } from 'knex';
-import Shift from '../models/shift/shift';
 
 const generateShiftsAtIntervalOverRange = (
   intervalMins: number,
