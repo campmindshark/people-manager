@@ -141,11 +141,15 @@ export default function ShiftDetailDialog(props: Props) {
         </Typography>
         <Typography variant="body1">
           <strong>Start:</strong>{' '}
-          {BurningManDateFormatter.format(shiftViewModel.shift.startTime)}
+          {BurningManDateFormatter.format(
+            new Date(shiftViewModel.shift.startTime),
+          )}
         </Typography>
         <Typography variant="body1">
           <strong>End:</strong>{' '}
-          {BurningManDateFormatter.format(shiftViewModel.shift.endTime)}
+          {BurningManDateFormatter.format(
+            new Date(shiftViewModel.shift.endTime),
+          )}
         </Typography>
         <br />
         <Typography variant="h6" sx={{ fontWeight: 'bold' }}>

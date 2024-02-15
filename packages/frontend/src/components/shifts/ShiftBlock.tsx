@@ -140,10 +140,14 @@ function ShiftBlock(props: RootProps) {
     if (!shiftViewModel) {
       return '';
     }
-
-    return `${shiftViewModel.scheduleName} -- ${TimeOfDayFormatter.format(
-      shiftViewModel.shift.startTime,
-    )} to ${TimeOfDayFormatter.format(shiftViewModel.shift.endTime)}`;
+    if (shiftViewModel.shift.startTime && shiftViewModel.shift.endTime) {
+      return `${shiftViewModel.scheduleName} -- ${TimeOfDayFormatter.format(
+        new Date(shiftViewModel.shift.startTime),
+      )} to ${TimeOfDayFormatter.format(
+        new Date(shiftViewModel.shift.endTime),
+      )}`;
+    }
+    return 'unknown time frame';
   }, [shiftViewModel]);
 
   return (

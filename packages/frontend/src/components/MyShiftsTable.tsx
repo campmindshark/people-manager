@@ -39,10 +39,14 @@ function MyShiftsTable() {
                   {shift.scheduleName}
                 </TableCell>
                 <TableCell component="th" scope="row">
-                  {BurningManDateFormatter.format(shift.shift.startTime)}
+                  {BurningManDateFormatter.format(
+                    new Date(shift.shift.startTime),
+                  )}
                 </TableCell>
                 <TableCell component="th" scope="row">
-                  {BurningManDateFormatter.format(shift.shift.endTime)}
+                  {BurningManDateFormatter.format(
+                    new Date(shift.shift.endTime),
+                  )}
                 </TableCell>
                 <TableCell component="th" scope="row">
                   {shift.participants

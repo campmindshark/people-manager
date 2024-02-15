@@ -1,6 +1,8 @@
 import express, { Request, Response, NextFunction, Router } from 'express';
 import Roster from '../models/roster/roster';
 import hasPermission from '../middleware/rbac';
+import User from '../models/user/user';
+import RosterController from '../controllers/roster';
 
 const router: Router = express.Router();
 
@@ -25,6 +27,36 @@ router.get(
 
     const roster = await query;
     res.json(roster);
+  },
+);
+
+router.get(
+  '/:id/signup',
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async (req: Request, res: Response, next: NextFunction) => {
+    const { id } = req.params;
+
+    if (!req.user) {
+      res.json({ error: 'User not found' });
+      return;
+    }
+
+    const user = req.user as User;
+
+    console.log(
+      `Signing up user ${user.id} - ${user.displayName()} for roster ${id}`,
+    );
+
+    const success = await RosterController.RegisterParticipantForRoster(
+      parseInt(id, 10),
+      user.id,
+    );
+
+    if (!success) {
+      res.status(500).json({ error: 'Failed to register user for roster' });
+      return;
+    }
+    res.json({ success: true });
   },
 );
 
