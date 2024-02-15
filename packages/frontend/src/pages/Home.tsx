@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useCallback, useEffect, useMemo } from 'react';
 import {
   Alert,
   AlertTitle,
@@ -14,9 +14,13 @@ import PageState, {
   UserState,
   UserIsSignedUpForCurrentRoster,
 } from '../state/store';
+import { GetFrontendConfig } from '../config/config';
 import MyShiftsTable from '../components/MyShiftsTable';
 import RosterTable from '../components/RosterTable';
 import { CurrentRosterState } from '../state/roster';
+import BackendRosterClient from '../api/roster/roster';
+
+const frontendConfig = GetFrontendConfig();
 
 function Home() {
   const setPageState = useSetRecoilState(PageState);
@@ -25,6 +29,15 @@ function Home() {
   const appUserIsSignedUpForCurrentBurn = useRecoilValue(
     UserIsSignedUpForCurrentRoster,
   );
+
+  const rosterClient = useMemo(
+    () => new BackendRosterClient(frontendConfig.BackendURL),
+    [],
+  );
+
+  const signUserUp = useCallback(() => {
+    console.log('signupUser');
+  }, []);
 
   useEffect(() => {
     document.title = 'MindShark Portal - Home';
@@ -46,7 +59,7 @@ function Home() {
             out on the {currentRoster.year} burn.
           </Typography>
           <br />
-          <Button variant="contained" color="error">
+          <Button variant="contained" color="error" onClick={signUserUp}>
             Click here to sign up for Burning Man {currentRoster.year}!
           </Button>
         </Alert>

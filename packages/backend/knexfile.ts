@@ -32,9 +32,9 @@ const config: { [key: string]: Knex.Config } = {
     connection: {
       connectionString: appConfig.PostgresConnectionURL,
       ssl: {
-        ca: readFileSync(
-          '/usr/local/certs/ca-certificates/rds-ca-2015-root.pem',
-        ).toString(),
+        // ca: readFileSync(
+        //   '/usr/local/certs/ca-certificates/rds-ca-2015-root.pem',
+        // ).toString(),
         maxVersion: 'TLSv1.2',
         rejectUnauthorized: false,
       },

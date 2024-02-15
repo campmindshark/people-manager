@@ -6,6 +6,7 @@ export interface RosterClient {
   GetAllRosters(): Promise<Roster[]>;
   GetRosterByID(rosterID: number): Promise<Roster>;
   GetRosterParticipants(rosterID: number): Promise<User[]>;
+  Signup(rosterID: number): Promise<boolean>;
 }
 
 export default class BackendRosterClient implements RosterClient {
@@ -48,6 +49,21 @@ export default class BackendRosterClient implements RosterClient {
   async GetRosterParticipants(rosterID: number): Promise<User[]> {
     const { data } = await axios.get<User[]>(
       `${this.baseApiURL}/api/rosters/${rosterID}/participants`,
+      {
+        withCredentials: true,
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Credentials': 'true',
+        },
+      },
+    );
+    return data;
+  }
+
+  async Signup(rosterID: number): Promise<boolean> {
+    const { data } = await axios.get<boolean>(
+      `${this.baseApiURL}/api/rosters/${rosterID}/signup`,
       {
         withCredentials: true,
         headers: {
