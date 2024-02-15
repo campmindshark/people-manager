@@ -1,5 +1,5 @@
 import type { Knex } from 'knex';
-import { readFileSync } from 'fs';
+// import { readFileSync } from 'fs';
 import { getConfig } from './config/config';
 
 // Update with your config settings.

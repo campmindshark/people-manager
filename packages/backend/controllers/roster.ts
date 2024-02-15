@@ -24,8 +24,8 @@ export default class RosterController {
     userID: number,
   ): Promise<boolean> {
     const query = knex('roster_participants').insert({
-      rosterID: rosterID,
-      userID: userID,
+      rosterID,
+      userID,
     });
 
     await query;

@@ -8,7 +8,7 @@ const generateShiftsAtIntervalOverRange = (
   startID: number,
   targetScheduleID: number,
 ) => {
-  const shifts: Object[] = [];
+  const shifts: object[] = [];
   let currTime = new Date(startTime);
   let currentStartID = startID;
   while (currTime < endTime) {
