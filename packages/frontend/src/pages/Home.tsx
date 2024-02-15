@@ -35,8 +35,12 @@ function Home() {
     [],
   );
 
-  const signUserUp = useCallback(() => {
+  const signUserUp = useCallback(async () => {
     console.log('signupUser');
+    const success = await rosterClient.Signup(1);
+    if (!success) {
+      console.log('Failed to sign user up');
+    }
   }, []);
 
   useEffect(() => {
