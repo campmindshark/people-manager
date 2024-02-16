@@ -17,34 +17,3 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-  migration:
-    image: people-manager-migration-repo:latest
-    entrypoint: /bin/sh -c
-    command: 
-      - yarn db-migrate
-    volumes:
-      - ./packages/backend/env:/env
-    depends_on:
-      postgres:
-        condition: service_healthy
-    environment:
-      - POSTGRES_CONNECTION_URL=postgres://citizix_user:S3cret@postgres:5432/citizix_db
-      - BACKEND_URL=http://localhost:3001
-      - FRONTEND_URL=http://localhost:3001
-      - BACKEND_PORT=3001
-      - NODE_ENV=production
-  app:
-    image: people-manager-repo:latest
-    ports:
-      - 3001:3001
-    command: /env/.env.docker.local
-    volumes:
-      - ./packages/backend/env:/env
-    depends_on:
-      postgres:
-        condition: service_healthy
-    environment:
-      - POSTGRES_CONNECTION_URL=postgres://citizix_user:S3cret@postgres:5432/citizix_db
-      - BACKEND_URL=http://localhost:3001
-      - FRONTEND_URL=http://localhost:3001
-      - BACKEND_PORT=3001

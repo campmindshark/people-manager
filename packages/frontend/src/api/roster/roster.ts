@@ -62,17 +62,19 @@ export default class BackendRosterClient implements RosterClient {
   }
 
   async Signup(rosterID: number): Promise<boolean> {
-    const { data } = await axios.get<boolean>(
-      `${this.baseApiURL}/api/rosters/${rosterID}/signup`,
-      {
-        withCredentials: true,
-        headers: {
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Credentials': 'true',
-        },
-      },
-    );
-    return data;
+    console.log(`Signing up for roster ${rosterID} at ${this.baseApiURL}`);
+    // const { data } = await axios.get<boolean>(
+    //   `${this.baseApiURL}/api/rosters/${rosterID}/signup`,
+    //   {
+    //     withCredentials: true,
+    //     headers: {
+    //       Accept: 'application/json',
+    //       'Content-Type': 'application/json',
+    //       'Access-Control-Allow-Credentials': 'true',
+    //     },
+    //   },
+    // );
+    // return data;
+    return true;
   }
 }
