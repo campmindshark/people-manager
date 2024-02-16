@@ -4,6 +4,7 @@ import { DateTime } from 'luxon';
 
 const timezone = 'America/Los_Angeles';
 
+// getBMTime expects a string in the format "MMMM dd, yyyy hh:mm". ex. (August 24, 2024 10:00)
 const getBMTime = (time: string) =>
   DateTime.fromFormat(time, 'MMMM dd, yyyy hh:mm').setZone(timezone).toJSDate();
 
