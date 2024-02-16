@@ -1,5 +1,11 @@
 /* eslint-disable import/prefer-default-export */
 import { Knex } from 'knex';
+import { DateTime } from 'luxon';
+
+const timezone = 'America/Los_Angeles';
+
+const getBMTime = (time: string) =>
+  DateTime.fromFormat(time, 'MMMM dd, yyyy hh:mm').setZone(timezone).toJSDate();
 
 const generateShiftsAtIntervalOverRange = (
   intervalMins: number,
@@ -9,16 +15,14 @@ const generateShiftsAtIntervalOverRange = (
   targetScheduleID: number,
 ) => {
   const shifts: object[] = [];
-  let currTime = new Date(startTime);
+  let currTime = startTime;
   let currentStartID = startID;
   while (currTime < endTime) {
     shifts.push({
       id: currentStartID,
       scheduleID: targetScheduleID,
-      startTime: currTime.toUTCString(),
-      endTime: new Date(
-        currTime.getTime() + intervalMins * 60000,
-      ).toUTCString(),
+      startTime: currTime,
+      endTime: new Date(currTime.getTime() + intervalMins * 60000),
       requiredParticipants: 2,
     });
     currTime = new Date(currTime.getTime() + intervalMins * 60000);
@@ -43,58 +47,64 @@ export async function seed(knex: Knex): Promise<void> {
   // Add 90 minute shifts for all hours.
   const wenchShifts = generateShiftsAtIntervalOverRange(
     90,
-    new Date('August 24, 2024 16:00 -08:00'),
-    new Date('August 29, 2024 18:00 -08:00'),
+    getBMTime('August 24, 2024 16:00'),
+    getBMTime('August 29, 2024 18:00'),
     1,
     1,
   );
   await knex('shifts').insert(wenchShifts);
 
+  DateTime.fromFormat('August 24, 2024 10:00', 'MMMM dd, yyyy hh:mm').setZone(
+    timezone,
+  );
+
   // Add a couple shifts here and there for the Ice Bitch schedule.
-  await knex('shifts').insert([
+  const iceShifts = [
     {
       id: wenchShifts.length + 1,
       scheduleID: 2,
-      startTime: new Date('August 24, 2024 10:00 -08:00').toUTCString(),
-      endTime: new Date('August 24, 2024 11:00 -08:00').toUTCString(),
+      startTime: getBMTime('August 24, 2024 10:00'),
+      endTime: getBMTime('August 24, 2024 11:00'),
       requiredParticipants: 2,
     },
     {
       id: wenchShifts.length + 2,
       scheduleID: 2,
-      startTime: new Date('August 24, 2024 18:00 -08:00').toUTCString(),
-      endTime: new Date('August 24, 2024 19:00 -08:00').toUTCString(),
+      startTime: getBMTime('August 24, 2024 18:00'),
+      endTime: getBMTime('August 24, 2024 19:00'),
       requiredParticipants: 2,
     },
     {
       id: wenchShifts.length + 3,
       scheduleID: 2,
-      startTime: new Date('August 25, 2024 10:00 -08:00').toUTCString(),
-      endTime: new Date('August 25, 2024 11:00 -08:00').toUTCString(),
+      startTime: getBMTime('August 25, 2024 10:00'),
+      endTime: getBMTime('August 25, 2024 11:00'),
       requiredParticipants: 2,
     },
     {
       id: wenchShifts.length + 4,
       scheduleID: 2,
-      startTime: new Date('August 25, 2024 18:00 -08:00').toUTCString(),
-      endTime: new Date('August 25, 2024 19:00').toUTCString(),
+      startTime: getBMTime('August 25, 2024 18:00'),
+      endTime: getBMTime('August 25, 2024 19:00'),
       requiredParticipants: 2,
     },
     {
       id: wenchShifts.length + 5,
       scheduleID: 2,
-      startTime: new Date('August 26, 2024 10:00 -08:00').toUTCString(),
-      endTime: new Date('August 26, 2024 11:00 -08:00').toUTCString(),
+      startTime: getBMTime('August 26, 2024 10:00'),
+      endTime: getBMTime('August 26, 2024 11:00'),
       requiredParticipants: 2,
     },
     {
       id: wenchShifts.length + 6,
       scheduleID: 2,
-      startTime: new Date('August 26, 2024 18:00').toUTCString(),
-      endTime: new Date('August 26, 2024 19:00').toUTCString(),
+      startTime: getBMTime('August 26, 2024 18:00'),
+      endTime: getBMTime('August 26, 2024 19:00'),
       requiredParticipants: 2,
     },
-  ]);
+  ];
+  console.log(iceShifts);
+  await knex('shifts').insert(iceShifts);
 
   // await knex('shift_participants').insert([
   //   { userID: 1, shiftID: 1 },
