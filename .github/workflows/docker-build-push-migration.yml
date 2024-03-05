@@ -1,9 +1,7 @@
 name: Docker Build, and Push to Dockerhub [migration]
 
-# on:
-#   workflow_dispatch:
 on:
-  pull_request:
+  push:
     branches: [main]
 
 jobs:

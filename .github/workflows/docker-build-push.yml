@@ -1,7 +1,7 @@
 name: Docker Build, and Push to Dockerhub
 
 on:
-  pull_request:
+  push:
     branches: [main]
 
 jobs:

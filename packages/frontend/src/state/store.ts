@@ -2,13 +2,13 @@ import { atom, selector } from 'recoil';
 import User from 'backend/models/user/user';
 import { RoleConfig } from 'backend/roles/role';
 import ShiftViewModel from 'backend/view_models/shift';
-import { GetFrontendConfig } from '../config/config';
+import { getFrontendConfig } from '../config/config';
 import BackendUserClient from '../api/users/client';
 import BackendShiftClient from '../api/shifts/shifts';
 import BackendRoleClient from '../api/roles/client';
 import { CurrentRosterParticipantsState } from './roster';
 
-const frontendConfig = GetFrontendConfig();
+const frontendConfig = getFrontendConfig();
 
 export const UsersState = selector<User[]>({
   key: 'users',

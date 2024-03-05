@@ -7,7 +7,6 @@ import express, {
 } from 'express';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
-// import genFunc from 'connect-pg-simple';
 import logger from 'morgan';
 import createError from 'http-errors';
 import FileSystem from 'fs';
@@ -81,6 +80,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 
+// TODO: use a real session store
 // if (config.Environment === 'production') {
 //   console.log('using postgres session store');
 //   const PostgresqlStore = genFunc(session);

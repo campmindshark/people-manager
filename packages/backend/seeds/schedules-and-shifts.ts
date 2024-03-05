@@ -106,14 +106,4 @@ export async function seed(knex: Knex): Promise<void> {
   ];
   console.log(iceShifts);
   await knex('shifts').insert(iceShifts);
-
-  // await knex('shift_participants').insert([
-  //   { userID: 1, shiftID: 1 },
-  //   { userID: 2, shiftID: 1 },
-  //   { userID: 1, shiftID: 2 },
-  //   { userID: 2, shiftID: 3 },
-  //   { userID: 3, shiftID: 1 },
-  //   { userID: 3, shiftID: 2 },
-  //   { userID: 3, shiftID: 3 },
-  // ]);
 }

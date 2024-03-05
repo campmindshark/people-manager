@@ -14,13 +14,13 @@ import PageState, {
   UserState,
   UserIsSignedUpForCurrentRoster,
 } from '../state/store';
-import { GetFrontendConfig } from '../config/config';
+import { getFrontendConfig } from '../config/config';
 import MyShiftsTable from '../components/MyShiftsTable';
 import RosterTable from '../components/RosterTable';
 import { CurrentRosterState } from '../state/roster';
 import BackendRosterClient from '../api/roster/roster';
 
-const frontendConfig = GetFrontendConfig();
+const frontendConfig = getFrontendConfig();
 
 function Home() {
   const setPageState = useSetRecoilState(PageState);

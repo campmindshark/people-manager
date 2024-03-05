@@ -4,11 +4,11 @@ import MenuIcon from '@mui/icons-material/Menu';
 import LogoutIcon from '@mui/icons-material/Logout';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import { useRecoilValue } from 'recoil';
-import { GetFrontendConfig } from '../../config/config';
+import { getFrontendConfig } from '../../config/config';
 import AppBar from './AppBar';
 import PageState, { UserState } from '../../state/store';
 
-const frontendConfig = GetFrontendConfig();
+const frontendConfig = getFrontendConfig();
 
 interface TopBarProps {
   open: boolean;

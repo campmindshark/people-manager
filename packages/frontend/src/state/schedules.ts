@@ -1,10 +1,10 @@
 import { selector } from 'recoil';
 import Schedule from 'backend/models/schedule/schedule';
-import { GetFrontendConfig } from '../config/config';
+import { getFrontendConfig } from '../config/config';
 import { CurrentRosterState } from './roster';
 import BackendScheduleClient from '../api/schedules/schedules';
 
-const frontendConfig = GetFrontendConfig();
+const frontendConfig = getFrontendConfig();
 const scheduleClient = new BackendScheduleClient(frontendConfig.BackendURL);
 
 const CurrentRosterScheduleState = selector<Schedule[]>({

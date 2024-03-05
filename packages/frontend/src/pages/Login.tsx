@@ -7,9 +7,9 @@ import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import Typography from '@mui/material/Typography';
-import { GetFrontendConfig } from '../config/config';
+import { getFrontendConfig } from '../config/config';
 
-const frontendConfig = GetFrontendConfig();
+const frontendConfig = getFrontendConfig();
 
 export default function Login() {
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {

@@ -6,11 +6,11 @@ import { styled } from '@mui/material/styles';
 import Shift from 'backend/models/shift/shift';
 import ShiftViewModel from 'backend/view_models/shift';
 import BackendShiftClient from 'src/api/shifts/shifts';
-import { GetFrontendConfig } from '../../config/config';
+import { getFrontendConfig } from '../../config/config';
 import ShiftBlock from './ShiftBlock';
 import { UserState } from '../../state/store';
 
-const frontendConfig = GetFrontendConfig();
+const frontendConfig = getFrontendConfig();
 
 const ShiftHeader = styled(Paper)({
   color: 'darkslategray',

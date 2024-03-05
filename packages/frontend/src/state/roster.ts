@@ -1,10 +1,10 @@
 import { selector } from 'recoil';
 import Roster from 'backend/models/roster/roster';
 import User from 'backend/models/user/user';
-import { GetFrontendConfig } from '../config/config';
+import { getFrontendConfig } from '../config/config';
 import BackendRosterClient from '../api/roster/roster';
 
-const frontendConfig = GetFrontendConfig();
+const frontendConfig = getFrontendConfig();
 const rosterClient = new BackendRosterClient(frontendConfig.BackendURL);
 
 export const CurrentRosterState = selector<Roster>({

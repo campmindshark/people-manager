@@ -6,7 +6,7 @@ export interface FrontendConfig {
 
 const appConfig = getConfig();
 
-export function GetFrontendConfig(): FrontendConfig {
+export function getFrontendConfig(): FrontendConfig {
   if (process.env.NODE_ENV === 'development') {
     return {
       BackendURL: 'http://localhost:3001',

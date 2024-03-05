@@ -63,6 +63,7 @@ export default class BackendRosterClient implements RosterClient {
 
   async Signup(rosterID: number): Promise<boolean> {
     console.log(`Signing up for roster ${rosterID} at ${this.baseApiURL}`);
+    // TODO: Finish implementing this
     // const { data } = await axios.get<boolean>(
     //   `${this.baseApiURL}/api/rosters/${rosterID}/signup`,
     //   {

@@ -1,11 +1,11 @@
 import React, { useEffect, useMemo } from 'react';
 import { useRecoilState } from 'recoil';
 import { useNavigate } from 'react-router-dom';
-import { GetFrontendConfig } from '../config/config';
+import { getFrontendConfig } from '../config/config';
 import BackendUserClient, { AuthResponse } from '../api/users/client';
 import { UserState, UserIsAuthenticated } from '../state/store';
 
-const frontendConfig = GetFrontendConfig();
+const frontendConfig = getFrontendConfig();
 
 interface Props {
   children: React.ReactNode;
