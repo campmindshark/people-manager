@@ -16,6 +16,7 @@ const uiSchema: UiSchema = {
   'ui:options': {
     inline: true,
   },
+  'ui:emptyValue': [],
 };
 
 function MyProfileForm() {

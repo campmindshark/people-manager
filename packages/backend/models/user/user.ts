@@ -10,7 +10,7 @@ export default class User extends Model {
 
   lastName!: string;
 
-  playaName?: string;
+  playaName?: string = '';
 
   email!: string;
 
@@ -18,11 +18,11 @@ export default class User extends Model {
 
   location!: string;
 
-  referralName?: string;
+  referralName?: string = '';
 
-  skillsOfNote?: string[];
+  skillsOfNote?: string[] = [];
 
-  skillsNotInList?: string;
+  skillsNotInList?: string = '';
 
   // Table name is the only required property.
   static tableName = 'users';
@@ -44,7 +44,13 @@ export default class User extends Model {
   static formSchema: RJSFSchema = {
     title: 'Edit Your Profile',
     type: 'object',
-    required: ['firstName', 'lastName', 'phoneNumber', 'location'],
+    required: [
+      'firstName',
+      'lastName',
+      'phoneNumber',
+      'location',
+      'skillsOfNote',
+    ],
     properties: {
       firstName: { type: 'string', title: 'First Name', default: 'Sparkles' },
       lastName: { type: 'string', title: 'Last Name', default: 'McAfee' },
@@ -70,7 +76,7 @@ export default class User extends Model {
         title: 'Skills of Note',
         uniqueItems: true,
         items: {
-          type: 'string',
+          type: ['string', 'null'],
           enum: [
             'General organization (read: has OCD)',
             'Project mgmt',
