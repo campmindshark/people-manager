@@ -10,7 +10,7 @@ export default class User extends Model {
 
   lastName!: string;
 
-  playaName?: string = '';
+  playaName: string = '';
 
   email!: string;
 
@@ -18,11 +18,11 @@ export default class User extends Model {
 
   location!: string;
 
-  referralName?: string = '';
+  referralName: string = '';
 
-  skillsOfNote?: string[] = [];
+  skillsOfNote: string[] = [];
 
-  skillsNotInList?: string = '';
+  skillsNotInList: string = '';
 
   // Table name is the only required property.
   static tableName = 'users';
