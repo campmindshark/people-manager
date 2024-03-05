@@ -1,22 +1,49 @@
 import { Model } from 'objection';
 import User from '../user/user';
 
-export default class Roster extends Model {
+export default class RosterParticipant extends Model {
   id!: number;
 
-  year!: number;
+  rosterID!: number;
+
+  userID!: number;
+
+  probabilityOfAttending!: number;
+
+  hasTicket!: boolean;
+
+  hasVehiclePass!: boolean;
+
+  extraTickets!: boolean;
+
+  yearsAttended!: number;
+
+  yearsAtCamp: number[] = [];
+
+  estimatedArrivalDate: Date = new Date();
+
+  estimatedDepartureDate: Date = new Date();
+
+  sleepingArrangement: string[] = [];
+
+  earlyArrivalInterest!: boolean;
+
+  postBurnInterest!: boolean;
 
   // Table name is the only required property.
-  static tableName = 'rosters';
+  static tableName = 'roster_participants';
 
   // Optional JSON schema. This is not the database schema! Nothing is generated
   // based on this. This is only used for validation. Whenever a model instance
   // is created it is checked against this schema. http://json-schema.org/.
   static jsonSchema = {
     type: 'object',
+    required: ['firstName', 'lastName'],
 
     properties: {
       id: { type: 'integer' },
+      firstName: { type: 'string', minLength: 1, maxLength: 255 },
+      lastName: { type: 'string', minLength: 1, maxLength: 255 },
     },
   };
 

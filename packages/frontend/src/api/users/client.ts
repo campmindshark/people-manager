@@ -46,4 +46,21 @@ export default class BackendUserClient implements UserClient {
 
     return data;
   }
+
+  async UpdateUser(user: User): Promise<User> {
+    const { data } = await axios.post<User>(
+      `${this.baseApiURL}/api/users`,
+      user,
+      {
+        withCredentials: true,
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Credentials': 'true',
+        },
+      },
+    );
+
+    return data;
+  }
 }

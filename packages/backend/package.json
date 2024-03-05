@@ -20,6 +20,8 @@
     }
   },
   "dependencies": {
+    "@rjsf/core": "^5.17.1",
+    "@rjsf/utils": "^5.17.1",
     "better-sqlite3": "^9.0.0",
     "better-sqlite3-session-store": "^0.1.0",
     "connect-pg-simple": "^9.0.1",

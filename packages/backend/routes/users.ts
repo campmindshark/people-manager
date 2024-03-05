@@ -1,5 +1,6 @@
 import express, { Request, Response, NextFunction, Router } from 'express';
 import User from '../models/user/user';
+import UserController from '../controllers/user';
 
 const router: Router = express.Router();
 
@@ -24,6 +25,28 @@ router.get(
 
     const users = await query;
     res.json(users);
+  },
+);
+
+router.post(
+  '/',
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async (req: Request, res: Response, next: NextFunction) => {
+    if (!req.user) {
+      res.json({ error: 'User not found' });
+      return;
+    }
+
+    const authenticatedUser = req.user as User;
+
+    const userUpdate: User = req.body;
+
+    const updatedUser = await UserController.updateUser(
+      userUpdate,
+      authenticatedUser.id,
+    );
+
+    res.json(updatedUser);
   },
 );
 
