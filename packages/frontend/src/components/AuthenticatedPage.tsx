@@ -26,6 +26,10 @@ function AuthenticatedPage(props: Props) {
 
   useEffect(() => {
     const doAuth = async () => {
+      if (isAuthenticated === true) {
+        return;
+      }
+
       try {
         const response: AuthResponse = await userClient.GetAuthenticatedUser();
         if (response.success === true) {
