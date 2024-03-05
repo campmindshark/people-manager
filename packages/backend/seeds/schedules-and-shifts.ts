@@ -1,6 +1,12 @@
 /* eslint-disable import/prefer-default-export */
 import { Knex } from 'knex';
-import Shift from '../models/shift/shift';
+import { DateTime } from 'luxon';
+
+const timezone = 'America/Los_Angeles';
+
+// getBMTime expects a string in the format "MMMM dd, yyyy hh:mm". ex. (August 24, 2024 10:00)
+const getBMTime = (time: string) =>
+  DateTime.fromFormat(time, 'MMMM dd, yyyy hh:mm').setZone(timezone).toJSDate();
 
 const generateShiftsAtIntervalOverRange = (
   intervalMins: number,
@@ -9,19 +15,17 @@ const generateShiftsAtIntervalOverRange = (
   startID: number,
   targetScheduleID: number,
 ) => {
-  const shifts: Shift[] = [];
-  let currTime = new Date(startTime);
+  const shifts: object[] = [];
+  let currTime = startTime;
   let currentStartID = startID;
   while (currTime < endTime) {
-    shifts.push(
-      new Shift(
-        currentStartID,
-        targetScheduleID,
-        currTime,
-        new Date(currTime.getTime() + intervalMins * 60000),
-        2,
-      ),
-    );
+    shifts.push({
+      id: currentStartID,
+      scheduleID: targetScheduleID,
+      startTime: currTime,
+      endTime: new Date(currTime.getTime() + intervalMins * 60000),
+      requiredParticipants: 2,
+    });
     currTime = new Date(currTime.getTime() + intervalMins * 60000);
     currentStartID += 1;
   }
@@ -44,66 +48,62 @@ export async function seed(knex: Knex): Promise<void> {
   // Add 90 minute shifts for all hours.
   const wenchShifts = generateShiftsAtIntervalOverRange(
     90,
-    new Date('August 24, 2024 16:00'),
-    new Date('August 29, 2024 18:00'),
+    getBMTime('August 24, 2024 16:00'),
+    getBMTime('August 29, 2024 18:00'),
     1,
     1,
   );
   await knex('shifts').insert(wenchShifts);
 
+  DateTime.fromFormat('August 24, 2024 10:00', 'MMMM dd, yyyy hh:mm').setZone(
+    timezone,
+  );
+
   // Add a couple shifts here and there for the Ice Bitch schedule.
-  await knex('shifts').insert([
+  const iceShifts = [
     {
       id: wenchShifts.length + 1,
       scheduleID: 2,
-      startTime: new Date('August 24, 2024 10:00'),
-      endTime: new Date('August 24, 2024 11:00'),
+      startTime: getBMTime('August 24, 2024 10:00'),
+      endTime: getBMTime('August 24, 2024 11:00'),
       requiredParticipants: 2,
     },
     {
       id: wenchShifts.length + 2,
       scheduleID: 2,
-      startTime: new Date('August 24, 2024 18:00'),
-      endTime: new Date('August 24, 2024 19:00'),
+      startTime: getBMTime('August 24, 2024 18:00'),
+      endTime: getBMTime('August 24, 2024 19:00'),
       requiredParticipants: 2,
     },
     {
       id: wenchShifts.length + 3,
       scheduleID: 2,
-      startTime: new Date('August 25, 2024 10:00'),
-      endTime: new Date('August 25, 2024 11:00'),
+      startTime: getBMTime('August 25, 2024 10:00'),
+      endTime: getBMTime('August 25, 2024 11:00'),
       requiredParticipants: 2,
     },
     {
       id: wenchShifts.length + 4,
       scheduleID: 2,
-      startTime: new Date('August 25, 2024 18:00'),
-      endTime: new Date('August 25, 2024 19:00'),
+      startTime: getBMTime('August 25, 2024 18:00'),
+      endTime: getBMTime('August 25, 2024 19:00'),
       requiredParticipants: 2,
     },
     {
       id: wenchShifts.length + 5,
       scheduleID: 2,
-      startTime: new Date('August 26, 2024 10:00'),
-      endTime: new Date('August 26, 2024 11:00'),
+      startTime: getBMTime('August 26, 2024 10:00'),
+      endTime: getBMTime('August 26, 2024 11:00'),
       requiredParticipants: 2,
     },
     {
       id: wenchShifts.length + 6,
       scheduleID: 2,
-      startTime: new Date('August 26, 2024 18:00'),
-      endTime: new Date('August 26, 2024 19:00'),
+      startTime: getBMTime('August 26, 2024 18:00'),
+      endTime: getBMTime('August 26, 2024 19:00'),
       requiredParticipants: 2,
     },
-  ]);
-
-  await knex('shift_participants').insert([
-    { userID: 1, shiftID: 1 },
-    { userID: 2, shiftID: 1 },
-    { userID: 1, shiftID: 2 },
-    { userID: 2, shiftID: 3 },
-    { userID: 3, shiftID: 1 },
-    { userID: 3, shiftID: 2 },
-    { userID: 3, shiftID: 3 },
-  ]);
+  ];
+  console.log(iceShifts);
+  await knex('shifts').insert(iceShifts);
 }

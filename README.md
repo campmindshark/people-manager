@@ -26,22 +26,18 @@ The backend is an express typescript app. It utilizes [knex](https://knexjs.org/
 # Install dependencies
 yarn
 
+# Start DB (in a different terminal tab)
+docker-compose up
+
 # Do migrations
 yarn db-migrate
 
 # Seed DB with test data (optional, but convenient)
 yarn db-seed
 
-# Run locally
+# Run locally (this starts up the frontend react server and the backend express server with live reloads)
 yarn dev
 ```
-
-## Getting Started With Docker
-
-1. generate the application image `make docker-build`
-2. generate the migration image `make docker-migration-build`
-3. make sure you have an appropriate `.env` file stored at `./packages/backend/env/.env.docker.local`
-4. start the application with `docker-compose up`
 
 ## Design Stuff
 

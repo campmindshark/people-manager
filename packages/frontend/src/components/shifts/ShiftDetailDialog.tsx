@@ -1,6 +1,5 @@
 import React, { useCallback, useMemo } from 'react';
 import { useRecoilValue, useRecoilRefresher_UNSTABLE } from 'recoil';
-import { getConfig } from 'backend/config/config';
 import User from 'backend/models/user/user';
 import ShiftViewModel, {
   userIsSignedUpForShift,
@@ -18,12 +17,13 @@ import {
   Typography,
 } from '@mui/material';
 import PersonIcon from '@mui/icons-material/Person';
+import { getFrontendConfig } from '../../config/config';
 import CurrentRosterScheduleState from '../../state/schedules';
 import BurningManDateFormatter from '../../utils/datetime/formatter';
 import { UserState } from '../../state/store';
 import BackendShiftClient from '../../api/shifts/shifts';
 
-const appConfig = getConfig();
+const frontendConfig = getFrontendConfig();
 
 interface Props {
   shiftViewModel: ShiftViewModel;
@@ -36,7 +36,7 @@ export default function ShiftDetailDialog(props: Props) {
     CurrentRosterScheduleState,
   );
   const shiftClient = useMemo(
-    () => new BackendShiftClient(appConfig.BackendURL),
+    () => new BackendShiftClient(frontendConfig.BackendURL),
     [],
   );
   const { shiftViewModel, isOpen, handleClose } = props;
@@ -141,11 +141,15 @@ export default function ShiftDetailDialog(props: Props) {
         </Typography>
         <Typography variant="body1">
           <strong>Start:</strong>{' '}
-          {BurningManDateFormatter.format(shiftViewModel.shift.startTime)}
+          {BurningManDateFormatter.format(
+            new Date(shiftViewModel.shift.startTime),
+          )}
         </Typography>
         <Typography variant="body1">
           <strong>End:</strong>{' '}
-          {BurningManDateFormatter.format(shiftViewModel.shift.endTime)}
+          {BurningManDateFormatter.format(
+            new Date(shiftViewModel.shift.endTime),
+          )}
         </Typography>
         <br />
         <Typography variant="h6" sx={{ fontWeight: 'bold' }}>

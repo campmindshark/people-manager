@@ -54,6 +54,11 @@ build-backend:
 build-frontend:
 	cd packages/frontend && yarn build
 
+build-frontend-and-upload:
+	yarn build-frontend
+	aws s3 cp packages/frontend/build s3://people-manager-bucket-1 --recursive
+	aws cloudfront create-invalidation --paths /* --distribution-id EKQSELA6RXUSP
+
 build: build-backend build-frontend
 
 test-backend:

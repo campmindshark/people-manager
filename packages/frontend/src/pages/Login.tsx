@@ -7,14 +7,14 @@ import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import Typography from '@mui/material/Typography';
-import { getConfig } from 'backend/config/config';
+import { getFrontendConfig } from '../config/config';
 
-const appConfig = getConfig();
+const frontendConfig = getFrontendConfig();
 
 export default function Login() {
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    window.open(`${appConfig.BackendURL}/api/auth/google`, '_self');
+    window.open(`${frontendConfig.BackendURL}/api/auth/google`, '_self');
   };
 
   useEffect(() => {

@@ -4,11 +4,11 @@ import MenuIcon from '@mui/icons-material/Menu';
 import LogoutIcon from '@mui/icons-material/Logout';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import { useRecoilValue } from 'recoil';
-import { getConfig } from 'backend/config/config';
+import { getFrontendConfig } from '../../config/config';
 import AppBar from './AppBar';
 import PageState, { UserState } from '../../state/store';
 
-const appConfig = getConfig();
+const frontendConfig = getFrontendConfig();
 
 interface TopBarProps {
   open: boolean;
@@ -21,7 +21,7 @@ export default function TopBar({ open, toggleDrawer }: TopBarProps) {
 
   const handleLogout = () => {
     console.log('logout');
-    window.location.href = `${appConfig.BackendURL}/api/auth/logout`;
+    window.location.href = `${frontendConfig.BackendURL}/api/auth/logout`;
   };
 
   return (

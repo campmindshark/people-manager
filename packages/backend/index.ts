@@ -10,7 +10,6 @@ import cors from 'cors';
 import logger from 'morgan';
 import createError from 'http-errors';
 import FileSystem from 'fs';
-import path from 'path';
 import Knex from 'knex';
 import { Model } from 'objection';
 import dotenv from 'dotenv';
@@ -22,7 +21,6 @@ import { Config, getConfig } from './config/config';
 
 import AppUser from './models/user/user';
 import authRouter from './routes/auth';
-import indexRouter from './routes/index';
 import usersRouter from './routes/users';
 import schedulesRouter from './routes/schedules';
 import shiftsRouter from './routes/shifts';
@@ -39,15 +37,15 @@ declare global {
 
 const envFilePath = process.argv[2];
 
-console.log('envFilePath: ', envFilePath);
+console.log(`Starting people-manager backend with env file: ${envFilePath}`);
 
-const configPath = path.join(envFilePath);
-if (!FileSystem.existsSync(configPath)) {
-  console.log(`Config file not found at ${configPath}`);
+if (!FileSystem.existsSync(envFilePath)) {
+  console.log(`env file not found at ${envFilePath}`);
+} else {
+  console.log(`env file found at ${envFilePath}`);
+  dotenv.config({ path: envFilePath });
 }
 
-// For env File
-dotenv.config({ path: configPath });
 const config: Config = getConfig();
 
 console.log(`running in ${config.Environment} mode`);
@@ -58,20 +56,49 @@ Model.knex(knex);
 
 const app: Application = express();
 
+console.log('CORS Whitelist:', config.CORSWhitelist);
 app.use(
   cors({
     origin: config.CORSWhitelist,
     methods: 'GET,POST,PUT,DELETE,OPTIONS',
     credentials: true,
+    optionsSuccessStatus: 200,
   }),
 );
+
+app.use((req: Request, res: Response, next: NextFunction) => {
+  res.header('Access-Control-Allow-Origin', config.CORSWhitelist.join(', ')); // update to match the domain you will make the request from
+  res.header(
+    'Access-Control-Allow-Headers',
+    'Origin, X-Requested-With, Content-Type, Accept',
+  );
+  next();
+});
 
 app.use(logger('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
-app.use(express.static(path.join(__dirname, 'public')));
 
+// TODO: use a real session store
+// if (config.Environment === 'production') {
+//   console.log('using postgres session store');
+//   const PostgresqlStore = genFunc(session);
+//   const sessionStore = new PostgresqlStore({
+//     conString: config.PostgresConnectionURL,
+//   });
+
+//   app.use(
+//     session({
+//       secret: 'secret',
+//       resave: false,
+//       saveUninitialized: false,
+//       cookie: { secure: true },
+//       store: sessionStore,
+//     }),
+//   );
+// } else {
+console.log('using in-memory session store');
 app.use(
   session({
     secret: config.JWTSecret,
@@ -79,6 +106,7 @@ app.use(
     saveUninitialized: true,
   }),
 );
+// }
 
 // configure passport
 app.use(passport.initialize());
@@ -152,7 +180,9 @@ app.use('/api/schedules', checkAuthenticated, schedulesRouter);
 app.use('/api/shifts', checkAuthenticated, shiftsRouter);
 app.use('/api/rosters', checkAuthenticated, rostersRouter);
 
-app.use('/', indexRouter); // this route should be last
+app.use('/api/health', (req: Request, res: Response) => {
+  res.status(200).send('healthy');
+});
 
 // catch 404 and forward to error handler
 app.use((req: Request, res: Response, next: NextFunction) => {

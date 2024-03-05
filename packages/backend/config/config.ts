@@ -19,8 +19,7 @@ export interface Config {
 
 function getCORSWhitelist(): string[] {
   const corsWhitelistCSV =
-    (process.env.CORS_WHITELIST_CSV as string) ??
-    'http://localhost:3000,http://localhost:3001';
+    (process.env.CORS_WHITELIST_CSV as string) ?? 'http://localhost:3000';
   const corsWhitelist = corsWhitelistCSV.split(',');
   return corsWhitelist;
 }

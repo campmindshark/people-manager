@@ -28,12 +28,21 @@ jobs:
           aws-region: us-east-1
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v1
+        uses: hashicorp/setup-terraform@v3
 
       - name: Terraform Init
         working-directory: terraform/
-        run: terraform init -backend-config "bucket=home-terraform-1" -backend-config "key=people-manager.tfstate"
+        run: terraform init -backend-config "bucket=terraform-state-nilo2024" -backend-config "key=people-manager.tfstate"
+
+      - name: Terraform Plan Check
+        working-directory: terraform/
+        env:
+          TF_VAR_GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+          TF_VAR_GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+          TF_VAR_JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          TF_LOG: info
+        run: terraform plan
 
       - name: Terraform Destroy
         working-directory: terraform/
-        run: terraform destroy -auto-approve
+        run: TF_LOG=info terraform destroy -auto-approve
