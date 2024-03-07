@@ -3,6 +3,7 @@ import validator from '@rjsf/validator-ajv8';
 import { UiSchema } from '@rjsf/utils';
 import Form from '@rjsf/mui';
 import User from 'backend/models/user/user';
+import Snackbar from '@mui/material/Snackbar';
 import { useRecoilState } from 'recoil';
 
 import { UserState } from '../state/store';
@@ -21,7 +22,19 @@ const uiSchema: UiSchema = {
 
 function MyProfileForm() {
   const [userState, setUserState] = useRecoilState(UserState);
+  const [open, setOpen] = React.useState(false);
   const userClient = new BackendUserClient(frontendConfig.BackendURL);
+
+  const handleClose = (
+    event: React.SyntheticEvent | Event,
+    reason?: string,
+  ) => {
+    if (reason === 'clickaway') {
+      return;
+    }
+
+    setOpen(false);
+  };
 
   const handleSubmit = async (data: any) => {
     console.log(data);
@@ -32,17 +45,26 @@ function MyProfileForm() {
     const updatedUser = await userClient.UpdateUser(formData);
     console.log(updatedUser);
     setUserState(updatedUser);
+    setOpen(true);
   };
   console.log(userState);
 
   return (
-    <Form
-      schema={User.formSchema}
-      validator={validator}
-      onSubmit={handleSubmit}
-      formData={userState}
-      uiSchema={uiSchema}
-    />
+    <>
+      <Form
+        schema={User.formSchema}
+        validator={validator}
+        onSubmit={handleSubmit}
+        formData={userState}
+        uiSchema={uiSchema}
+      />
+      <Snackbar
+        open={open}
+        autoHideDuration={6000}
+        onClose={handleClose}
+        message="Profile Updated!"
+      />
+    </>
   );
 }
 
