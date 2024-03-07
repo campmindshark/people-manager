@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import validator from '@rjsf/validator-ajv8';
 import { UiSchema } from '@rjsf/utils';
 import Form from '@rjsf/mui';
@@ -23,7 +23,10 @@ const uiSchema: UiSchema = {
 function MyProfileForm() {
   const [userState, setUserState] = useRecoilState(UserState);
   const [open, setOpen] = React.useState(false);
-  const userClient = new BackendUserClient(frontendConfig.BackendURL);
+  const userClient = useMemo(
+    () => new BackendUserClient(frontendConfig.BackendURL),
+    [frontendConfig.BackendURL],
+  );
 
   const handleClose = (
     event: React.SyntheticEvent | Event,
@@ -43,7 +46,6 @@ function MyProfileForm() {
     formData.skillsOfNote = formData.skillsOfNote || [];
 
     const updatedUser = await userClient.UpdateUser(formData);
-    console.log(updatedUser);
     setUserState(updatedUser);
     setOpen(true);
   };
