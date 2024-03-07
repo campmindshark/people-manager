@@ -4,6 +4,7 @@ import Grid from '@mui/material/Grid';
 import Paper from '@mui/material/Paper';
 import { useRecoilValue, useSetRecoilState } from 'recoil';
 import MyProfileForm from 'src/components/MyProfileForm';
+import MyPrivateProfileForm from 'src/components/MyPrivateProfileForm';
 import Dashboard from '../layouts/dashboard/Dashboard';
 import PageState, { MyRolesState } from '../state/store';
 
@@ -52,7 +53,7 @@ export default function Settings() {
           </Grid>
           <Grid item xs={12}>
             <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column' }}>
-              <h1>Settings</h1>
+              <MyPrivateProfileForm />
             </Paper>
           </Grid>
         </Grid>

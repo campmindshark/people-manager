@@ -1,4 +1,5 @@
 import { Model } from 'objection';
+import { RJSFSchema } from '@rjsf/utils';
 
 export default class PrivateProfile extends Model {
   id!: number;
@@ -29,6 +30,45 @@ export default class PrivateProfile extends Model {
       id: { type: 'integer' },
       firstName: { type: 'string', minLength: 1, maxLength: 255 },
       lastName: { type: 'string', minLength: 1, maxLength: 255 },
+    },
+  };
+
+  static formSchema: RJSFSchema = {
+    title: 'Edit Your Private Profile',
+    type: 'object',
+    required: [
+      'emergencyContactName',
+      'emergencyContactPhone',
+      'medications',
+      'allergies',
+      'dietaryRestrictions',
+    ],
+    properties: {
+      emergencyContactName: {
+        type: 'string',
+        title: 'Emergency Contact Name',
+        default: '',
+      },
+      emergencyContactPhone: {
+        type: 'string',
+        title: 'Emergency Contact Phone',
+        default: '',
+      },
+      medications: {
+        type: 'string',
+        title: 'Medications',
+        default: '',
+      },
+      allergies: {
+        type: 'string',
+        title: 'Allergies',
+        default: '',
+      },
+      dietaryRestrictions: {
+        type: 'string',
+        title: 'Dietary Restrictions',
+        default: '',
+      },
     },
   };
 }

@@ -1,5 +1,6 @@
 import axios from 'axios';
 import User from 'backend/models/user/user';
+import PrivateProfile from 'backend/models/user/user_private';
 
 export interface AuthResponse {
   user: User;
@@ -51,6 +52,41 @@ export default class BackendUserClient implements UserClient {
     const { data } = await axios.post<User>(
       `${this.baseApiURL}/api/users`,
       user,
+      {
+        withCredentials: true,
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Credentials': 'true',
+        },
+      },
+    );
+
+    return data;
+  }
+
+  async GetMyPrivateProfile(): Promise<PrivateProfile> {
+    const { data } = await axios.get<PrivateProfile>(
+      `${this.baseApiURL}/api/users/private`,
+      {
+        withCredentials: true,
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Credentials': 'true',
+        },
+      },
+    );
+
+    return data;
+  }
+
+  async UpdatePrivateProfile(
+    privateProfile: PrivateProfile,
+  ): Promise<PrivateProfile> {
+    const { data } = await axios.post<PrivateProfile>(
+      `${this.baseApiURL}/api/users/private`,
+      privateProfile,
       {
         withCredentials: true,
         headers: {
