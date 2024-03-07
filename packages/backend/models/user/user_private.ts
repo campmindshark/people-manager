@@ -1,4 +1,4 @@
-import { Model, Modifiers } from 'objection';
+import { Model } from 'objection';
 
 export default class PrivateProfile extends Model {
   id!: number;
@@ -9,11 +9,11 @@ export default class PrivateProfile extends Model {
 
   emergencyContactPhone!: string;
 
-  medications: string = '';
+  medications = '';
 
-  allergies: string = '';
+  allergies = '';
 
-  dietaryRestrictions: string = '';
+  dietaryRestrictions = '';
 
   // Table name is the only required property.
   static tableName = 'private_profiles';

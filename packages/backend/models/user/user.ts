@@ -1,4 +1,4 @@
-import { Model, Modifiers } from 'objection';
+import { Model } from 'objection';
 import { RJSFSchema } from '@rjsf/utils';
 
 export default class User extends Model {
@@ -10,7 +10,7 @@ export default class User extends Model {
 
   lastName!: string;
 
-  playaName: string = '';
+  playaName = '';
 
   email!: string;
 
@@ -18,11 +18,11 @@ export default class User extends Model {
 
   location!: string;
 
-  referralName: string = '';
+  referralName = '';
 
   skillsOfNote: string[] = [];
 
-  skillsNotInList: string = '';
+  skillsNotInList = '';
 
   // Table name is the only required property.
   static tableName = 'users';
