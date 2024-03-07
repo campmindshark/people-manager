@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect, useState, SyntheticEvent } from 'react';
 import validator from '@rjsf/validator-ajv8';
 import { UiSchema } from '@rjsf/utils';
 import Form from '@rjsf/mui';
@@ -19,19 +19,16 @@ const uiSchema: UiSchema = {
 };
 
 function MyPrivateProfileForm() {
-  const [myPrivateProfileState, setMyPrivateProfileState] = React.useState(
+  const [myPrivateProfileState, setMyPrivateProfileState] = useState(
     new PrivateProfile(),
   );
-  const [open, setOpen] = React.useState(false);
+  const [open, setOpen] = useState(false);
   const userClient = useMemo(
     () => new BackendUserClient(frontendConfig.BackendURL),
     [frontendConfig.BackendURL],
   );
 
-  const handleClose = (
-    event: React.SyntheticEvent | Event,
-    reason?: string,
-  ) => {
+  const handleClose = (event: SyntheticEvent | Event, reason?: string) => {
     if (reason === 'clickaway') {
       return;
     }
@@ -49,6 +46,20 @@ function MyPrivateProfileForm() {
     setMyPrivateProfileState(updatedPrivateProfile);
     setOpen(true);
   };
+
+  useEffect(() => {
+    const doAuth = async () => {
+      try {
+        const response = await userClient.GetMyPrivateProfile();
+        console.log('auth success', response);
+        setMyPrivateProfileState(response);
+      } catch (err) {
+        console.log('auth error', err);
+      }
+    };
+
+    doAuth();
+  }, []);
 
   return (
     <>

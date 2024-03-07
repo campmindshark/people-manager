@@ -24,12 +24,12 @@ export default class PrivateProfile extends Model {
   // is created it is checked against this schema. http://json-schema.org/.
   static jsonSchema = {
     type: 'object',
-    required: ['firstName', 'lastName'],
+    required: ['emergencyContactName', 'emergencyContactPhone'],
 
     properties: {
       id: { type: 'integer' },
-      firstName: { type: 'string', minLength: 1, maxLength: 255 },
-      lastName: { type: 'string', minLength: 1, maxLength: 255 },
+      emergencyContactName: { type: 'string', minLength: 1, maxLength: 255 },
+      emergencyContactPhone: { type: 'string', minLength: 1, maxLength: 255 },
     },
   };
 
@@ -53,6 +53,8 @@ export default class PrivateProfile extends Model {
         type: 'string',
         title: 'Emergency Contact Phone',
         default: '',
+        minLength: 10,
+        maxLength: 20,
       },
       medications: {
         type: 'string',

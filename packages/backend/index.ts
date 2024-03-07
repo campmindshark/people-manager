@@ -22,6 +22,7 @@ import { Config, getConfig } from './config/config';
 import AppUser from './models/user/user';
 import authRouter from './routes/auth';
 import usersRouter from './routes/users';
+import userPrivateRouter from './routes/user_private';
 import schedulesRouter from './routes/schedules';
 import shiftsRouter from './routes/shifts';
 import rolesRouter from './routes/roles';
@@ -174,6 +175,7 @@ const checkAuthenticated = (
 };
 
 app.use('/api/auth', authRouter);
+app.use('/api/users/private', checkAuthenticated, userPrivateRouter);
 app.use('/api/users', checkAuthenticated, usersRouter);
 app.use('/api/roles', checkAuthenticated, rolesRouter);
 app.use('/api/schedules', checkAuthenticated, schedulesRouter);
