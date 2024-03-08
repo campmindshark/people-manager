@@ -72,19 +72,19 @@ export default class BackendRosterClient implements RosterClient {
     console.log(
       `Signing up for roster ${rosterID} with this data ${rosterParticipant}`,
     );
-    // TODO: Finish implementing this
-    // const { data } = await axios.get<boolean>(
-    //   `${this.baseApiURL}/api/rosters/${rosterID}/signup`,
-    //   {
-    //     withCredentials: true,
-    //     headers: {
-    //       Accept: 'application/json',
-    //       'Content-Type': 'application/json',
-    //       'Access-Control-Allow-Credentials': 'true',
-    //     },
-    //   },
-    // );
-    // return data;
-    return new RosterParticipant();
+    const { data } = await axios.post<RosterParticipant>(
+      `${this.baseApiURL}/api/roster_participants/${rosterID}`,
+      rosterParticipant,
+      {
+        withCredentials: true,
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Credentials': 'true',
+        },
+      },
+    );
+
+    return data;
   }
 }

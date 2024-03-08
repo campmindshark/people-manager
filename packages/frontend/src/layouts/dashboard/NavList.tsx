@@ -3,6 +3,7 @@ import ListItemButton from '@mui/material/ListItemButton';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import ListSubheader from '@mui/material/ListSubheader';
+import BackupTableIcon from '@mui/icons-material/BackupTable';
 import SupervisorAccountIcon from '@mui/icons-material/SupervisorAccount';
 import HomeIcon from '@mui/icons-material/Home';
 import CelebrationIcon from '@mui/icons-material/Celebration';
@@ -34,6 +35,13 @@ const mainLinks: MenuItemLinkData[] = [
     index: 'shifts',
     icon: <CelebrationIcon />,
     path: '/shifts',
+    needsRole: [],
+  },
+  {
+    text: 'Roster',
+    index: 'roser',
+    icon: <BackupTableIcon />,
+    path: '/roster',
     needsRole: [],
   },
 ];

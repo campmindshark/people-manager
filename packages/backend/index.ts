@@ -27,6 +27,7 @@ import schedulesRouter from './routes/schedules';
 import shiftsRouter from './routes/shifts';
 import rolesRouter from './routes/roles';
 import rostersRouter from './routes/rosters';
+import rosterParticipantsRouter from './routes/roster_participants';
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -181,6 +182,11 @@ app.use('/api/roles', checkAuthenticated, rolesRouter);
 app.use('/api/schedules', checkAuthenticated, schedulesRouter);
 app.use('/api/shifts', checkAuthenticated, shiftsRouter);
 app.use('/api/rosters', checkAuthenticated, rostersRouter);
+app.use(
+  '/api/roster_participants',
+  checkAuthenticated,
+  rosterParticipantsRouter,
+);
 
 app.use('/api/health', (req: Request, res: Response) => {
   res.status(200).send('healthy');

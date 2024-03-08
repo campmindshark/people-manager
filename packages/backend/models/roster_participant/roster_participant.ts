@@ -21,11 +21,11 @@ export default class RosterParticipant extends Model {
 
   yearsAtCamp: number[] = [];
 
-  estimatedArrivalDate: Date = new Date();
+  estimatedArrivalDate!: Date;
 
-  estimatedDepartureDate: Date = new Date();
+  estimatedDepartureDate!: Date;
 
-  sleepingArrangement: string[] = [];
+  sleepingArrangement!: string;
 
   earlyArrivalInterest!: boolean;
 
@@ -39,12 +39,15 @@ export default class RosterParticipant extends Model {
   // is created it is checked against this schema. http://json-schema.org/.
   static jsonSchema = {
     type: 'object',
-    required: ['firstName', 'lastName'],
+    required: [
+      'probabilityOfAttending',
+      'estimatedArrivalDate',
+      'estimatedDepartureDate',
+      'sleepingArrangement',
+    ],
 
     properties: {
       id: { type: 'integer' },
-      firstName: { type: 'string', minLength: 1, maxLength: 255 },
-      lastName: { type: 'string', minLength: 1, maxLength: 255 },
     },
   };
 

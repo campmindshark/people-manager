@@ -8,6 +8,7 @@ import Home from './pages/Home';
 import Settings from './pages/Settings';
 import Login from './pages/Login';
 import AuthenticatedPage from './components/AuthenticatedPage';
+import Roster from './pages/Roster';
 import Shifts from './pages/Shifts';
 
 const mdTheme = createTheme({
@@ -41,6 +42,16 @@ const router = createBrowserRouter([
     path: '/login',
     Component() {
       return <Login />;
+    },
+  },
+  {
+    path: '/roster',
+    Component() {
+      return (
+        <AuthenticatedPage>
+          <Roster />
+        </AuthenticatedPage>
+      );
     },
   },
   {

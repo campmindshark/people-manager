@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import {
   Alert,
   AlertTitle,
@@ -14,14 +14,10 @@ import PageState, {
   UserState,
   UserIsSignedUpForCurrentRoster,
 } from '../state/store';
-import { getFrontendConfig } from '../config/config';
 import MyShiftsTable from '../components/MyShiftsTable';
 import RosterTable from '../components/RosterTable';
 import { CurrentRosterState } from '../state/roster';
-import BackendRosterClient from '../api/roster/roster';
 import RosterSignupDialog from '../components/RosterSignupDialog';
-
-const frontendConfig = getFrontendConfig();
 
 function Home() {
   const [signupDialogIsOpen, setSignupDialogIsOpen] = React.useState(false);
@@ -30,11 +26,6 @@ function Home() {
   const currentRoster = useRecoilValue(CurrentRosterState);
   const appUserIsSignedUpForCurrentBurn = useRecoilValue(
     UserIsSignedUpForCurrentRoster,
-  );
-
-  const rosterClient = useMemo(
-    () => new BackendRosterClient(frontendConfig.BackendURL),
-    [],
   );
 
   const openSignupForm = useCallback(async () => {
