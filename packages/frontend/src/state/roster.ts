@@ -1,6 +1,6 @@
 import { selector } from 'recoil';
 import Roster from 'backend/models/roster/roster';
-import User from 'backend/models/user/user';
+import RosterParticipantViewModel from 'backend/view_models/roster_participant';
 import { getFrontendConfig } from '../config/config';
 import BackendRosterClient from '../api/roster/roster';
 
@@ -18,7 +18,9 @@ export const CurrentRosterState = selector<Roster>({
   },
 });
 
-export const CurrentRosterParticipantsState = selector<User[]>({
+export const CurrentRosterParticipantsState = selector<
+  RosterParticipantViewModel[]
+>({
   key: 'currentRosterParticipants',
   get: async ({ get }) => {
     const roster = get(CurrentRosterState);

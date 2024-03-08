@@ -6,8 +6,8 @@ import {
   TableCell,
   TableBody,
 } from '@mui/material';
-import User from 'backend/models/user/user';
 import { useRecoilValue } from 'recoil';
+import RosterParticipantViewModel from 'backend/view_models/roster_participant';
 import { CurrentRosterParticipantsState } from '../state/roster';
 
 function RosterTable() {
@@ -18,20 +18,20 @@ function RosterTable() {
       <TableHead>
         <TableRow>
           <TableCell>Name</TableCell>
-          <TableCell>GoogleID</TableCell>
+          <TableCell>Probability of Attending</TableCell>
         </TableRow>
       </TableHead>
       <TableBody>
-        {participants.map((user: User) => (
+        {participants.map((participant: RosterParticipantViewModel) => (
           <TableRow
-            key={user.id}
+            key={participant.user.id}
             sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
           >
             <TableCell component="th" scope="row">
-              {user.firstName} {user.lastName}
+              {participant.user.firstName} {participant.user.lastName}
             </TableCell>
             <TableCell component="th" scope="row">
-              {user.googleID}
+              {participant.rosterParticipant.probabilityOfAttending}
             </TableCell>
           </TableRow>
         ))}

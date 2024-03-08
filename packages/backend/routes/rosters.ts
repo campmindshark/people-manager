@@ -3,6 +3,8 @@ import Roster from '../models/roster/roster';
 import hasPermission from '../middleware/rbac';
 import User from '../models/user/user';
 import RosterController from '../controllers/roster';
+import RosterParticipantViewModel from '../view_models/roster_participant';
+import RosterParticipant from '../models/roster_participant/roster_participant';
 
 const router: Router = express.Router();
 
@@ -67,8 +69,22 @@ router.get(
   async (req: Request, res: Response, next: NextFunction) => {
     const query = Roster.relatedQuery('participants').for(req.params.id);
 
-    const participants = await query;
-    res.json(participants);
+    const users = await query;
+
+    const viewModels: RosterParticipantViewModel[] = [];
+    for (const user of users as User[]) {
+      const participantQuery = RosterParticipant.query().where(
+        'userID',
+        user.id,
+      );
+      const participant = await participantQuery;
+      viewModels.push({
+        user,
+        rosterParticipant: participant[0],
+      });
+    }
+
+    res.json(viewModels);
   },
 );
 

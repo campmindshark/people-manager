@@ -66,7 +66,7 @@ export const UserIsSignedUpForCurrentRoster = selector<boolean>({
     }
 
     return currentRosterParticipants.some(
-      (participant) => participant.id === thisUser.id,
+      (participant) => participant.user.id === thisUser.id,
     );
   },
 });

@@ -1,12 +1,14 @@
 import axios from 'axios';
 import Roster from 'backend/models/roster/roster';
-import User from 'backend/models/user/user';
 import RosterParticipant from 'backend/models/roster_participant/roster_participant';
+import RosterParticipantViewModel from 'backend/view_models/roster_participant';
 
 export interface RosterClient {
   GetAllRosters(): Promise<Roster[]>;
   GetRosterByID(rosterID: number): Promise<Roster>;
-  GetRosterParticipants(rosterID: number): Promise<User[]>;
+  GetRosterParticipants(
+    rosterID: number,
+  ): Promise<RosterParticipantViewModel[]>;
   Signup(
     rosterID: number,
     rosterParticipant: RosterParticipant,
@@ -50,8 +52,10 @@ export default class BackendRosterClient implements RosterClient {
     return data;
   }
 
-  async GetRosterParticipants(rosterID: number): Promise<User[]> {
-    const { data } = await axios.get<User[]>(
+  async GetRosterParticipants(
+    rosterID: number,
+  ): Promise<RosterParticipantViewModel[]> {
+    const { data } = await axios.get<RosterParticipantViewModel[]>(
       `${this.baseApiURL}/api/rosters/${rosterID}/participants`,
       {
         withCredentials: true,
