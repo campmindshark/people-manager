@@ -1,21 +1,23 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import validator from '@rjsf/validator-ajv8';
 import Form from '@rjsf/mui';
-import User from 'backend/models/user/user';
+import RosterParticipant from 'backend/models/roster_participant/roster_participant';
 import Snackbar from '@mui/material/Snackbar';
-import { useRecoilState } from 'recoil';
+import BackendRosterClient from 'src/api/roster/roster';
 
-import { UserState } from '../state/store';
+import { CurrentRosterID } from 'src/state/roster';
 import { getFrontendConfig } from '../config/config';
-import BackendUserClient from '../api/users/client';
 
 const frontendConfig = getFrontendConfig();
 
-function MyProfileForm() {
-  const [userState, setUserState] = useRecoilState(UserState);
+function RosterSignupForm() {
+  const [rosterParticipant, setRosterParticipant] = useState(
+    new RosterParticipant(),
+  );
   const [open, setOpen] = React.useState(false);
+
   const userClient = useMemo(
-    () => new BackendUserClient(frontendConfig.BackendURL),
+    () => new BackendRosterClient(frontendConfig.BackendURL),
     [frontendConfig.BackendURL],
   );
 
@@ -33,32 +35,30 @@ function MyProfileForm() {
   const handleSubmit = async (data: any) => {
     console.log(data);
 
-    const { formData } = data as { formData: User };
-    formData.skillsOfNote = formData.skillsOfNote || [];
+    const { formData } = data as { formData: RosterParticipant };
 
-    const updatedUser = await userClient.UpdateUser(formData);
-    setUserState(updatedUser);
+    const updatedUser = await userClient.Signup(CurrentRosterID, formData);
+    setRosterParticipant(updatedUser);
     setOpen(true);
   };
-  console.log(userState);
 
   return (
     <>
       <Form
-        schema={User.formSchema}
+        schema={RosterParticipant.formSchema}
         validator={validator}
         onSubmit={handleSubmit}
-        formData={userState}
-        uiSchema={User.formUiSchema}
+        formData={rosterParticipant}
+        uiSchema={RosterParticipant.formUiSchema}
       />
       <Snackbar
         open={open}
         autoHideDuration={6000}
         onClose={handleClose}
-        message="Profile Updated!"
+        message="Roster Participant Updated!"
       />
     </>
   );
 }
 
-export default MyProfileForm;
+export default RosterSignupForm;

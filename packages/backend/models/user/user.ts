@@ -1,5 +1,5 @@
 import { Model } from 'objection';
-import { RJSFSchema } from '@rjsf/utils';
+import { RJSFSchema, UiSchema } from '@rjsf/utils';
 
 export default class User extends Model {
   id!: number;
@@ -38,6 +38,17 @@ export default class User extends Model {
       id: { type: 'integer' },
       firstName: { type: 'string', minLength: 1, maxLength: 255 },
       lastName: { type: 'string', minLength: 1, maxLength: 255 },
+    },
+  };
+
+  static formUiSchema: UiSchema = {
+    skillsOfNote: {
+      'ui:widget': 'checkboxes',
+    },
+    phoneNumber: {
+      'ui:options': {
+        inputType: 'tel',
+      },
     },
   };
 

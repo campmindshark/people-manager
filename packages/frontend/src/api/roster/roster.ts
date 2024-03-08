@@ -1,12 +1,16 @@
 import axios from 'axios';
 import Roster from 'backend/models/roster/roster';
 import User from 'backend/models/user/user';
+import RosterParticipant from 'backend/models/roster_participant/roster_participant';
 
 export interface RosterClient {
   GetAllRosters(): Promise<Roster[]>;
   GetRosterByID(rosterID: number): Promise<Roster>;
   GetRosterParticipants(rosterID: number): Promise<User[]>;
-  Signup(rosterID: number): Promise<boolean>;
+  Signup(
+    rosterID: number,
+    rosterParticipant: RosterParticipant,
+  ): Promise<RosterParticipant>;
 }
 
 export default class BackendRosterClient implements RosterClient {
@@ -61,8 +65,13 @@ export default class BackendRosterClient implements RosterClient {
     return data;
   }
 
-  async Signup(rosterID: number): Promise<boolean> {
-    console.log(`Signing up for roster ${rosterID} at ${this.baseApiURL}`);
+  async Signup(
+    rosterID: number,
+    rosterParticipant: RosterParticipant,
+  ): Promise<RosterParticipant> {
+    console.log(
+      `Signing up for roster ${rosterID} with this data ${rosterParticipant}`,
+    );
     // TODO: Finish implementing this
     // const { data } = await axios.get<boolean>(
     //   `${this.baseApiURL}/api/rosters/${rosterID}/signup`,
@@ -76,6 +85,6 @@ export default class BackendRosterClient implements RosterClient {
     //   },
     // );
     // return data;
-    return true;
+    return new RosterParticipant();
   }
 }

@@ -19,10 +19,12 @@ import MyShiftsTable from '../components/MyShiftsTable';
 import RosterTable from '../components/RosterTable';
 import { CurrentRosterState } from '../state/roster';
 import BackendRosterClient from '../api/roster/roster';
+import RosterSignupDialog from '../components/RosterSignupDialog';
 
 const frontendConfig = getFrontendConfig();
 
 function Home() {
+  const [signupDialogIsOpen, setSignupDialogIsOpen] = React.useState(false);
   const setPageState = useSetRecoilState(PageState);
   const appUser = useRecoilValue(UserState);
   const currentRoster = useRecoilValue(CurrentRosterState);
@@ -35,12 +37,8 @@ function Home() {
     [],
   );
 
-  const signUserUp = useCallback(async () => {
-    console.log('Sign Up User');
-    const success = await rosterClient.Signup(1);
-    if (!success) {
-      console.log('Failed to sign user up');
-    }
+  const openSignupForm = useCallback(async () => {
+    setSignupDialogIsOpen(true);
   }, []);
 
   useEffect(() => {
@@ -63,9 +61,13 @@ function Home() {
             out on the {currentRoster.year} burn.
           </Typography>
           <br />
-          <Button variant="contained" color="error" onClick={signUserUp}>
+          <Button variant="contained" color="error" onClick={openSignupForm}>
             Click here to sign up for Burning Man {currentRoster.year}!
           </Button>
+          <RosterSignupDialog
+            open={signupDialogIsOpen}
+            handleClose={() => setSignupDialogIsOpen(false)}
+          />
         </Alert>
       );
     }
