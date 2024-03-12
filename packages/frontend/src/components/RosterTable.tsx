@@ -28,17 +28,19 @@ function RosterTable() {
   const participants = useRecoilValue(CurrentRosterParticipantsState);
 
   return (
-    <Table sx={{ minWidth: 650 }} aria-label="simple table">
+    <Table
+      stickyHeader
+      sx={{ minWidth: 650, width: '100%' }}
+      aria-label="sticky table"
+    >
       <TableHead>
         <TableRow>
           <TableCell>Name</TableCell>
           <TableCell>Playa Name</TableCell>
           <TableCell>Location</TableCell>
           <TableCell>Probability of Attending</TableCell>
-
           <TableCell>Ticket</TableCell>
           <TableCell>Extra Tickets</TableCell>
-
           <TableCell>Years Attended</TableCell>
           <TableCell>Years At Camp</TableCell>
           <TableCell>Referral Name</TableCell>
