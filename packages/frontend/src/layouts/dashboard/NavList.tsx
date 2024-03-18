@@ -55,10 +55,10 @@ const utilityLinks: MenuItemLinkData[] = [
     needsRole: ['admin'],
   },
   {
-    text: 'Settings',
-    index: 'settings',
+    text: 'Profile Edit',
+    index: 'profile-edit',
     icon: <SettingsIcon />,
-    path: '/settings',
+    path: '/profile-edit',
     needsRole: [],
   },
 ];
@@ -102,7 +102,7 @@ export default function NavList() {
       <Divider sx={{ my: 1 }} />
       <>
         <ListSubheader component="div" inset>
-          Utilities
+          Settings
         </ListSubheader>
         {generateUtilityLinks()}
       </>

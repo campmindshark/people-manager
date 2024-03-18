@@ -10,9 +10,14 @@ import { getFrontendConfig } from '../config/config';
 
 const frontendConfig = getFrontendConfig();
 
-function RosterSignupForm() {
+interface Props {
+  rosterParticipant: RosterParticipant;
+}
+
+function RosterSignupForm(props: Props) {
+  const { rosterParticipant: rosterParticipantProp } = props;
   const [rosterParticipant, setRosterParticipant] = useState(
-    new RosterParticipant(),
+    rosterParticipantProp,
   );
   const [open, setOpen] = React.useState(false);
 

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Dialog, DialogTitle, DialogContent, Typography } from '@mui/material';
+import RosterParticipant from 'backend/models/roster_participant/roster_participant';
 import RosterSignupForm from './RosterSignupForm';
 
 interface Props {
@@ -15,7 +16,7 @@ function RosterSignupDialog(props: Props) {
         <Typography variant="h4">Roster Sign Up</Typography>
       </DialogTitle>
       <DialogContent dividers>
-        <RosterSignupForm />
+        <RosterSignupForm rosterParticipant={new RosterParticipant()} />
       </DialogContent>
     </Dialog>
   );

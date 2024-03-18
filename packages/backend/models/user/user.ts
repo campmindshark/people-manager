@@ -53,7 +53,7 @@ export default class User extends Model {
   };
 
   static formSchema: RJSFSchema = {
-    title: 'Edit Your Profile',
+    title: 'Edit Your Public Profile',
     type: 'object',
     required: [
       'firstName',

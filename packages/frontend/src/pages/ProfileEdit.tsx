@@ -14,8 +14,8 @@ export default function Settings() {
 
   useEffect(() => {
     setPageState({
-      title: 'Settings',
-      index: 'settings',
+      title: 'Profile Edit',
+      index: 'profile-edit',
     });
   });
 

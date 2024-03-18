@@ -5,7 +5,7 @@ import CssBaseline from '@mui/material/CssBaseline';
 import './App.css';
 import Admin from './pages/Admin';
 import Home from './pages/Home';
-import Settings from './pages/Settings';
+import ProfileEdit from './pages/ProfileEdit';
 import Login from './pages/Login';
 import AuthenticatedPage from './components/AuthenticatedPage';
 import Roster from './pages/Roster';
@@ -14,6 +14,21 @@ import Shifts from './pages/Shifts';
 const mdTheme = createTheme({
   palette: {
     mode: 'dark',
+    primary: {
+      main: '#4285f4',
+    },
+    secondary: {
+      main: '#ffdf00',
+    },
+    error: {
+      main: '#db4437',
+    },
+    info: {
+      main: '#00bcd4',
+    },
+    success: {
+      main: '#0f9d58',
+    },
   },
 });
 
@@ -55,11 +70,11 @@ const router = createBrowserRouter([
     },
   },
   {
-    path: '/settings',
+    path: '/profile-edit',
     Component() {
       return (
         <AuthenticatedPage>
-          <Settings />
+          <ProfileEdit />
         </AuthenticatedPage>
       );
     },

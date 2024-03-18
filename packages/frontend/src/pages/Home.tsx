@@ -15,8 +15,8 @@ import PageState, {
   UserIsSignedUpForCurrentRoster,
 } from '../state/store';
 import MyShiftsTable from '../components/MyShiftsTable';
-import RosterTable from '../components/RosterTable';
 import { CurrentRosterState } from '../state/roster';
+import UserStatusTable from '../components/UserStatusTable';
 import RosterSignupDialog from '../components/RosterSignupDialog';
 
 function Home() {
@@ -40,31 +40,29 @@ function Home() {
     });
   }, []);
 
-  const rosterSignupCTA = () => {
-    if (!appUserIsSignedUpForCurrentBurn) {
-      return (
-        <Alert severity="warning" variant="filled">
-          <AlertTitle>
-            <Typography variant="h5">You are not signed up</Typography>
-          </AlertTitle>
-          <Typography>
-            Warning! You ({appUser.firstName} {appUser.lastName}) may be missing
-            out on the {currentRoster.year} burn.
-          </Typography>
-          <br />
-          <Button variant="contained" color="error" onClick={openSignupForm}>
-            Click here to sign up for Burning Man {currentRoster.year}!
-          </Button>
-          <RosterSignupDialog
-            open={signupDialogIsOpen}
-            handleClose={() => setSignupDialogIsOpen(false)}
-          />
-        </Alert>
-      );
-    }
-
-    return <p>See you at the burn. :)</p>;
-  };
+  // const rosterSignupCTA = () => {
+  //   if (!appUserIsSignedUpForCurrentBurn) {
+  //     return (
+  //       <Alert severity="warning" variant="filled">
+  //         <AlertTitle>
+  //           <Typography variant="h5">You are not signed up</Typography>
+  //         </AlertTitle>
+  //         <Typography>
+  //           Warning! You ({appUser.firstName} {appUser.lastName}) may be missing
+  //           out on the {currentRoster.year} burn.
+  //         </Typography>
+  //         <br />
+  //         <Button variant="contained" color="error" onClick={openSignupForm}>
+  //           Click here to sign up for Burning Man {currentRoster.year}!
+  //         </Button>
+  //         <RosterSignupDialog
+  //           open={signupDialogIsOpen}
+  //           handleClose={() => setSignupDialogIsOpen(false)}
+  //         />
+  //       </Alert>
+  //     );
+  //   }
+  // };
 
   return (
     <Dashboard>
@@ -81,9 +79,33 @@ function Home() {
               }}
             >
               {/* <Chart /> */}
-              <h1>Current Roster</h1>
-              {rosterSignupCTA()}
-              <RosterTable />
+              <h1>Roster Status</h1>
+              {/* {rosterSignupCTA()} */}
+              {!appUserIsSignedUpForCurrentBurn ? (
+                <Alert severity="warning" variant="filled">
+                  <AlertTitle>
+                    <Typography variant="h5">You are not signed up</Typography>
+                  </AlertTitle>
+                  <Typography>
+                    Warning! You ({appUser.firstName} {appUser.lastName}) may be
+                    missing out on the {currentRoster.year} burn.
+                  </Typography>
+                  <br />
+                  <Button
+                    variant="contained"
+                    color="error"
+                    onClick={openSignupForm}
+                  >
+                    Click here to sign up for Burning Man {currentRoster.year}!
+                  </Button>
+                  <RosterSignupDialog
+                    open={signupDialogIsOpen}
+                    handleClose={() => setSignupDialogIsOpen(false)}
+                  />
+                </Alert>
+              ) : (
+                <UserStatusTable />
+              )}
             </Paper>
           </Grid>
           <Grid item xs={12} md={4} lg={3}>
