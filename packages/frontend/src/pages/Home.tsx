@@ -40,30 +40,6 @@ function Home() {
     });
   }, []);
 
-  // const rosterSignupCTA = () => {
-  //   if (!appUserIsSignedUpForCurrentBurn) {
-  //     return (
-  //       <Alert severity="warning" variant="filled">
-  //         <AlertTitle>
-  //           <Typography variant="h5">You are not signed up</Typography>
-  //         </AlertTitle>
-  //         <Typography>
-  //           Warning! You ({appUser.firstName} {appUser.lastName}) may be missing
-  //           out on the {currentRoster.year} burn.
-  //         </Typography>
-  //         <br />
-  //         <Button variant="contained" color="error" onClick={openSignupForm}>
-  //           Click here to sign up for Burning Man {currentRoster.year}!
-  //         </Button>
-  //         <RosterSignupDialog
-  //           open={signupDialogIsOpen}
-  //           handleClose={() => setSignupDialogIsOpen(false)}
-  //         />
-  //       </Alert>
-  //     );
-  //   }
-  // };
-
   return (
     <Dashboard>
       <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
@@ -79,7 +55,7 @@ function Home() {
               }}
             >
               {/* <Chart /> */}
-              <h1>Roster Status</h1>
+              <h1>Your {currentRoster.year} Roster Status</h1>
               {/* {rosterSignupCTA()} */}
               {!appUserIsSignedUpForCurrentBurn ? (
                 <Alert severity="warning" variant="filled">
