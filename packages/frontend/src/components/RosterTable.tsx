@@ -9,6 +9,7 @@ import {
 import { useRecoilValue } from 'recoil';
 import RosterParticipantViewModel from 'backend/view_models/roster_participant';
 import { CurrentRosterParticipantsState } from '../state/roster';
+import BurningManDateFormatter from '../utils/datetime/formatter';
 
 const skillsString = (skills: string[]): string => {
   if (!skills || skills.length === 0) {
@@ -45,6 +46,7 @@ function RosterTable() {
           <TableCell>Years At Camp</TableCell>
           <TableCell>Referral Name</TableCell>
           <TableCell>Sleeping Arrangement</TableCell>
+          <TableCell>Estimated Arrival</TableCell>
           <TableCell>Skills</TableCell>
           <TableCell>Interested in EA</TableCell>
           <TableCell>Interested in Post Burn</TableCell>
@@ -85,6 +87,11 @@ function RosterTable() {
             </TableCell>
             <TableCell component="th" scope="row">
               {participant.rosterParticipant.sleepingArrangement}
+            </TableCell>
+            <TableCell component="th" scope="row">
+              {BurningManDateFormatter.format(
+                new Date(participant.rosterParticipant.estimatedArrivalDate),
+              )}
             </TableCell>
             <TableCell component="th" scope="row">
               {skillsString(participant.user.skillsOfNote)},

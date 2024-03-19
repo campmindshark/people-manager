@@ -11,11 +11,11 @@ export default class RosterParticipant extends Model {
 
   probabilityOfAttending!: number;
 
-  hasTicket!: boolean;
+  hasTicket: boolean = false;
 
-  hasVehiclePass!: boolean;
+  hasVehiclePass: boolean = false;
 
-  extraTickets!: boolean;
+  extraTickets: boolean = false;
 
   yearsAttended!: number;
 
@@ -27,9 +27,9 @@ export default class RosterParticipant extends Model {
 
   sleepingArrangement!: string;
 
-  earlyArrivalInterest!: boolean;
+  earlyArrivalInterest: boolean = false;
 
-  postBurnInterest!: boolean;
+  postBurnInterest: boolean = false;
 
   // Table name is the only required property.
   static tableName = 'roster_participants';
@@ -71,6 +71,12 @@ export default class RosterParticipant extends Model {
 
   static formSchema: RJSFSchema = {
     type: 'object',
+    required: [
+      'probabilityOfAttending',
+      'estimatedArrivalDate',
+      'estimatedDepartureDate',
+      'sleepingArrangement',
+    ],
     properties: {
       probabilityOfAttending: {
         type: 'integer',
@@ -106,12 +112,12 @@ export default class RosterParticipant extends Model {
       estimatedArrivalDate: {
         type: 'string',
         title: 'When do you plan to arrive?',
-        format: 'date',
+        format: 'date-time',
       },
       estimatedDepartureDate: {
         type: 'string',
         title: 'When do you plan to depart?',
-        format: 'date',
+        format: 'date-time',
       },
       sleepingArrangement: {
         type: 'string',

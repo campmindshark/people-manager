@@ -21,7 +21,7 @@ function RosterSignupForm(props: Props) {
   );
   const [open, setOpen] = React.useState(false);
 
-  const userClient = useMemo(
+  const rosterClient = useMemo(
     () => new BackendRosterClient(frontendConfig.BackendURL),
     [frontendConfig.BackendURL],
   );
@@ -42,7 +42,7 @@ function RosterSignupForm(props: Props) {
 
     const { formData } = data as { formData: RosterParticipant };
 
-    const updatedUser = await userClient.Signup(CurrentRosterID, formData);
+    const updatedUser = await rosterClient.Signup(CurrentRosterID, formData);
     setRosterParticipant(updatedUser);
     setOpen(true);
   };

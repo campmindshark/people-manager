@@ -17,14 +17,26 @@ router.post('/:id', async (req: Request, res: Response) => {
   const user = req.user as User;
   const proposedRosterParticipant: RosterParticipant = req.body;
 
-  const checkCurrent = await RosterParticipant.query().where({
+  const signupScope = {
     userID: user.id,
     rosterID: req.params.id,
-  });
+  };
+
+  const checkCurrent = await RosterParticipant.query().where(signupScope);
 
   if (checkCurrent.length > 0) {
-    res.status(400).json({ message: 'User already signed up for this roster' });
-    return;
+    await RosterParticipant.query()
+      .where(signupScope)
+      .patch({
+        ...req.body,
+        yearsAtCamp: JSON.stringify(proposedRosterParticipant.yearsAtCamp),
+      });
+
+    const rosterParticipant = await RosterParticipant.query().findById(
+      checkCurrent[0].id,
+    );
+
+    return res.json(rosterParticipant);
   }
 
   const rosterParticipant = await RosterParticipant.query().insert({

@@ -77,6 +77,7 @@ function Home() {
                   <RosterSignupDialog
                     open={signupDialogIsOpen}
                     handleClose={() => setSignupDialogIsOpen(false)}
+                    loadCurrentUserRosterData={false}
                   />
                 </Alert>
               ) : (

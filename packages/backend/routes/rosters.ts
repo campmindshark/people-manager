@@ -78,6 +78,7 @@ router.get(
         user.id,
       );
       const participant = await participantQuery;
+      console.log(participant);
       viewModels.push({
         user,
         rosterParticipant: participant[0],
