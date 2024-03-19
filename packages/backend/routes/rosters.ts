@@ -2,7 +2,6 @@ import express, { Request, Response, NextFunction, Router } from 'express';
 import Roster from '../models/roster/roster';
 import hasPermission from '../middleware/rbac';
 import User from '../models/user/user';
-import RosterController from '../controllers/roster';
 import RosterParticipantViewModel from '../view_models/roster_participant';
 import RosterParticipant from '../models/roster_participant/roster_participant';
 
@@ -32,35 +31,44 @@ router.get(
   },
 );
 
-router.get(
-  '/:id/signup',
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  async (req: Request, res: Response, next: NextFunction) => {
-    const { id } = req.params;
+/* POST drop-out this user from the specific roster. */
+router.post('/:id/drop-out', async (req: Request, res: Response) => {
+  const rosterID = req.params.id;
 
-    if (!req.user) {
-      res.json({ error: 'User not found' });
-      return;
-    }
+  const tmpUser = req.user as User;
+  const user = User.fromJson(tmpUser);
 
-    const user = req.user as User;
+  if (!rosterID) {
+    res.json({ error: 'Roster ID not defined' });
+    return;
+  }
 
-    console.log(
-      `Signing up user ${user.id} - ${user.displayName()} for roster ${id}`,
-    );
+  const participant = await RosterParticipant.query()
+    .where({
+      userID: user.id,
+      rosterID,
+    })
+    .first();
 
-    const success = await RosterController.RegisterParticipantForRoster(
-      parseInt(id, 10),
-      user.id,
-    );
+  if (!participant) {
+    res.json({ error: 'User not found in roster' });
+    return;
+  }
 
-    if (!success) {
-      res.status(500).json({ error: 'Failed to register user for roster' });
-      return;
-    }
-    res.json({ success: true });
-  },
-);
+  console.log(
+    `Dropping out user ${
+      user.id
+    } - ${user.displayName()} from roster ${rosterID}`,
+  );
+
+  const success = await RosterParticipant.query().deleteById(participant.id);
+
+  if (!success) {
+    res.status(500).json({ error: 'Failed to drop out user from roster' });
+    return;
+  }
+  res.json({ success: true });
+});
 
 /* Get Participants. */
 router.get(

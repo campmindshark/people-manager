@@ -9,11 +9,12 @@ import { UserState } from '../state/store';
 interface Props {
   open: boolean;
   handleClose: () => void;
+  handleSuccess: () => void;
   loadCurrentUserRosterData: boolean;
 }
 
 function RosterSignupDialog(props: Props) {
-  const { open, handleClose, loadCurrentUserRosterData } = props;
+  const { open, handleClose, handleSuccess, loadCurrentUserRosterData } = props;
   const rosterParticipants = useRecoilValue(CurrentRosterParticipantsState);
   const userState = useRecoilValue(UserState);
 
@@ -46,7 +47,10 @@ function RosterSignupDialog(props: Props) {
         <Typography variant="h4">Roster Sign Up</Typography>
       </DialogTitle>
       <DialogContent dividers>
-        <RosterSignupForm rosterParticipant={getFormData()} />
+        <RosterSignupForm
+          handleSuccess={handleSuccess}
+          rosterParticipant={getFormData()}
+        />
       </DialogContent>
     </Dialog>
   );

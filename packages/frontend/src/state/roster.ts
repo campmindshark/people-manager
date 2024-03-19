@@ -28,17 +28,6 @@ export const CurrentRosterParticipantsState = selector<
       return [];
     }
     const participants = await rosterClient.GetRosterParticipants(roster.id);
-    // for (let i = 0; i < participants.length; i += 1) {
-    //   participants[i].rosterParticipant.estimatedArrivalDate = new Date(
-    //     participants[i].rosterParticipant.estimatedArrivalDate,
-    //   );
-    //   participants[i].rosterParticipant.estimatedDepartureDate = new Date(
-    //     participants[i].rosterParticipant.estimatedDepartureDate,
-    //   );
-    // }
-
-    console.log(participants);
-
     return participants;
   },
 });

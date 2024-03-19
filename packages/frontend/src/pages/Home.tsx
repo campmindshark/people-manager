@@ -8,6 +8,7 @@ import {
   Paper,
   Typography,
 } from '@mui/material';
+import { useNavigate } from 'react-router-dom';
 import { useSetRecoilState, useRecoilValue } from 'recoil';
 import Dashboard from '../layouts/dashboard/Dashboard';
 import PageState, {
@@ -27,6 +28,8 @@ function Home() {
   const appUserIsSignedUpForCurrentBurn = useRecoilValue(
     UserIsSignedUpForCurrentRoster,
   );
+
+  const navigate = useNavigate();
 
   const openSignupForm = useCallback(async () => {
     setSignupDialogIsOpen(true);
@@ -77,6 +80,7 @@ function Home() {
                   <RosterSignupDialog
                     open={signupDialogIsOpen}
                     handleClose={() => setSignupDialogIsOpen(false)}
+                    handleSuccess={() => navigate(0)}
                     loadCurrentUserRosterData={false}
                   />
                 </Alert>

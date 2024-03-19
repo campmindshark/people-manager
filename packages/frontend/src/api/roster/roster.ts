@@ -2,6 +2,7 @@ import axios from 'axios';
 import Roster from 'backend/models/roster/roster';
 import RosterParticipant from 'backend/models/roster_participant/roster_participant';
 import RosterParticipantViewModel from 'backend/view_models/roster_participant';
+import BasicResponse from 'backend/models/common/basic_response';
 
 export interface RosterClient {
   GetAllRosters(): Promise<Roster[]>;
@@ -13,6 +14,7 @@ export interface RosterClient {
     rosterID: number,
     rosterParticipant: RosterParticipant,
   ): Promise<RosterParticipant>;
+  DropOut(rosterID: number): Promise<BasicResponse>;
 }
 
 export default class BackendRosterClient implements RosterClient {
@@ -88,6 +90,27 @@ export default class BackendRosterClient implements RosterClient {
         },
       },
     );
+
+    return data;
+  }
+
+  async DropOut(rosterID: number): Promise<BasicResponse> {
+    const { data } = await axios.post<BasicResponse>(
+      `${this.baseApiURL}/api/rosters/${rosterID}/drop-out`,
+      {},
+      {
+        withCredentials: true,
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Credentials': 'true',
+        },
+      },
+    );
+
+    if (data.error) {
+      throw new Error(data.error);
+    }
 
     return data;
   }

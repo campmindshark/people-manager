@@ -12,10 +12,11 @@ const frontendConfig = getFrontendConfig();
 
 interface Props {
   rosterParticipant: RosterParticipant;
+  handleSuccess: () => void;
 }
 
 function RosterSignupForm(props: Props) {
-  const { rosterParticipant: rosterParticipantProp } = props;
+  const { rosterParticipant: rosterParticipantProp, handleSuccess } = props;
   const [rosterParticipant, setRosterParticipant] = useState(
     rosterParticipantProp,
   );
@@ -44,6 +45,8 @@ function RosterSignupForm(props: Props) {
 
     const updatedUser = await rosterClient.Signup(CurrentRosterID, formData);
     setRosterParticipant(updatedUser);
+    console.log('handleSuccess');
+    handleSuccess();
     setOpen(true);
   };
 
