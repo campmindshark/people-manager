@@ -51,15 +51,17 @@ export default class AnalysisController {
       rosterID,
     });
 
-    const response: SignupStatus[] = [];
-    for (const participant of rosterParticipants) {
-      const status = await AnalysisController.GetSignupStatusForUser(
-        participant.userID,
-        rosterID,
+    const promises: Promise<SignupStatus>[] = [];
+    for (let index = 0; index < rosterParticipants.length; index += 1) {
+      promises.push(
+        AnalysisController.GetSignupStatusForUser(
+          rosterParticipants[index].userID,
+          rosterID,
+        ),
       );
-      response.push(status);
     }
 
-    return response;
+    const statuses = await Promise.all(promises);
+    return statuses;
   }
 }

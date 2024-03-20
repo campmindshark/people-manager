@@ -5,9 +5,7 @@ import User from '../models/user/user';
 import RosterParticipantViewModel from '../view_models/roster_participant';
 import RosterParticipant from '../models/roster_participant/roster_participant';
 import AnalysisController from '../controllers/analysis';
-import SignupStatus, {
-  NewPlaceholderSignupStatus,
-} from '../view_models/signup_status';
+import RosterController from '../controllers/roster';
 
 const router: Router = express.Router();
 
@@ -83,19 +81,13 @@ router.get(
 
     const users = await query;
 
-    const viewModels: RosterParticipantViewModel[] = [];
-    for (const user of users as User[]) {
-      const participantQuery = RosterParticipant.query().where(
-        'userID',
-        user.id,
-      );
-      const participant = await participantQuery;
-      viewModels.push({
-        user,
-        rosterParticipant: participant[0],
-      });
+    const promises: Promise<RosterParticipantViewModel>[] = [];
+    for (let index = 0; index < users.length; index += 1) {
+      const user = User.fromJson(users[index]);
+      promises.push(RosterController.GetRosterParticipantViewModel(user));
     }
 
+    const viewModels = await Promise.all(promises);
     res.json(viewModels);
   },
 );
@@ -134,7 +126,7 @@ router.get(
 
     const allStatuses =
       await AnalysisController.GetSignupStatusForAllUsersInContextOfRoster(
-        parseInt(id),
+        parseInt(id, 10),
       );
 
     res.json(allStatuses);

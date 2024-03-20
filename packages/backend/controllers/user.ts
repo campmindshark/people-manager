@@ -8,10 +8,11 @@ const knex = Knex(knexConfig[getConfig().Environment]);
 
 export default class UserController {
   public static async updateUser(user: User, id: number): Promise<User> {
-    const skillsOfNote = user.skillsOfNote;
-    user.skillsOfNote = [];
+    const { skillsOfNote } = user;
+    const userInput = { ...user };
+    userInput.skillsOfNote = [];
 
-    const query = User.query().update(user).where('id', id);
+    const query = User.query().update(userInput).where('id', id);
     await query;
 
     const jsonQuery = knex('users')
@@ -34,11 +35,10 @@ export default class UserController {
     privateProfile: PrivateProfile,
     userID: number,
   ): Promise<PrivateProfile> {
-    const query = PrivateProfile.query().insert({
+    await PrivateProfile.query().insert({
       ...privateProfile,
-      userID: userID,
+      userID,
     });
-    await query;
 
     const recollectQuery = PrivateProfile.query().where('userID', userID);
     const updatedPrivateProfile = await recollectQuery;
@@ -57,9 +57,7 @@ export default class UserController {
     privateProfile: PrivateProfile,
     userID: number,
   ): Promise<PrivateProfile> {
-    const query = PrivateProfile.query()
-      .update(privateProfile)
-      .where('userID', userID);
+    await PrivateProfile.query().update(privateProfile).where('userID', userID);
 
     const recollectQuery = PrivateProfile.query().where('userID', userID);
 

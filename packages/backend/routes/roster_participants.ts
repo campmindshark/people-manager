@@ -36,7 +36,7 @@ router.post('/:id', async (req: Request, res: Response) => {
       checkCurrent[0].id,
     );
 
-    return res.json(rosterParticipant);
+    res.json(rosterParticipant);
   }
 
   const rosterParticipant = await RosterParticipant.query().insert({

@@ -2,11 +2,7 @@ import express, { Request, Response, NextFunction, Router } from 'express';
 import User from '../models/user/user';
 import UserController from '../controllers/user';
 import PrivateProfile from '../models/user/user_private';
-import RosterParticipant from '../models/roster_participant/roster_participant';
-import SignupStatus, {
-  NewPlaceholderSignupStatus,
-} from '../view_models/signup_status';
-import AnalysisController from 'controllers/analysis';
+import AnalysisController from '../controllers/analysis';
 
 const router: Router = express.Router();
 
@@ -76,8 +72,8 @@ router.get(
     const [rosterID, userID] = [req.params.rosterID, req.params.userID];
 
     const status = await AnalysisController.GetSignupStatusForUser(
-      parseInt(userID),
-      parseInt(rosterID),
+      parseInt(userID, 10),
+      parseInt(rosterID, 10),
     );
 
     res.json(status);

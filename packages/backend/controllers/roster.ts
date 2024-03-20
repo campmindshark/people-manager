@@ -1,6 +1,8 @@
 import Knex from 'knex';
 import knexConfig from '../knexfile';
 import { getConfig } from '../config/config';
+import User from '../models/user/user';
+import RosterParticipantViewModel from '../view_models/roster_participant';
 
 const knex = Knex(knexConfig[getConfig().Environment]);
 
@@ -31,5 +33,19 @@ export default class RosterController {
     await query;
 
     return true;
+  }
+
+  public static async GetRosterParticipantViewModel(
+    user: User,
+  ): Promise<RosterParticipantViewModel> {
+    const participantQuery = knex('roster_participants').where(
+      'userID',
+      user.id,
+    );
+    const participant = await participantQuery;
+    return {
+      user,
+      rosterParticipant: participant[0],
+    };
   }
 }

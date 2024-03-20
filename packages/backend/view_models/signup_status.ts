@@ -14,16 +14,14 @@ type SignupStatus = {
   shiftCount: number;
 };
 
-export const NewPlaceholderSignupStatus = (): SignupStatus => {
-  return {
-    user: new User(),
-    hasSignedUpForRoster: false,
-    rosterID: 0,
-    hasCompletedPrivateProfile: false,
-    hasCompletedPublicProfile: false,
-    hasPaidDues: false,
-    shiftCount: 0,
-  };
-};
+export const NewPlaceholderSignupStatus = (): SignupStatus => ({
+  user: new User(),
+  hasSignedUpForRoster: false,
+  rosterID: 0,
+  hasCompletedPrivateProfile: false,
+  hasCompletedPublicProfile: false,
+  hasPaidDues: false,
+  shiftCount: 0,
+});
 
 export default SignupStatus;

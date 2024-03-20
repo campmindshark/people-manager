@@ -1,6 +1,6 @@
 import { Model } from 'objection';
-import User from '../user/user';
 import { RJSFSchema, UiSchema } from '@rjsf/utils';
+import User from '../user/user';
 
 export default class RosterParticipant extends Model {
   id!: number;
@@ -11,11 +11,11 @@ export default class RosterParticipant extends Model {
 
   probabilityOfAttending!: number;
 
-  hasTicket: boolean = false;
+  hasTicket = false;
 
-  hasVehiclePass: boolean = false;
+  hasVehiclePass = false;
 
-  extraTickets: boolean = false;
+  extraTickets = false;
 
   yearsAttended!: number;
 
@@ -27,9 +27,9 @@ export default class RosterParticipant extends Model {
 
   sleepingArrangement!: string;
 
-  earlyArrivalInterest: boolean = false;
+  earlyArrivalInterest = false;
 
-  postBurnInterest: boolean = false;
+  postBurnInterest = false;
 
   // Table name is the only required property.
   static tableName = 'roster_participants';

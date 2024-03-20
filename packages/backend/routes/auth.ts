@@ -13,7 +13,7 @@ router.get('/login/success', async (req: Request, res) => {
     res.status(200).json({
       success: true,
       message: 'successful',
-      user: user,
+      user,
     });
 
     return;
