@@ -3,7 +3,9 @@ import User from '../models/user/user';
 import UserController from '../controllers/user';
 import PrivateProfile from '../models/user/user_private';
 import RosterParticipant from '../models/roster_participant/roster_participant';
-import SignupStatus from '../view_models/signup_status';
+import SignupStatus, {
+  NewPlaceholderSignupStatus,
+} from '../view_models/signup_status';
 
 const router: Router = express.Router();
 
@@ -71,15 +73,7 @@ router.get(
   '/:userID/signup-status/:rosterID',
   async (req: Request, res: Response) => {
     const [rosterID, userID] = [req.params.rosterID, req.params.userID];
-    const tmpResponse: SignupStatus = {
-      userID: parseInt(userID),
-      hasSignedUpForRoster: false,
-      rosterID: parseInt(rosterID),
-      hasCompletedPrivateProfile: false,
-      hasCompletedPublicProfile: false,
-      hasPaidDues: false,
-      shiftCount: 0,
-    };
+    const tmpResponse: SignupStatus = NewPlaceholderSignupStatus();
 
     // Get the user profile to determine if its been completed
     const user = await User.query().findById(userID);
@@ -87,6 +81,7 @@ router.get(
       res.json({ error: 'User not found' });
       return;
     }
+    tmpResponse.user = user;
     if (user.hasCompletedProfile()) {
       console.log('User has completed profile', user);
       tmpResponse.hasCompletedPublicProfile = true;

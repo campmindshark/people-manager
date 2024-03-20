@@ -10,7 +10,8 @@
         "shifts:create",
         "shifts:delete",
         "rosters:create",
-        "rosters:delete"
+        "rosters:delete",
+        "signupStatus:readAll"
       ]
     }
   ]

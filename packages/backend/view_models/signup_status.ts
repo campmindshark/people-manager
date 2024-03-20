@@ -1,5 +1,7 @@
+import User from '../models/user/user';
+
 type SignupStatus = {
-  userID: number;
+  user: User;
 
   hasSignedUpForRoster: boolean;
   rosterID: number;
@@ -14,7 +16,7 @@ type SignupStatus = {
 
 export const NewPlaceholderSignupStatus = (): SignupStatus => {
   return {
-    userID: 0,
+    user: new User(),
     hasSignedUpForRoster: false,
     rosterID: 0,
     hasCompletedPrivateProfile: false,

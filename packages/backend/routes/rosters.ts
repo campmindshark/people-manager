@@ -4,6 +4,10 @@ import hasPermission from '../middleware/rbac';
 import User from '../models/user/user';
 import RosterParticipantViewModel from '../view_models/roster_participant';
 import RosterParticipant from '../models/roster_participant/roster_participant';
+import AnalysisController from '../controllers/analysis';
+import SignupStatus, {
+  NewPlaceholderSignupStatus,
+} from '../view_models/signup_status';
 
 const router: Router = express.Router();
 
@@ -86,7 +90,6 @@ router.get(
         user.id,
       );
       const participant = await participantQuery;
-      console.log(participant);
       viewModels.push({
         user,
         rosterParticipant: participant[0],
@@ -120,6 +123,21 @@ router.delete(
 
     const schedules = await query;
     res.json(schedules);
+  },
+);
+
+router.get(
+  '/:id/participant-signup-statuses',
+  hasPermission('signupStatus:readAll'),
+  async (req: Request, res: Response) => {
+    const { id } = req.params;
+
+    const allStatuses =
+      await AnalysisController.GetSignupStatusForAllUsersInContextOfRoster(
+        parseInt(id),
+      );
+
+    res.json(allStatuses);
   },
 );
 
