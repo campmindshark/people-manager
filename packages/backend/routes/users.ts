@@ -3,7 +3,7 @@ import User from '../models/user/user';
 import UserController from '../controllers/user';
 import PrivateProfile from '../models/user/user_private';
 import RosterParticipant from '../models/roster_participant/roster_participant';
-import ShiftController from 'controllers/shift';
+import SignupStatus from '../view_models/signup_status';
 
 const router: Router = express.Router();
 
@@ -88,6 +88,7 @@ router.get(
       return;
     }
     if (user.hasCompletedProfile()) {
+      console.log('User has completed profile', user);
       tmpResponse.hasCompletedPublicProfile = true;
     }
 
@@ -104,6 +105,10 @@ router.get(
     if (rosterParticipant) {
       tmpResponse.hasSignedUpForRoster = true;
     }
+
+    // TODO: add logic to determine if the user has paid dues
+    // TODO: add logic to determine if the user has signed up for shifts
+    // TODO: add logic to determine if the user has completed the required number of shifts
 
     res.json(tmpResponse);
   },

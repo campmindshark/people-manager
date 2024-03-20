@@ -34,6 +34,7 @@ export default class UserController {
     privateProfile: PrivateProfile,
     userID: number,
   ): Promise<PrivateProfile> {
+    console.log('createPrivateProfile', privateProfile, userID);
     const query = PrivateProfile.query().insert({
       ...privateProfile,
       userID: userID,

@@ -2,11 +2,14 @@ import { atom, selector } from 'recoil';
 import User from 'backend/models/user/user';
 import { RoleConfig } from 'backend/roles/role';
 import ShiftViewModel from 'backend/view_models/shift';
+import SignupStatus, {
+  NewPlaceholderSignupStatus,
+} from 'backend/view_models/signup_status';
 import { getFrontendConfig } from '../config/config';
 import BackendUserClient from '../api/users/client';
 import BackendShiftClient from '../api/shifts/shifts';
 import BackendRoleClient from '../api/roles/client';
-import { CurrentRosterParticipantsState } from './roster';
+import { CurrentRosterParticipantsState, CurrentRosterState } from './roster';
 
 const frontendConfig = getFrontendConfig();
 
@@ -52,6 +55,31 @@ export const MyRolesState = selector<RoleConfig[]>({
     const roles = await shiftClient.GetMyRoles();
 
     return roles;
+  },
+});
+
+export const CurrentUserSignupStatus = selector<SignupStatus>({
+  key: 'currentUserSignupStatus',
+  get: async ({ get }) => {
+    const userClient = new BackendUserClient(frontendConfig.BackendURL);
+    const tmp: SignupStatus = NewPlaceholderSignupStatus();
+
+    const thisUser = get(UserState);
+    if (!thisUser) {
+      return tmp;
+    }
+
+    const rosterState = get(CurrentRosterState);
+    if (!rosterState) {
+      return tmp;
+    }
+
+    const signupStatus = await userClient.GetUserSignupStatus(
+      thisUser.id,
+      rosterState.id,
+    );
+
+    return signupStatus;
   },
 });
 

@@ -21,7 +21,7 @@ router.get(
 router.get(
   '/:id/shifts',
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  async (req: Request, res: Response, next: NextFunction) => {
+  async (req: Request, res: Response) => {
     const { id } = req.params;
     const shifts = await ShiftController.GetShiftViewModelsByScheduleID(
       parseInt(id, 10),

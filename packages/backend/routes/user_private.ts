@@ -41,6 +41,8 @@ router.post(
 
     const authenticatedUser = req.user as User;
 
+    delete req.body.error;
+
     const privateProfile: PrivateProfile = req.body;
 
     const currentPrivateProfileQuery = PrivateProfile.query().where(

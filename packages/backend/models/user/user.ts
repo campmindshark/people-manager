@@ -43,7 +43,7 @@ export default class User extends Model {
 
   static formUiSchema: UiSchema = {
     skillsOfNote: {
-      'ui:widget': 'checkboxes',
+      // 'ui:widget': 'checkboxes',
     },
     phoneNumber: {
       'ui:options': {
@@ -140,7 +140,9 @@ export default class User extends Model {
       this.lastName !== '' &&
       this.email !== '' &&
       this.phoneNumber !== '' &&
-      this.location !== ''
+      this.phoneNumber !== null &&
+      this.location !== '' &&
+      this.location !== null
     );
   }
 }

@@ -1,5 +1,6 @@
 import { Model } from 'objection';
 import User from '../user/user';
+import Schedule from '../schedule/schedule';
 
 export default class Roster extends Model {
   id!: number;
@@ -32,6 +33,14 @@ export default class Roster extends Model {
           to: 'roster_participants.userID',
         },
         to: 'users.id',
+      },
+    },
+    schedules: {
+      relation: Model.HasManyRelation,
+      modelClass: Schedule,
+      join: {
+        from: 'rosters.id',
+        to: 'schedules.rosterID',
       },
     },
   };

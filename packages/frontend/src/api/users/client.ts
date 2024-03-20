@@ -1,6 +1,7 @@
 import axios from 'axios';
 import User from 'backend/models/user/user';
 import PrivateProfile from 'backend/models/user/user_private';
+import SignupStatus from 'backend/view_models/signup_status';
 
 export interface AuthResponse {
   user: User;
@@ -11,6 +12,7 @@ export interface AuthResponse {
 export interface UserClient {
   GetAllUsers(): Promise<User[]>;
   GetAuthenticatedUser(): Promise<AuthResponse>;
+  GetUserSignupStatus(userID: number, rosterID: number): Promise<SignupStatus>;
 }
 
 export default class BackendUserClient implements UserClient {
@@ -87,6 +89,25 @@ export default class BackendUserClient implements UserClient {
     const { data } = await axios.post<PrivateProfile>(
       `${this.baseApiURL}/api/users/private`,
       privateProfile,
+      {
+        withCredentials: true,
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Credentials': 'true',
+        },
+      },
+    );
+
+    return data;
+  }
+
+  async GetUserSignupStatus(
+    userID: number,
+    rosterID: number,
+  ): Promise<SignupStatus> {
+    const { data } = await axios.get<SignupStatus>(
+      `${this.baseApiURL}/api/users/${userID}/signup-status/${rosterID}`,
       {
         withCredentials: true,
         headers: {

@@ -10,12 +10,10 @@ import {
 import ThumbUpIcon from '@mui/icons-material/ThumbUp';
 import ThumbDownIcon from '@mui/icons-material/ThumbDown';
 import { useRecoilValue } from 'recoil';
-import { UserIsSignedUpForCurrentRoster } from '../state/store';
+import { CurrentUserSignupStatus } from '../state/store';
 
 function UserStatusTable() {
-  const appUserIsSignedUpForCurrentBurn = useRecoilValue(
-    UserIsSignedUpForCurrentRoster,
-  );
+  const signupStatus = useRecoilValue(CurrentUserSignupStatus);
 
   const generateTableRow = (criteria: string, status: boolean) => (
     <TableRow
@@ -47,11 +45,17 @@ function UserStatusTable() {
         <TableBody>
           {generateTableRow(
             'Signed up for this years roster',
-            appUserIsSignedUpForCurrentBurn,
+            signupStatus.hasSignedUpForRoster,
           )}
-          {generateTableRow('Public profile is complete', true)}
-          {generateTableRow('Private profile is complete', false)}
-          {generateTableRow('Dues have been paid', true)}
+          {generateTableRow(
+            'Public profile is complete',
+            signupStatus.hasCompletedPublicProfile,
+          )}
+          {generateTableRow(
+            'Private profile is complete',
+            signupStatus.hasCompletedPrivateProfile,
+          )}
+          {generateTableRow('Dues have been paid', signupStatus.hasPaidDues)}
         </TableBody>
       </Table>
     </TableContainer>

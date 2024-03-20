@@ -9,16 +9,25 @@ import { getConfig } from '../config/config';
 const knex = Knex(knexConfig[getConfig().Environment]);
 
 export default class ShiftController {
-  // Path: packages/backend/controllers/shift.ts
-  public static async GetShiftViewModelsByParticipantID(
+  public static async GetShiftsByParticipantIDandRoster(
     participantID: number,
     rosterID: number,
-  ): Promise<ShiftViewModel[]> {
-    const queryNew = knex<Shift>('shifts')
+  ): Promise<Shift[]> {
+    const query = knex<Shift>('shifts')
       .from('shift_participants')
       .where('userID', participantID)
-      .join('shifts', 'shift_participants.shiftID', '=', 'shifts.id');
+      .join('shifts', 'shift_participants.shiftID', '=', 'shifts.id')
+      .join('schedules', 'shifts.scheduleID', '=', 'schedules.id')
+      .where('rosterID', rosterID);
 
+    const shifts = await query;
+
+    return shifts;
+  }
+
+  public static async GetShiftViewModelsByParticipantID(
+    participantID: number,
+  ): Promise<ShiftViewModel[]> {
     const query = knex<Shift>('shifts')
       .from('shift_participants')
       .where('userID', participantID)
