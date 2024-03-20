@@ -36,6 +36,7 @@ function MyPrivateProfileForm() {
     setOpen(false);
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleSubmit = async (data: any) => {
     const { formData } = data as { formData: PrivateProfile };
 
