@@ -22,10 +22,12 @@ import { Config, getConfig } from './config/config';
 import AppUser from './models/user/user';
 import authRouter from './routes/auth';
 import usersRouter from './routes/users';
+import userPrivateRouter from './routes/user_private';
 import schedulesRouter from './routes/schedules';
 import shiftsRouter from './routes/shifts';
 import rolesRouter from './routes/roles';
 import rostersRouter from './routes/rosters';
+import rosterParticipantsRouter from './routes/roster_participants';
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -174,11 +176,17 @@ const checkAuthenticated = (
 };
 
 app.use('/api/auth', authRouter);
+app.use('/api/users/private', checkAuthenticated, userPrivateRouter);
 app.use('/api/users', checkAuthenticated, usersRouter);
 app.use('/api/roles', checkAuthenticated, rolesRouter);
 app.use('/api/schedules', checkAuthenticated, schedulesRouter);
 app.use('/api/shifts', checkAuthenticated, shiftsRouter);
 app.use('/api/rosters', checkAuthenticated, rostersRouter);
+app.use(
+  '/api/roster_participants',
+  checkAuthenticated,
+  rosterParticipantsRouter,
+);
 
 app.use('/api/health', (req: Request, res: Response) => {
   res.status(200).send('healthy');

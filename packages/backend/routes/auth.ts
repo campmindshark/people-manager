@@ -8,10 +8,12 @@ const router: Router = express.Router();
 
 router.get('/login/success', async (req: Request, res) => {
   if (req.user && req.isAuthenticated()) {
+    const query = User.query().findById(req.user.id);
+    const user = await query;
     res.status(200).json({
       success: true,
       message: 'successful',
-      user: req.user as User,
+      user,
     });
 
     return;

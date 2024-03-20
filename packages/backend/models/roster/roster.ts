@@ -1,5 +1,6 @@
 import { Model } from 'objection';
 import User from '../user/user';
+import Schedule from '../schedule/schedule';
 
 export default class Roster extends Model {
   id!: number;
@@ -14,12 +15,9 @@ export default class Roster extends Model {
   // is created it is checked against this schema. http://json-schema.org/.
   static jsonSchema = {
     type: 'object',
-    required: ['firstName', 'lastName'],
 
     properties: {
       id: { type: 'integer' },
-      firstName: { type: 'string', minLength: 1, maxLength: 255 },
-      lastName: { type: 'string', minLength: 1, maxLength: 255 },
     },
   };
 
@@ -35,6 +33,14 @@ export default class Roster extends Model {
           to: 'roster_participants.userID',
         },
         to: 'users.id',
+      },
+    },
+    schedules: {
+      relation: Model.HasManyRelation,
+      modelClass: Schedule,
+      join: {
+        from: 'rosters.id',
+        to: 'schedules.rosterID',
       },
     },
   };

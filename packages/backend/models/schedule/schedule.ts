@@ -4,6 +4,8 @@ import Shift from '../shift/shift';
 export default class Schedule extends Model {
   id!: number;
 
+  rosterID!: number;
+
   name!: string;
 
   description!: string;

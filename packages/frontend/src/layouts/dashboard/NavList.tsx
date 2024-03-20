@@ -3,6 +3,7 @@ import ListItemButton from '@mui/material/ListItemButton';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import ListSubheader from '@mui/material/ListSubheader';
+import BackupTableIcon from '@mui/icons-material/BackupTable';
 import SupervisorAccountIcon from '@mui/icons-material/SupervisorAccount';
 import HomeIcon from '@mui/icons-material/Home';
 import CelebrationIcon from '@mui/icons-material/Celebration';
@@ -36,6 +37,13 @@ const mainLinks: MenuItemLinkData[] = [
     path: '/shifts',
     needsRole: [],
   },
+  {
+    text: 'Roster',
+    index: 'roser',
+    icon: <BackupTableIcon />,
+    path: '/roster',
+    needsRole: [],
+  },
 ];
 
 const utilityLinks: MenuItemLinkData[] = [
@@ -47,10 +55,10 @@ const utilityLinks: MenuItemLinkData[] = [
     needsRole: ['admin'],
   },
   {
-    text: 'Settings',
-    index: 'settings',
+    text: 'Profile Edit',
+    index: 'profile-edit',
     icon: <SettingsIcon />,
-    path: '/settings',
+    path: '/profile-edit',
     needsRole: [],
   },
 ];
@@ -94,7 +102,7 @@ export default function NavList() {
       <Divider sx={{ my: 1 }} />
       <>
         <ListSubheader component="div" inset>
-          Utilities
+          Settings
         </ListSubheader>
         {generateUtilityLinks()}
       </>

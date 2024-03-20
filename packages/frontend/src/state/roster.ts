@@ -1,22 +1,26 @@
 import { selector } from 'recoil';
 import Roster from 'backend/models/roster/roster';
-import User from 'backend/models/user/user';
+import SignupStatus from 'backend/view_models/signup_status';
+import RosterParticipantViewModel from 'backend/view_models/roster_participant';
 import { getFrontendConfig } from '../config/config';
 import BackendRosterClient from '../api/roster/roster';
 
 const frontendConfig = getFrontendConfig();
 const rosterClient = new BackendRosterClient(frontendConfig.BackendURL);
 
+export const CurrentRosterID = 1;
+
 export const CurrentRosterState = selector<Roster>({
   key: 'currentRoster',
   get: async () => {
-    const roster = await rosterClient.GetRosterByID(1);
-    console.log(roster);
+    const roster = await rosterClient.GetRosterByID(CurrentRosterID);
     return roster;
   },
 });
 
-export const CurrentRosterParticipantsState = selector<User[]>({
+export const CurrentRosterParticipantsState = selector<
+  RosterParticipantViewModel[]
+>({
   key: 'currentRosterParticipants',
   get: async ({ get }) => {
     const roster = get(CurrentRosterState);
@@ -25,5 +29,18 @@ export const CurrentRosterParticipantsState = selector<User[]>({
     }
     const participants = await rosterClient.GetRosterParticipants(roster.id);
     return participants;
+  },
+});
+
+export const CurrentRosterParticipantsSignupStatusState = selector<
+  SignupStatus[]
+>({
+  key: 'currentRosterParticipantsSignupStatus',
+  get: async ({ get }) => {
+    const roster = get(CurrentRosterState);
+    const signupStatuses = await rosterClient.GetAllSignupStatusesForRoster(
+      roster.id,
+    );
+    return signupStatuses;
   },
 });

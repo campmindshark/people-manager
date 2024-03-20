@@ -41,8 +41,13 @@ export async function seed(knex: Knex): Promise<void> {
 
   // Inserts seed entries
   await knex('schedules').insert([
-    { id: 1, name: 'Bar Wench', description: 'Prepare the bar for battle.' },
-    { id: 2, name: 'Ice Bitch', description: 'Keep us cool.' },
+    {
+      id: 1,
+      rosterID: 1,
+      name: 'Bar Wench',
+      description: 'Prepare the bar for battle.',
+    },
+    { id: 2, rosterID: 1, name: 'Ice Bitch', description: 'Keep us cool.' },
   ]);
 
   // Add 90 minute shifts for all hours.
