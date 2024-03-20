@@ -133,4 +133,14 @@ export default class User extends Model {
   displayName(): string {
     return `${this.firstName} ${this.lastName}`;
   }
+
+  hasCompletedProfile(): boolean {
+    return (
+      this.firstName !== '' &&
+      this.lastName !== '' &&
+      this.email !== '' &&
+      this.phoneNumber !== '' &&
+      this.location !== ''
+    );
+  }
 }

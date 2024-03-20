@@ -12,7 +12,13 @@ export default class ShiftController {
   // Path: packages/backend/controllers/shift.ts
   public static async GetShiftViewModelsByParticipantID(
     participantID: number,
+    rosterID: number,
   ): Promise<ShiftViewModel[]> {
+    const queryNew = knex<Shift>('shifts')
+      .from('shift_participants')
+      .where('userID', participantID)
+      .join('shifts', 'shift_participants.shiftID', '=', 'shifts.id');
+
     const query = knex<Shift>('shifts')
       .from('shift_participants')
       .where('userID', participantID)
