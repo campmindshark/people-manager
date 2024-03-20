@@ -39,13 +39,10 @@ function RosterSignupForm(props: Props) {
   };
 
   const handleSubmit = async (data: any) => {
-    console.log(data);
-
     const { formData } = data as { formData: RosterParticipant };
 
     const updatedUser = await rosterClient.Signup(CurrentRosterID, formData);
     setRosterParticipant(updatedUser);
-    console.log('handleSuccess');
     handleSuccess();
     setOpen(true);
   };

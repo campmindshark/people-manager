@@ -14,7 +14,6 @@ export const CurrentRosterState = selector<Roster>({
   key: 'currentRoster',
   get: async () => {
     const roster = await rosterClient.GetRosterByID(CurrentRosterID);
-    console.log(roster);
     return roster;
   },
 });
@@ -42,7 +41,6 @@ export const CurrentRosterParticipantsSignupStatusState = selector<
     const signupStatuses = await rosterClient.GetAllSignupStatusesForRoster(
       roster.id,
     );
-    console.log(signupStatuses);
     return signupStatuses;
   },
 });

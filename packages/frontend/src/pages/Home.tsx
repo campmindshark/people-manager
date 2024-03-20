@@ -47,7 +47,6 @@ function Home() {
     <Dashboard>
       <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
         <Grid container spacing={3}>
-          {/* Chart */}
           <Grid item xs={12} md={8} lg={9}>
             <Paper
               sx={{
@@ -57,9 +56,7 @@ function Home() {
                 height: '100%',
               }}
             >
-              {/* <Chart /> */}
               <h1>Your {currentRoster.year} Roster Status</h1>
-              {/* {rosterSignupCTA()} */}
               {!appUserIsSignedUpForCurrentBurn ? (
                 <Alert severity="warning" variant="filled">
                   <AlertTitle>

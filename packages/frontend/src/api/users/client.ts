@@ -69,7 +69,7 @@ export default class BackendUserClient implements UserClient {
 
   async GetMyPrivateProfile(): Promise<PrivateProfile> {
     const { data } = await axios.get<PrivateProfile>(
-      `${this.baseApiURL}/api/users/private`,
+      `${this.baseApiURL}/api/users/private/my-private-profile`,
       {
         withCredentials: true,
         headers: {

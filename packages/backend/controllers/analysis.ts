@@ -20,7 +20,6 @@ export default class AnalysisController {
     }
     tmpResponse.user = user;
     if (user.hasCompletedProfile()) {
-      console.log('User has completed profile', user);
       tmpResponse.hasCompletedPublicProfile = true;
     }
 

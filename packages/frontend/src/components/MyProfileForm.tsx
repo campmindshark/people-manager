@@ -31,8 +31,6 @@ function MyProfileForm() {
   };
 
   const handleSubmit = async (data: any) => {
-    console.log(data);
-
     const { formData } = data as { formData: User };
     formData.skillsOfNote = formData.skillsOfNote || [];
 
@@ -40,7 +38,6 @@ function MyProfileForm() {
     setUserState(updatedUser);
     setOpen(true);
   };
-  console.log(userState);
 
   return (
     <>

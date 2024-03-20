@@ -34,7 +34,6 @@ export default class UserController {
     privateProfile: PrivateProfile,
     userID: number,
   ): Promise<PrivateProfile> {
-    console.log('createPrivateProfile', privateProfile, userID);
     const query = PrivateProfile.query().insert({
       ...privateProfile,
       userID: userID,
@@ -61,9 +60,9 @@ export default class UserController {
     const query = PrivateProfile.query()
       .update(privateProfile)
       .where('userID', userID);
-    await query;
 
     const recollectQuery = PrivateProfile.query().where('userID', userID);
+
     const updatedPrivateProfile = await recollectQuery;
     if (!updatedPrivateProfile) {
       throw new Error('PrivateProfile not found');

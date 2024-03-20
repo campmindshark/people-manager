@@ -7,7 +7,7 @@ const router: Router = express.Router();
 
 /* GET PrivateProfile for this user. */
 router.get(
-  '/',
+  '/my-private-profile',
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async (req: Request, res: Response, next: NextFunction) => {
     const authenticatedUser = req.user as User;

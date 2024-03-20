@@ -30,11 +30,8 @@ function RosterSignupDialog(props: Props) {
     if (loadCurrentUserRosterData) {
       const participantViewModel = thisRosterParticipant();
       if (participantViewModel && participantViewModel.rosterParticipant) {
-        console.log(participantViewModel.rosterParticipant);
         return participantViewModel.rosterParticipant;
       }
-
-      console.log('No participant found');
 
       return new RosterParticipant();
     }

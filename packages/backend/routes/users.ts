@@ -6,6 +6,7 @@ import RosterParticipant from '../models/roster_participant/roster_participant';
 import SignupStatus, {
   NewPlaceholderSignupStatus,
 } from '../view_models/signup_status';
+import AnalysisController from 'controllers/analysis';
 
 const router: Router = express.Router();
 
@@ -73,39 +74,13 @@ router.get(
   '/:userID/signup-status/:rosterID',
   async (req: Request, res: Response) => {
     const [rosterID, userID] = [req.params.rosterID, req.params.userID];
-    const tmpResponse: SignupStatus = NewPlaceholderSignupStatus();
 
-    // Get the user profile to determine if its been completed
-    const user = await User.query().findById(userID);
-    if (!user) {
-      res.json({ error: 'User not found' });
-      return;
-    }
-    tmpResponse.user = user;
-    if (user.hasCompletedProfile()) {
-      console.log('User has completed profile', user);
-      tmpResponse.hasCompletedPublicProfile = true;
-    }
+    const status = await AnalysisController.GetSignupStatusForUser(
+      parseInt(userID),
+      parseInt(rosterID),
+    );
 
-    // Get the user's private profile to determine if its been completed
-    const privateProfile = await PrivateProfile.query().where('userID', userID);
-    if (privateProfile.length > 0) {
-      tmpResponse.hasCompletedPrivateProfile = true;
-    }
-
-    // Get the roster participant entry to confirm if they've signed up
-    const rosterParticipant = await RosterParticipant.query()
-      .where({ userID, rosterID })
-      .first();
-    if (rosterParticipant) {
-      tmpResponse.hasSignedUpForRoster = true;
-    }
-
-    // TODO: add logic to determine if the user has paid dues
-    // TODO: add logic to determine if the user has signed up for shifts
-    // TODO: add logic to determine if the user has completed the required number of shifts
-
-    res.json(tmpResponse);
+    res.json(status);
   },
 );
 

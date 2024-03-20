@@ -7,7 +7,7 @@ export async function up(knex: Knex): Promise<void> {
     table.foreign('shiftID').references('id').inTable('shifts');
     table.integer('userID');
     table.foreign('userID').references('id').inTable('users');
-    table.timestamp('created_at').defaultTo(knex.fn.now());
+    table.timestamps(true, true);
   });
 }
 

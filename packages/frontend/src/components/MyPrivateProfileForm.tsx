@@ -37,8 +37,6 @@ function MyPrivateProfileForm() {
   };
 
   const handleSubmit = async (data: any) => {
-    console.log(data);
-
     const { formData } = data as { formData: PrivateProfile };
 
     const updatedPrivateProfile =
@@ -51,7 +49,6 @@ function MyPrivateProfileForm() {
     const doAuth = async () => {
       try {
         const response = await userClient.GetMyPrivateProfile();
-        console.log('auth success', response);
         setMyPrivateProfileState(response);
       } catch (err) {
         console.log('auth error', err);

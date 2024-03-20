@@ -30,9 +30,7 @@ function RosterDropoutDialog(props: Props) {
   );
 
   const handleDropout = useCallback(async () => {
-    console.log('Dropout from roster id', rosterState.id);
     await rosterClient.DropOut(rosterState.id);
-    console.log('handleSuccess');
     handleSuccess();
     handleClose();
   }, []);
