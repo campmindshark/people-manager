@@ -32,6 +32,7 @@ export default class PrivateProfile extends Model {
       emergencyContactPhone: { type: 'string', minLength: 1, maxLength: 255 },
     },
   };
+
   static formSchema: RJSFSchema = {
     title: 'Edit Your Private Profile',
     type: 'object',
