@@ -32,7 +32,6 @@ export default class PrivateProfile extends Model {
       emergencyContactPhone: { type: 'string', minLength: 1, maxLength: 255 },
     },
   };
-
   static formSchema: RJSFSchema = {
     title: 'Edit Your Private Profile',
     type: 'object',
@@ -59,17 +58,17 @@ export default class PrivateProfile extends Model {
       medications: {
         type: 'string',
         title: 'Medications',
-        default: '',
+        default: 'None',
       },
       allergies: {
         type: 'string',
         title: 'Allergies',
-        default: '',
+        default: 'None',
       },
       dietaryRestrictions: {
         type: 'string',
         title: 'Dietary Restrictions',
-        default: '',
+        default: 'None',
       },
     },
   };
