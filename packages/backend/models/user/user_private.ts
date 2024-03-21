@@ -59,17 +59,17 @@ export default class PrivateProfile extends Model {
       medications: {
         type: 'string',
         title: 'Medications',
-        default: '',
+        default: 'None',
       },
       allergies: {
         type: 'string',
         title: 'Allergies',
-        default: '',
+        default: 'None',
       },
       dietaryRestrictions: {
         type: 'string',
         title: 'Dietary Restrictions',
-        default: '',
+        default: 'None',
       },
     },
   };

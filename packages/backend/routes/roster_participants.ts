@@ -25,6 +25,7 @@ router.post('/:id', async (req: Request, res: Response) => {
   const checkCurrent = await RosterParticipant.query().where(signupScope);
 
   if (checkCurrent.length > 0) {
+    delete req.body.id;
     await RosterParticipant.query()
       .where(signupScope)
       .patch({
@@ -37,6 +38,7 @@ router.post('/:id', async (req: Request, res: Response) => {
     );
 
     res.json(rosterParticipant);
+    return;
   }
 
   const rosterParticipant = await RosterParticipant.query().insert({
