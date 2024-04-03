@@ -86,18 +86,6 @@ function Home() {
               )}
             </Paper>
           </Grid>
-          {/* <Grid item xs={12} md={4} lg={3}>
-            <Paper
-              sx={{
-                p: 2,
-                display: 'flex',
-                flexDirection: 'column',
-                height: '100%',
-              }}
-            >
-              <h1>Teams</h1>
-            </Paper>
-          </Grid> */}
           <Grid item xs={12}>
             <MyShiftsTable />
           </Grid>
