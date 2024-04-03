@@ -1,11 +1,13 @@
 import React from 'react';
 import {
+  IconButton,
   TableContainer,
   Table,
   TableHead,
   TableRow,
   TableCell,
   TableBody,
+  Typography,
 } from '@mui/material';
 import ThumbUpIcon from '@mui/icons-material/ThumbUp';
 import ThumbDownIcon from '@mui/icons-material/ThumbDown';
@@ -15,7 +17,11 @@ import { CurrentUserSignupStatus } from '../state/store';
 function UserStatusTable() {
   const signupStatus = useRecoilValue(CurrentUserSignupStatus);
 
-  const generateTableRow = (criteria: string, status: boolean) => (
+  const generateTableRow = (
+    criteria: string,
+    status: boolean,
+    help: string,
+  ) => (
     <TableRow
       key={criteria}
       sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
@@ -30,6 +36,10 @@ function UserStatusTable() {
           <ThumbDownIcon color="error" />
         )}
       </TableCell>
+      <TableCell>
+        <Typography>{help}</Typography>
+        <IconButton />
+      </TableCell>
     </TableRow>
   );
 
@@ -40,22 +50,30 @@ function UserStatusTable() {
           <TableRow>
             <TableCell>Criteria</TableCell>
             <TableCell>Status</TableCell>
+            <TableCell>Help</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
           {generateTableRow(
             'Signed up for this years roster',
             signupStatus.hasSignedUpForRoster,
+            "If you can see this table you've already signed up. Congrats.",
           )}
           {generateTableRow(
             'Public profile is complete',
             signupStatus.hasCompletedPublicProfile,
+            'You can edit your profile by clicking the Profile Edit menu item on the left.',
           )}
           {generateTableRow(
             'Private profile is complete',
             signupStatus.hasCompletedPrivateProfile,
+            'You can edit your profile by clicking the Profile Edit menu item on the left.',
           )}
-          {generateTableRow('Dues have been paid', signupStatus.hasPaidDues)}
+          {generateTableRow(
+            'Dues have been paid',
+            signupStatus.hasPaidDues,
+            'You can pay your dues by clicking the Pay Dues menu item on the left.',
+          )}
         </TableBody>
       </Table>
     </TableContainer>

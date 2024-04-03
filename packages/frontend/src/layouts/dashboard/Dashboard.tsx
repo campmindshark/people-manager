@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { useRecoilState } from 'recoil';
 import { ReactNode } from 'react';
 import Box from '@mui/material/Box';
 import Toolbar from '@mui/material/Toolbar';
@@ -8,13 +9,14 @@ import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import NavList from './NavList';
 import { Drawer } from './Drawer';
 import TopBar from './TopBar';
+import DrawerOpen from '../../state/dashboard';
 
 type DashboardProps = {
   children: ReactNode;
 };
 
 export default function Dashboard({ children }: DashboardProps) {
-  const [open, setOpen] = React.useState(true);
+  const [open, setOpen] = useRecoilState(DrawerOpen);
   const toggleDrawer = () => {
     setOpen(!open);
   };
