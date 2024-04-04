@@ -80,7 +80,6 @@ function Roster() {
                 portal-support@campmindshark.com for verification.
               </h1>
             )}
-            <RosterTable />
           </Grid>
         </Grid>
       </Container>

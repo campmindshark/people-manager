@@ -1,20 +1,15 @@
 export interface Config {
-  Environment: string;
+  ActiveRosterID: number;
+  BackendURL: string;
   CORSWhitelist: string[];
-
-  PostgresConnectionURL: string;
-
+  Environment: string;
+  FrontendURL: string;
   GoogleOAuthClientID: string;
   GoogleOAuthClientSecret: string;
   GoogleOAuthCallbackURL: string;
-
-  Port: number;
-  FrontendURL: string;
-  BackendURL: string;
-
   JWTSecret: string;
-
-  ActiveRosterID: number;
+  Port: number;
+  PostgresConnectionURL: string;
 }
 
 function getCORSWhitelist(): string[] {
@@ -26,29 +21,24 @@ function getCORSWhitelist(): string[] {
 
 export function getConfig(): Config {
   const config: Config = {
-    Environment: (process.env.NODE_ENV as string) ?? 'development',
+    ActiveRosterID: parseInt(
+      (process.env.ACTIVE_ROSTER_ID as string) ?? '1',
+      10,
+    ),
+    BackendURL: (process.env.BACKEND_URL as string) ?? 'http://localhost:3001',
     CORSWhitelist: getCORSWhitelist(),
-
-    PostgresConnectionURL:
-      (process.env.POSTGRES_CONNECTION_URL as string) ?? '',
-
+    Environment: (process.env.NODE_ENV as string) ?? 'development',
+    FrontendURL:
+      (process.env.FRONTEND_URL as string) ?? 'http://localhost:3000',
     GoogleOAuthClientID: process.env.GOOGLE_OAUTH_CLIENT_ID as string,
     GoogleOAuthClientSecret: process.env.GOOGLE_OAUTH_CLIENT_SECRET as string,
     GoogleOAuthCallbackURL:
       (process.env.GOOGLE_OAUTH_CALLBACK_URL as string) ??
       'http://localhost:3001/api/auth/google/callback',
-
-    Port: parseInt((process.env.BACKEND_PORT as string) ?? '3001', 10),
-    FrontendURL:
-      (process.env.FRONTEND_URL as string) ?? 'http://localhost:3000',
-    BackendURL: (process.env.BACKEND_URL as string) ?? 'http://localhost:3001',
-
     JWTSecret: (process.env.JWT_SECRET as string) ?? 'yerrrrr',
-
-    ActiveRosterID: parseInt(
-      (process.env.ACTIVE_ROSTER_ID as string) ?? '1',
-      10,
-    ),
+    Port: parseInt((process.env.BACKEND_PORT as string) ?? '3001', 10),
+    PostgresConnectionURL:
+      (process.env.POSTGRES_CONNECTION_URL as string) ?? '',
   };
 
   return config;

@@ -75,6 +75,15 @@ export default class UserController {
   }
 
   public static async isVerified(user: User): Promise<boolean> {
+    const whitelistEntry = await knex('verification_whitelist').where(
+      'email',
+      user.email,
+    );
+
+    if (whitelistEntry.length === 1) {
+      return true;
+    }
+
     const query = UserVerification.query().where('userID', user.id);
     const results = await query;
     if (results.length !== 1) {

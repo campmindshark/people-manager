@@ -82,6 +82,29 @@ router.post(
   },
 );
 
+/* POST update this user. */
+router.post(
+  '/verify-user/:id',
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async (req: Request, res: Response, next: NextFunction) => {
+    if (!req.user) {
+      res.json({ error: 'User not found' });
+      return;
+    }
+
+    const authenticatedUser = req.user as User;
+
+    const userUpdate: User = req.body;
+
+    const updatedUser = await UserController.updateUser(
+      userUpdate,
+      authenticatedUser.id,
+    );
+
+    res.json(updatedUser);
+  },
+);
+
 /* GET the users signup status in the context of a roster by ID. */
 router.get(
   '/:userID/signup-status/:rosterID',
