@@ -32,6 +32,20 @@ router.get(
   },
 );
 
+/* GET My Shifts. */
+router.get(
+  '/my-shifts',
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async (req: Request, res: Response, next: NextFunction) => {
+    const authenticatedUser = req.user as User;
+
+    const shifts = await ShiftController.GetShiftViewModelsByParticipantID(
+      authenticatedUser.id,
+    );
+    res.json(shifts);
+  },
+);
+
 /* GET Participant(s) of a specific shift. */
 router.get(
   '/:id/participants',

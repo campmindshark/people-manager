@@ -37,7 +37,7 @@ export const MyShifts = selector<ShiftViewModel[]>({
     }
 
     const shiftClient = new BackendShiftClient(frontendConfig.BackendURL);
-    const shifts = await shiftClient.GetShiftsByParticipantID(thisUser.id);
+    const shifts = await shiftClient.GetMyShifts();
 
     return shifts;
   },

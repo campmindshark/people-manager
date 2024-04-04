@@ -94,4 +94,20 @@ export default class BackendShiftClient implements ShiftClient {
 
     return data;
   }
+
+  async GetMyShifts(): Promise<ShiftViewModel[]> {
+    const { data } = await axios.get<ShiftViewModel[]>(
+      `${this.baseApiURL}/api/shifts/my-shifts`,
+      {
+        withCredentials: true,
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Credentials': 'true',
+        },
+      },
+    );
+
+    return data;
+  }
 }
