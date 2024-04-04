@@ -5,13 +5,14 @@
       "name": "admin",
       "description": "A Web Administrator.",
       "permissions": [
+        "users:readAll",
         "schedules:create",
         "schedules:delete",
         "shifts:create",
         "shifts:delete",
+        "signupStatus:readAll",
         "rosters:create",
-        "rosters:delete",
-        "signupStatus:readAll"
+        "rosters:delete"
       ]
     }
   ]

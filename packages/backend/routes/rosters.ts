@@ -1,6 +1,7 @@
 import express, { Request, Response, NextFunction, Router } from 'express';
 import Roster from '../models/roster/roster';
 import hasPermission from '../middleware/rbac';
+import userIsVerified from '../middleware/verified_user';
 import User from '../models/user/user';
 import RosterParticipantViewModel from '../view_models/roster_participant';
 import RosterParticipant from '../models/roster_participant/roster_participant';
@@ -75,6 +76,7 @@ router.post('/:id/drop-out', async (req: Request, res: Response) => {
 /* Get Participants. */
 router.get(
   '/:id/participants',
+  userIsVerified(),
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async (req: Request, res: Response, next: NextFunction) => {
     const query = Roster.relatedQuery('participants').for(req.params.id);

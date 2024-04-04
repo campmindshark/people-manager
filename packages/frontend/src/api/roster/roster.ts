@@ -58,18 +58,25 @@ export default class BackendRosterClient implements RosterClient {
   async GetRosterParticipants(
     rosterID: number,
   ): Promise<RosterParticipantViewModel[]> {
-    const { data } = await axios.get<RosterParticipantViewModel[]>(
-      `${this.baseApiURL}/api/rosters/${rosterID}/participants`,
-      {
-        withCredentials: true,
-        headers: {
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Credentials': 'true',
+    try {
+      const { data } = await axios.get<RosterParticipantViewModel[]>(
+        `${this.baseApiURL}/api/rosters/${rosterID}/participants`,
+        {
+          withCredentials: true,
+          headers: {
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Credentials': 'true',
+          },
         },
-      },
-    );
-    return data;
+      );
+
+      return data;
+    } catch (error) {
+      console.error(error);
+    }
+
+    return [];
   }
 
   async Signup(

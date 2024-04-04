@@ -13,6 +13,7 @@ export interface UserClient {
   GetAllUsers(): Promise<User[]>;
   GetAuthenticatedUser(): Promise<AuthResponse>;
   GetUserSignupStatus(userID: number, rosterID: number): Promise<SignupStatus>;
+  IsUserVerified(): Promise<boolean>;
 }
 
 export default class BackendUserClient implements UserClient {
@@ -108,6 +109,22 @@ export default class BackendUserClient implements UserClient {
   ): Promise<SignupStatus> {
     const { data } = await axios.get<SignupStatus>(
       `${this.baseApiURL}/api/users/${userID}/signup-status/${rosterID}`,
+      {
+        withCredentials: true,
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Credentials': 'true',
+        },
+      },
+    );
+
+    return data;
+  }
+
+  async IsUserVerified(): Promise<boolean> {
+    const { data } = await axios.get<boolean>(
+      `${this.baseApiURL}/api/users/is-verified`,
       {
         withCredentials: true,
         headers: {

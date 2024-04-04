@@ -3,12 +3,14 @@ import User from '../models/user/user';
 import UserController from '../controllers/user';
 import PrivateProfile from '../models/user/user_private';
 import AnalysisController from '../controllers/analysis';
+import hasPermission from '../middleware/rbac';
 
 const router: Router = express.Router();
 
 /* GET all users. */
 router.get(
   '/',
+  hasPermission('users:readAll'),
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async (req: Request, res: Response, next: NextFunction) => {
     const query = User.query();
@@ -31,9 +33,23 @@ router.get(
   },
 );
 
+/* GET whether or not the user is verified. */
+router.get(
+  '/is-verified',
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async (req: Request, res: Response, next: NextFunction) => {
+    const authenticatedUser = req.user as User;
+
+    const isVerified = await UserController.isVerified(authenticatedUser);
+
+    res.json(isVerified);
+  },
+);
+
 /* GET user by ID. */
 router.get(
   '/:id',
+  hasPermission('users:readAll'),
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async (req: Request, res: Response, next: NextFunction) => {
     const query = User.query().findById(req.params.id);
@@ -43,6 +59,7 @@ router.get(
   },
 );
 
+/* POST update this user. */
 router.post(
   '/',
   // eslint-disable-next-line @typescript-eslint/no-unused-vars

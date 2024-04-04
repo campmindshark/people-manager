@@ -9,7 +9,7 @@ import { getFrontendConfig } from '../config/config';
 import BackendUserClient from '../api/users/client';
 import BackendShiftClient from '../api/shifts/shifts';
 import BackendRoleClient from '../api/roles/client';
-import { CurrentRosterParticipantsState, CurrentRosterState } from './roster';
+import { CurrentRosterState } from './roster';
 
 const frontendConfig = getFrontendConfig();
 
@@ -83,19 +83,28 @@ export const CurrentUserSignupStatus = selector<SignupStatus>({
   },
 });
 
+export const CurrentUserIsVerified = selector<boolean>({
+  key: 'currentUserIsVerified',
+  get: async () => {
+    const userClient = new BackendUserClient(frontendConfig.BackendURL);
+
+    const isVerified = await userClient.IsUserVerified();
+
+    return isVerified;
+  },
+});
+
 export const UserIsSignedUpForCurrentRoster = selector<boolean>({
   key: 'userIsSignedUpForCurrentRoster',
   get: async ({ get }) => {
     const thisUser = get(UserState);
-    const currentRosterParticipants = get(CurrentRosterParticipantsState);
+    const currentRosterStatus = get(CurrentUserSignupStatus);
 
-    if (!thisUser || !currentRosterParticipants) {
+    if (!thisUser) {
       return false;
     }
 
-    return currentRosterParticipants.some(
-      (participant) => participant.user.id === thisUser.id,
-    );
+    return currentRosterStatus.hasSignedUpForRoster;
   },
 });
 
