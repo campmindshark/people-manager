@@ -74,6 +74,7 @@ export default class UserController {
     return updatedPrivateProfile[0];
   }
 
+  // this should be the single source of truth for whether a user is verified
   public static async isVerified(user: User): Promise<boolean> {
     const whitelistEntry = await knex('verification_whitelist').where(
       'email',

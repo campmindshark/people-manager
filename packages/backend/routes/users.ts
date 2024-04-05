@@ -4,6 +4,7 @@ import UserController from '../controllers/user';
 import PrivateProfile from '../models/user/user_private';
 import AnalysisController from '../controllers/analysis';
 import hasPermission from '../middleware/rbac';
+import UserVerification from '../models/user_verification/user_verification';
 
 const router: Router = express.Router();
 
@@ -82,26 +83,19 @@ router.post(
   },
 );
 
-/* POST update this user. */
+/* POST - verify this user. */
 router.post(
   '/verify-user/:id',
+  hasPermission('users:editVerification'),
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async (req: Request, res: Response, next: NextFunction) => {
-    if (!req.user) {
-      res.json({ error: 'User not found' });
-      return;
-    }
+    const userID = req.params.id;
 
-    const authenticatedUser = req.user as User;
+    const verification = await UserVerification.query().insert({
+      userID: parseInt(userID, 10),
+    });
 
-    const userUpdate: User = req.body;
-
-    const updatedUser = await UserController.updateUser(
-      userUpdate,
-      authenticatedUser.id,
-    );
-
-    res.json(updatedUser);
+    res.json(verification);
   },
 );
 

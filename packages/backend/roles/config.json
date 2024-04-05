@@ -6,6 +6,7 @@
       "description": "A Web Administrator.",
       "permissions": [
         "users:readAll",
+        "users:editVerification",
         "schedules:create",
         "schedules:delete",
         "shifts:create",
