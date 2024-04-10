@@ -14,34 +14,30 @@ import ThumbDownIcon from '@mui/icons-material/ThumbDown';
 import { useRecoilValue } from 'recoil';
 import { CurrentUserSignupStatus } from '../state/store';
 
+const generateTableRow = (criteria: string, status: boolean, help: string) => (
+  <TableRow
+    key={criteria}
+    sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
+  >
+    <TableCell component="th" scope="row">
+      {criteria}
+    </TableCell>
+    <TableCell component="th" scope="row">
+      {status ? (
+        <ThumbUpIcon color="success" />
+      ) : (
+        <ThumbDownIcon color="error" />
+      )}
+    </TableCell>
+    <TableCell>
+      <Typography>{help}</Typography>
+      <IconButton />
+    </TableCell>
+  </TableRow>
+);
+
 function UserStatusTable() {
   const signupStatus = useRecoilValue(CurrentUserSignupStatus);
-
-  const generateTableRow = (
-    criteria: string,
-    status: boolean,
-    help: string,
-  ) => (
-    <TableRow
-      key={criteria}
-      sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
-    >
-      <TableCell component="th" scope="row">
-        {criteria}
-      </TableCell>
-      <TableCell component="th" scope="row">
-        {status ? (
-          <ThumbUpIcon color="success" />
-        ) : (
-          <ThumbDownIcon color="error" />
-        )}
-      </TableCell>
-      <TableCell>
-        <Typography>{help}</Typography>
-        <IconButton />
-      </TableCell>
-    </TableRow>
-  );
 
   return (
     <TableContainer>
@@ -68,6 +64,11 @@ function UserStatusTable() {
             'Private profile is complete',
             signupStatus.hasCompletedPrivateProfile,
             'You can edit your profile by clicking the Profile Edit menu item on the left.',
+          )}
+          {generateTableRow(
+            'Your account has been verified',
+            signupStatus.isVerified,
+            'Your account must be verified in order for you to signup for chores and view the roster. You can verify your account by reaching out to portal-support@campmindshark.com.',
           )}
           {generateTableRow(
             'Dues have been paid',

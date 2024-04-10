@@ -3,6 +3,7 @@ import Shift from '../models/shift/shift';
 import User from '../models/user/user';
 import ShiftController from '../controllers/shift';
 import hasPermission from '../middleware/rbac';
+import userIsVerified from '../middleware/verified_user';
 
 const router: Router = express.Router();
 
@@ -21,6 +22,7 @@ router.get(
 /* GET Shifts by participantID. */
 router.get(
   '/by_participantID/:id',
+  userIsVerified(),
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async (req: Request, res: Response, next: NextFunction) => {
     const participantID = parseInt(req.params.id, 10);
@@ -30,9 +32,24 @@ router.get(
   },
 );
 
+/* GET My Shifts. */
+router.get(
+  '/my-shifts',
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async (req: Request, res: Response, next: NextFunction) => {
+    const authenticatedUser = req.user as User;
+
+    const shifts = await ShiftController.GetShiftViewModelsByParticipantID(
+      authenticatedUser.id,
+    );
+    res.json(shifts);
+  },
+);
+
 /* GET Participant(s) of a specific shift. */
 router.get(
   '/:id/participants',
+  userIsVerified(),
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async (req: Request, res: Response, next: NextFunction) => {
     const query = Shift.relatedQuery('participants').for(req.params.id);

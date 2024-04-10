@@ -1,6 +1,7 @@
 import axios from 'axios';
 import Shift from 'backend/models/shift/shift';
 import ShiftViewModel from 'backend/view_models/shift';
+import defaultRequestConfig from '../common/requestConfig';
 
 export interface ShiftClient {
   GetAllShifts(): Promise<Shift[]>;
@@ -16,14 +17,10 @@ export default class BackendShiftClient implements ShiftClient {
   }
 
   async GetAllShifts(): Promise<Shift[]> {
-    const { data } = await axios.get<Shift[]>(`${this.baseApiURL}/api/shifts`, {
-      withCredentials: true,
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Credentials': 'true',
-      },
-    });
+    const { data } = await axios.get<Shift[]>(
+      `${this.baseApiURL}/api/shifts`,
+      defaultRequestConfig,
+    );
     return data;
   }
 
@@ -32,14 +29,7 @@ export default class BackendShiftClient implements ShiftClient {
   ): Promise<ShiftViewModel[]> {
     const { data } = await axios.get<ShiftViewModel[]>(
       `${this.baseApiURL}/api/schedules/${scheduleID}/shifts`,
-      {
-        withCredentials: true,
-        headers: {
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Credentials': 'true',
-        },
-      },
+      defaultRequestConfig,
     );
     return data;
   }
@@ -47,14 +37,7 @@ export default class BackendShiftClient implements ShiftClient {
   async SignUpForShift(shiftID: number): Promise<ShiftViewModel[]> {
     const { data } = await axios.get<ShiftViewModel[]>(
       `${this.baseApiURL}/api/shifts/${shiftID}/signup`,
-      {
-        withCredentials: true,
-        headers: {
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Credentials': 'true',
-        },
-      },
+      defaultRequestConfig,
     );
     return data;
   }
@@ -62,14 +45,7 @@ export default class BackendShiftClient implements ShiftClient {
   async UnregisterFromShift(shiftID: number): Promise<ShiftViewModel[]> {
     const { data } = await axios.get<ShiftViewModel[]>(
       `${this.baseApiURL}/api/shifts/${shiftID}/unregister`,
-      {
-        withCredentials: true,
-        headers: {
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Credentials': 'true',
-        },
-      },
+      defaultRequestConfig,
     );
     return data;
   }
@@ -82,14 +58,16 @@ export default class BackendShiftClient implements ShiftClient {
 
     const { data } = await axios.get<ShiftViewModel[]>(
       `${this.baseApiURL}/api/shifts/by_participantID/${userID}`,
-      {
-        withCredentials: true,
-        headers: {
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Credentials': 'true',
-        },
-      },
+      defaultRequestConfig,
+    );
+
+    return data;
+  }
+
+  async GetMyShifts(): Promise<ShiftViewModel[]> {
+    const { data } = await axios.get<ShiftViewModel[]>(
+      `${this.baseApiURL}/api/shifts/my-shifts`,
+      defaultRequestConfig,
     );
 
     return data;

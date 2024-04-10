@@ -5,7 +5,10 @@ import { useSetRecoilState, useRecoilValue } from 'recoil';
 import Grid from '@mui/material/Grid';
 import Button from '@mui/material/Button';
 import Dashboard from '../layouts/dashboard/Dashboard';
-import PageState, { UserIsSignedUpForCurrentRoster } from '../state/store';
+import PageState, {
+  UserIsSignedUpForCurrentRoster,
+  CurrentUserIsVerified,
+} from '../state/store';
 import RosterTable from '../components/RosterTable';
 import RosterSignupDialog from '../components/RosterSignupDialog';
 import RosterDropoutDialog from '../components/RosterDropoutDialog';
@@ -15,6 +18,7 @@ function Roster() {
   const appUserIsSignedUpForCurrentBurn = useRecoilValue(
     UserIsSignedUpForCurrentRoster,
   );
+  const userIsVerified = useRecoilValue(CurrentUserIsVerified);
   const [rosterEditFormOpen, setRosterEditFormOpen] = useState(false);
   const [rosterDropoutFormOpen, setRosterDropoutFormOpen] = useState(false);
 
@@ -68,7 +72,14 @@ function Roster() {
             </Grid>
           ) : null}
           <Grid item>
-            <RosterTable />
+            {userIsVerified ? (
+              <RosterTable />
+            ) : (
+              <h1>
+                You cannot view the roster until you are verified. Please email
+                portal-support@campmindshark.com for verification.
+              </h1>
+            )}
           </Grid>
         </Grid>
       </Container>

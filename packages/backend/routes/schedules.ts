@@ -2,6 +2,7 @@ import express, { Request, Response, NextFunction, Router } from 'express';
 import Schedule from '../models/schedule/schedule';
 import ShiftController from '../controllers/shift';
 import hasPermission from '../middleware/rbac';
+import userIsVerified from '../middleware/verified_user';
 
 const router: Router = express.Router();
 
@@ -20,6 +21,7 @@ router.get(
 /* GET Shift(s). */
 router.get(
   '/:id/shifts',
+  userIsVerified(),
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async (req: Request, res: Response) => {
     const { id } = req.params;

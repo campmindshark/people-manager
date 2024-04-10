@@ -3,6 +3,7 @@ import knexConfig from '../knexfile';
 import { getConfig } from '../config/config';
 import User from '../models/user/user';
 import PrivateProfile from '../models/user/user_private';
+import UserVerification from '../models/user_verification/user_verification';
 
 const knex = Knex(knexConfig[getConfig().Environment]);
 
@@ -71,5 +72,25 @@ export default class UserController {
     }
 
     return updatedPrivateProfile[0];
+  }
+
+  // this should be the single source of truth for whether a user is verified
+  public static async isVerified(user: User): Promise<boolean> {
+    const whitelistEntry = await knex('verification_whitelist').where(
+      'email',
+      user.email,
+    );
+
+    if (whitelistEntry.length === 1) {
+      return true;
+    }
+
+    const query = UserVerification.query().where('userID', user.id);
+    const results = await query;
+    if (results.length !== 1) {
+      return false;
+    }
+
+    return results[0].isVerified;
   }
 }
