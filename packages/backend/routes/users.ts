@@ -42,14 +42,26 @@ router.get(
   async (req: Request, res: Response, next: NextFunction) => {
     const users = await User.query();
 
-    const unverifiedUsers: User[] = [];
-    for (let index = 0; index < users.length; index++) {
+    const promises: Promise<{
+      user: User;
+      isVerified: boolean;
+    }>[] = [];
+    for (let index = 0; index < users.length; index += 1) {
       const user = users[index];
-      const userIsVerified = await UserController.isVerified(user);
-      if (!userIsVerified) {
-        unverifiedUsers.push(user);
-      }
+      const func = async () => {
+        const isVerified = await UserController.isVerified(user);
+        return {
+          user,
+          isVerified,
+        };
+      };
+      promises.push(func());
     }
+
+    const results = await Promise.all(promises);
+    const unverifiedUsers = results
+      .filter((result) => !result.isVerified)
+      .map((result) => result.user);
 
     res.json(unverifiedUsers);
   },
@@ -149,7 +161,7 @@ router.get(
 
 /* GET this user's signup status in the context of a roster. */
 router.get('/signup-status/:rosterID', async (req: Request, res: Response) => {
-  const rosterID = req.params.rosterID;
+  const { rosterID } = req.params;
 
   if (!req.user) {
     res.json({ error: 'User not found' });
