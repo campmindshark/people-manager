@@ -2,6 +2,7 @@ import axios from 'axios';
 import User from 'backend/models/user/user';
 import PrivateProfile from 'backend/models/user/user_private';
 import SignupStatus from 'backend/view_models/signup_status';
+import defaultRequestConfig from '../common/requestConfig';
 
 export interface AuthResponse {
   user: User;
@@ -24,28 +25,17 @@ export default class BackendUserClient implements UserClient {
   }
 
   async GetAllUsers(): Promise<User[]> {
-    const { data } = await axios.get<User[]>(`${this.baseApiURL}/api/users`, {
-      withCredentials: true,
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Credentials': 'true',
-      },
-    });
+    const { data } = await axios.get<User[]>(
+      `${this.baseApiURL}/api/users`,
+      defaultRequestConfig,
+    );
     return data;
   }
 
   async GetAuthenticatedUser(): Promise<AuthResponse> {
     const { data } = await axios.get<AuthResponse>(
       `${this.baseApiURL}/api/auth/login/success`,
-      {
-        withCredentials: true,
-        headers: {
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Credentials': 'true',
-        },
-      },
+      defaultRequestConfig,
     );
 
     return data;
@@ -55,14 +45,7 @@ export default class BackendUserClient implements UserClient {
     const { data } = await axios.post<User>(
       `${this.baseApiURL}/api/users`,
       user,
-      {
-        withCredentials: true,
-        headers: {
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Credentials': 'true',
-        },
-      },
+      defaultRequestConfig,
     );
 
     return data;
@@ -71,14 +54,7 @@ export default class BackendUserClient implements UserClient {
   async GetMyPrivateProfile(): Promise<PrivateProfile> {
     const { data } = await axios.get<PrivateProfile>(
       `${this.baseApiURL}/api/users/private/my-private-profile`,
-      {
-        withCredentials: true,
-        headers: {
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Credentials': 'true',
-        },
-      },
+      defaultRequestConfig,
     );
 
     return data;
@@ -90,14 +66,7 @@ export default class BackendUserClient implements UserClient {
     const { data } = await axios.post<PrivateProfile>(
       `${this.baseApiURL}/api/users/private`,
       privateProfile,
-      {
-        withCredentials: true,
-        headers: {
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Credentials': 'true',
-        },
-      },
+      defaultRequestConfig,
     );
 
     return data;
@@ -109,14 +78,16 @@ export default class BackendUserClient implements UserClient {
   ): Promise<SignupStatus> {
     const { data } = await axios.get<SignupStatus>(
       `${this.baseApiURL}/api/users/${userID}/signup-status/${rosterID}`,
-      {
-        withCredentials: true,
-        headers: {
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Credentials': 'true',
-        },
-      },
+      defaultRequestConfig,
+    );
+
+    return data;
+  }
+
+  async GetMySignupStatus(rosterID: number): Promise<SignupStatus> {
+    const { data } = await axios.get<SignupStatus>(
+      `${this.baseApiURL}/api/users/signup-status/${rosterID}`,
+      defaultRequestConfig,
     );
 
     return data;
@@ -125,14 +96,31 @@ export default class BackendUserClient implements UserClient {
   async IsUserVerified(): Promise<boolean> {
     const { data } = await axios.get<boolean>(
       `${this.baseApiURL}/api/users/is-verified`,
-      {
-        withCredentials: true,
-        headers: {
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Credentials': 'true',
-        },
-      },
+      defaultRequestConfig,
+    );
+
+    return data;
+  }
+
+  async GetAllUnverifiedUsers(): Promise<User[]> {
+    try {
+      const { data } = await axios.get<User[]>(
+        `${this.baseApiURL}/api/users/unverified`,
+        defaultRequestConfig,
+      );
+
+      return data;
+    } catch (error) {
+      console.error(error);
+      return [];
+    }
+  }
+
+  async VerifyUser(userID: number): Promise<User> {
+    const { data } = await axios.post<User>(
+      `${this.baseApiURL}/api/users/verify/${userID}`,
+      {},
+      defaultRequestConfig,
     );
 
     return data;

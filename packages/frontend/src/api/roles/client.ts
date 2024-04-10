@@ -1,6 +1,7 @@
 import axios from 'axios';
 import User from 'backend/models/user/user';
 import { RoleConfig } from 'backend/roles/role';
+import defaultRequestConfig from '../common/requestConfig';
 
 export interface AuthResponse {
   user: User;
@@ -22,14 +23,7 @@ export default class BackendRoleClient implements RoleClient {
   async GetMyRoles(): Promise<RoleConfig[]> {
     const { data } = await axios.get<RoleConfig[]>(
       `${this.baseApiURL}/api/roles/my_roles`,
-      {
-        withCredentials: true,
-        headers: {
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Credentials': 'true',
-        },
-      },
+      defaultRequestConfig,
     );
     return data;
   }

@@ -74,10 +74,7 @@ export const CurrentUserSignupStatus = selector<SignupStatus>({
       return tmp;
     }
 
-    const signupStatus = await userClient.GetUserSignupStatus(
-      thisUser.id,
-      rosterState.id,
-    );
+    const signupStatus = await userClient.GetMySignupStatus(rosterState.id);
 
     return signupStatus;
   },

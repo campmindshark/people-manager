@@ -6,14 +6,16 @@
       "description": "A Web Administrator.",
       "permissions": [
         "users:readAll",
-        "users:editVerification",
+        "userVerification:edit",
+        "userVerification:readAll",
         "schedules:create",
         "schedules:delete",
         "shifts:create",
         "shifts:delete",
         "signupStatus:readAll",
         "rosters:create",
-        "rosters:delete"
+        "rosters:delete",
+        "rosterParticipant:readAll"
       ]
     }
   ]

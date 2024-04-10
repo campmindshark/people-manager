@@ -2,10 +2,12 @@ import React, { useEffect } from 'react';
 import Container from '@mui/material/Container';
 import Grid from '@mui/material/Grid';
 import Paper from '@mui/material/Paper';
+import { Typography } from '@mui/material';
 import { useRecoilValue, useSetRecoilState } from 'recoil';
 import Dashboard from '../layouts/dashboard/Dashboard';
 import PageState, { MyRolesState } from '../state/store';
 import AllParticipantUserSignupStateTable from '../components/AllParticipantUserSignupStateTable';
+import VerifyUsersTable from '../components/VerifyUsersTable';
 
 export default function Admin() {
   const setPageState = useSetRecoilState(PageState);
@@ -55,6 +57,18 @@ export default function Admin() {
             <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column' }}>
               <h1>Signup State</h1>
               <AllParticipantUserSignupStateTable />
+            </Paper>
+          </Grid>
+          <Grid item xs={12}>
+            <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column' }}>
+              <h1>Verify Users</h1>
+              <Typography>
+                This section allows us to verify users that have not already
+                been verified. Caution: Once a user is verified, they will be
+                able to see other camp members sorta private information.
+              </Typography>
+              <br />
+              <VerifyUsersTable />
             </Paper>
           </Grid>
         </Grid>

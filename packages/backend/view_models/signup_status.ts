@@ -10,6 +10,7 @@ type SignupStatus = {
   hasCompletedPublicProfile: boolean;
 
   hasPaidDues: boolean;
+  isVerified: boolean;
 
   shiftCount: number;
 };
@@ -21,6 +22,7 @@ export const NewPlaceholderSignupStatus = (): SignupStatus => ({
   hasCompletedPrivateProfile: false,
   hasCompletedPublicProfile: false,
   hasPaidDues: false,
+  isVerified: false,
   shiftCount: 0,
 });
 

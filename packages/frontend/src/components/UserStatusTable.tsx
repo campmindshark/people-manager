@@ -66,6 +66,11 @@ function UserStatusTable() {
             'You can edit your profile by clicking the Profile Edit menu item on the left.',
           )}
           {generateTableRow(
+            'Your account has been verified',
+            signupStatus.isVerified,
+            'Your account must be verified in order for you to signup for chores and view the roster. You can verify your account by reaching out to portal-support@campmindshark.com.',
+          )}
+          {generateTableRow(
             'Dues have been paid',
             signupStatus.hasPaidDues,
             'You can pay your dues by clicking the Pay Dues menu item on the left.',

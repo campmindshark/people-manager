@@ -1,15 +1,41 @@
 import express, { Request, Response, Router } from 'express';
 import User from '../models/user/user';
 import RosterParticipant from '../models/roster_participant/roster_participant';
+import hasPermission from '../middleware/rbac';
 
 const router: Router = express.Router();
 
 /* GET all roster participants. */
-router.get('/', async (req: Request, res: Response) => {
-  const query = RosterParticipant.query();
-  const rosterParticipants = await query;
+router.get(
+  '/',
+  hasPermission('rosterParticipant:readAll'),
+  async (req: Request, res: Response) => {
+    const query = RosterParticipant.query();
+    const rosterParticipants = await query;
 
-  res.json(rosterParticipants);
+    res.json(rosterParticipants);
+  },
+);
+
+/* GET this users roster signup for a particular rosterID. */
+router.get('/my-signup-by-roster/:id', async (req: Request, res: Response) => {
+  const user = req.user as User;
+  const rosterID = req.params.id;
+
+  const query = RosterParticipant.query()
+    .where({
+      userID: user.id,
+      rosterID,
+    })
+    .first();
+
+  const rosterParticipant = await query;
+  if (!rosterParticipant) {
+    res.json({ error: 'User not found in roster' }).status(404);
+    return;
+  }
+
+  res.json(rosterParticipant);
 });
 
 /* POST signup new roster participant. */

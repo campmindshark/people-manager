@@ -1,5 +1,6 @@
 import axios from 'axios';
 import Schedule from 'backend/models/schedule/schedule';
+import defaultRequestConfig from '../common/requestConfig';
 
 export interface ScheduleClient {
   GetAllSchedules(): Promise<Schedule[]>;
@@ -15,14 +16,7 @@ export default class BackendScheduleClient implements ScheduleClient {
   async GetAllSchedules(): Promise<Schedule[]> {
     const { data } = await axios.get<Schedule[]>(
       `${this.baseApiURL}/api/schedules`,
-      {
-        withCredentials: true,
-        headers: {
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Credentials': 'true',
-        },
-      },
+      defaultRequestConfig,
     );
     return data;
   }

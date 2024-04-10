@@ -34,6 +34,27 @@ router.get(
   },
 );
 
+/* GET all unverified users. */
+router.get(
+  '/unverified',
+  hasPermission('userVerification:readAll'),
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async (req: Request, res: Response, next: NextFunction) => {
+    const users = await User.query();
+
+    const unverifiedUsers: User[] = [];
+    for (let index = 0; index < users.length; index++) {
+      const user = users[index];
+      const userIsVerified = await UserController.isVerified(user);
+      if (!userIsVerified) {
+        unverifiedUsers.push(user);
+      }
+    }
+
+    res.json(unverifiedUsers);
+  },
+);
+
 /* GET whether or not the user is verified. */
 router.get(
   '/is-verified',
@@ -85,14 +106,25 @@ router.post(
 
 /* POST - verify this user. */
 router.post(
-  '/verify-user/:id',
-  hasPermission('users:editVerification'),
+  '/verify/:id',
+  hasPermission('userVerification:edit'),
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async (req: Request, res: Response, next: NextFunction) => {
     const userID = req.params.id;
 
+    const checkVerification = await UserVerification.query().findOne({
+      userID: parseInt(userID, 10),
+      isVerified: true,
+    });
+
+    if (checkVerification) {
+      res.json(checkVerification);
+      return;
+    }
+
     const verification = await UserVerification.query().insert({
       userID: parseInt(userID, 10),
+      isVerified: true,
     });
 
     res.json(verification);
@@ -102,6 +134,7 @@ router.post(
 /* GET the users signup status in the context of a roster by ID. */
 router.get(
   '/:userID/signup-status/:rosterID',
+  hasPermission('signupStatus:readAll'),
   async (req: Request, res: Response) => {
     const [rosterID, userID] = [req.params.rosterID, req.params.userID];
 
@@ -113,5 +146,24 @@ router.get(
     res.json(status);
   },
 );
+
+/* GET this user's signup status in the context of a roster. */
+router.get('/signup-status/:rosterID', async (req: Request, res: Response) => {
+  const rosterID = req.params.rosterID;
+
+  if (!req.user) {
+    res.json({ error: 'User not found' });
+    return;
+  }
+
+  const authenticatedUser = req.user as User;
+
+  const status = await AnalysisController.GetSignupStatusForUser(
+    authenticatedUser.id,
+    parseInt(rosterID, 10),
+  );
+
+  res.json(status);
+});
 
 export default router;
