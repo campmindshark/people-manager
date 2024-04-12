@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { useRecoilValue } from 'recoil';
 import Schedule from 'backend/models/schedule/schedule';
 import { Paper, Stack, Typography } from '@mui/material';
@@ -31,18 +31,21 @@ export default function ShiftStack(props: Props) {
     [frontendConfig.BackendURL],
   );
   const appUser = useRecoilValue(UserState);
+
   const { schedule } = props;
   const [shiftViewModels, setShifts] = useState<ShiftViewModel[]>([]);
 
+  const setShiftsCB = useCallback(async () => {
+    const loadedShifts = await shiftClient.GetShiftViewModelsBySchedule(
+      schedule.id,
+    );
+    setShifts(loadedShifts);
+  }, [schedule]);
+
   // should only use this at the top level
   useEffect(() => {
-    const fetchShifts = async () => {
-      const loadedShifts = await shiftClient.GetShiftViewModelsBySchedule(
-        schedule.id,
-      );
-      setShifts(loadedShifts);
-    };
-    fetchShifts().catch(console.error);
+    console.log('fetch shifts here');
+    setShiftsCB().catch(console.error);
   }, [schedule]);
 
   const generateShiftBlocks = () => {
@@ -69,7 +72,7 @@ export default function ShiftStack(props: Props) {
       shiftBlocks.push(
         <ShiftBlock
           timeFrameMinutes={shift.getLengthMinutes()}
-          shiftViewModel={shiftViewModels[index]}
+          shiftID={shiftViewModels[index].shift.id}
           key={`shift-block-${index}-${schedule.id}`}
           currentUserID={appUser.id}
         >

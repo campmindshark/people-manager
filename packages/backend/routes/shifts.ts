@@ -32,6 +32,18 @@ router.get(
   },
 );
 
+/* GET Shifts by rosterID. */
+router.get(
+  '/by_rosterID/:id',
+  userIsVerified(),
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async (req: Request, res: Response, next: NextFunction) => {
+    const rosterID = parseInt(req.params.id, 10);
+    const shifts = await ShiftController.GetShiftViewModelsByRosterID(rosterID);
+    res.json(shifts);
+  },
+);
+
 /* GET My Shifts. */
 router.get(
   '/my-shifts',
@@ -75,6 +87,7 @@ router.post(
 /* Sign up for a shift with the current user. */
 router.get(
   '/:id/signup',
+  userIsVerified(),
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;

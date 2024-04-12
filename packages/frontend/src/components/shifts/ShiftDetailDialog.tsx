@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo } from 'react';
-import { useRecoilValue, useRecoilRefresher_UNSTABLE } from 'recoil';
+import { useRecoilValue } from 'recoil';
 import User from 'backend/models/user/user';
 import ShiftViewModel, {
   userIsSignedUpForShift,
@@ -18,7 +18,6 @@ import {
 } from '@mui/material';
 import PersonIcon from '@mui/icons-material/Person';
 import { getFrontendConfig } from '../../config/config';
-import CurrentRosterScheduleState from '../../state/schedules';
 import BurningManDateFormatter from '../../utils/datetime/formatter';
 import { UserState } from '../../state/store';
 import BackendShiftClient from '../../api/shifts/shifts';
@@ -32,9 +31,6 @@ interface Props {
 }
 
 export default function ShiftDetailDialog(props: Props) {
-  const refreshSchedules = useRecoilRefresher_UNSTABLE(
-    CurrentRosterScheduleState,
-  );
   const shiftClient = useMemo(
     () => new BackendShiftClient(frontendConfig.BackendURL),
     [],
@@ -44,17 +40,11 @@ export default function ShiftDetailDialog(props: Props) {
 
   const handleShiftSignup = useCallback(async () => {
     const _ = await shiftClient.SignUpForShift(shiftViewModel.shift.id);
-    setTimeout(() => {
-      refreshSchedules();
-    }, 200);
-  }, [shiftViewModel, refreshSchedules]);
+  }, [shiftViewModel]);
 
   const handleShiftUnregister = useCallback(async () => {
     const _ = await shiftClient.UnregisterFromShift(shiftViewModel.shift.id);
-    setTimeout(() => {
-      refreshSchedules();
-    }, 200);
-  }, [shiftViewModel, refreshSchedules]);
+  }, [shiftViewModel]);
 
   const generateParticipantList = () => {
     const participantList: JSX.Element[] = [];

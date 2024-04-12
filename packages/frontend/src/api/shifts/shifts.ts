@@ -72,4 +72,13 @@ export default class BackendShiftClient implements ShiftClient {
 
     return data;
   }
+
+  async GetShiftsByRosterID(rosterID: number): Promise<ShiftViewModel[]> {
+    const { data } = await axios.get<ShiftViewModel[]>(
+      `${this.baseApiURL}/api/shifts/by_rosterID/${rosterID}`,
+      defaultRequestConfig,
+    );
+
+    return data;
+  }
 }

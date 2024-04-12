@@ -109,4 +109,20 @@ export default class ShiftController {
     const shiftViewModelsResolved = await Promise.all(shiftViewModels);
     return shiftViewModelsResolved;
   }
+
+  public static async GetShiftViewModelsByRosterID(
+    rosterID: number,
+  ): Promise<ShiftViewModel[]> {
+    const query = knex<Shift>('schedules')
+      .join('shifts', 'shifts.scheduleID', '=', 'schedules.id')
+      .where('rosterID', rosterID);
+
+    const shifts = await query;
+
+    console.log('shifts', shifts);
+
+    const shiftViewModels =
+      await ShiftController.loadViewModelsFromShifts(shifts);
+    return shiftViewModels;
+  }
 }

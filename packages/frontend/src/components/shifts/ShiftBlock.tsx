@@ -1,5 +1,5 @@
 import React, { useCallback } from 'react';
-import { useRecoilRefresher_UNSTABLE } from 'recoil';
+import { useRecoilValue } from 'recoil';
 import { Box, Paper, Popper, IconButton } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import ShiftViewModel, {
@@ -7,11 +7,12 @@ import ShiftViewModel, {
   userIsSignedUpForShift,
 } from 'backend/view_models/shift';
 import { TimeOfDayFormatter } from '../../utils/datetime/formatter';
-import CurrentRosterScheduleState from '../../state/schedules';
 import ShiftDetailDialog from './ShiftDetailDialog';
+import ShiftState from '../../state/shifts';
 
 interface RootProps {
-  shiftViewModel?: ShiftViewModel;
+  // shiftViewModel?: ShiftViewModel;
+  shiftID?: number;
   children?: React.ReactNode;
   timeFrameMinutes?: number;
   isEmptySlot?: boolean;
@@ -60,12 +61,20 @@ const determineBorderWidth = (
   return 0;
 };
 
+interface StyleProps {
+  shiftViewModel?: ShiftViewModel;
+  children?: React.ReactNode;
+  timeFrameMinutes?: number;
+  isEmptySlot?: boolean;
+  currentUserID?: number;
+}
+
 const StyledShiftBlock = styled(Paper, {
   shouldForwardProp: (prop) =>
     prop !== 'textColor' && prop !== 'buttonTextColor',
   name: 'MyThemeComponent',
   slot: 'Root',
-})<RootProps>(
+})<StyleProps>(
   ({
     theme,
     timeFrameMinutes,
@@ -98,26 +107,23 @@ const StyledIconButton = styled(IconButton)({
 });
 
 function ShiftBlock(props: RootProps) {
-  const {
-    children,
-    timeFrameMinutes,
-    isEmptySlot,
-    shiftViewModel,
-    currentUserID,
-  } = props;
+  const { children, timeFrameMinutes, isEmptySlot, currentUserID } = props;
 
   const [dialogIsOpen, setDialogIsOpen] = React.useState(false);
-  const refreshSchedules = useRecoilRefresher_UNSTABLE(
-    CurrentRosterScheduleState,
-  );
+  const shifts = useRecoilValue(ShiftState);
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
   const popperOpen = Boolean(anchorEl);
   const id = popperOpen ? 'simple-popper' : undefined;
 
+  const { shiftID } = props;
+  let shiftViewModel: ShiftViewModel | undefined;
+  if (shiftID) {
+    shiftViewModel = shifts.get(shiftID);
+  }
+
   const handleClose = useCallback(() => {
     setDialogIsOpen(false);
-    refreshSchedules();
-  }, [refreshSchedules, setDialogIsOpen]);
+  }, [setDialogIsOpen]);
 
   const handleClick = useCallback(() => {
     setDialogIsOpen(!dialogIsOpen);
@@ -137,17 +143,28 @@ function ShiftBlock(props: RootProps) {
   }, [setAnchorEl]);
 
   const shiftPopperText = useCallback((): string => {
+    let text = '';
     if (!shiftViewModel) {
       return '';
     }
+
     if (shiftViewModel.shift.startTime && shiftViewModel.shift.endTime) {
-      return `${shiftViewModel.scheduleName} -- ${TimeOfDayFormatter.format(
+      text += `${shiftViewModel.scheduleName} -- ${TimeOfDayFormatter.format(
         new Date(shiftViewModel.shift.startTime),
       )} to ${TimeOfDayFormatter.format(
         new Date(shiftViewModel.shift.endTime),
       )}`;
     }
-    return 'unknown time frame';
+
+    if (shiftViewModel.participants.length > 0) {
+      text += `\n(${shiftViewModel.participants
+        .map(
+          (participant) => `${participant.firstName} ${participant.lastName}`,
+        )
+        .join(', ')})`;
+    }
+
+    return text;
   }, [shiftViewModel]);
 
   return (
@@ -187,8 +204,8 @@ ShiftBlock.defaultProps = {
   children: undefined,
   timeFrameMinutes: 60,
   isEmptySlot: false,
-  shiftViewModel: undefined,
   currentUserID: undefined,
+  shiftID: undefined,
 };
 
 export default ShiftBlock;
