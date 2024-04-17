@@ -91,7 +91,7 @@ const sessionStore = new PostgresqlStore({
 
 app.use(
   session({
-    secret: 'secret',
+    secret: config.JWTSecret,
     resave: false,
     saveUninitialized: true,
     cookie: {
