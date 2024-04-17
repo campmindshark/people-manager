@@ -95,7 +95,6 @@ app.use(
     resave: false,
     saveUninitialized: true,
     cookie: {
-      secure: config.Environment === 'production',
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
     },
     store: sessionStore,
