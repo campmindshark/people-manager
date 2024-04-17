@@ -15,6 +15,7 @@ import { Model } from 'objection';
 import dotenv from 'dotenv';
 import passport from 'passport';
 import session from 'express-session';
+import genFunc from 'connect-pg-simple';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import knexConfig from './knexfile';
 import { Config, getConfig } from './config/config';
@@ -83,32 +84,26 @@ app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 
 // TODO: use a real session store
-// if (config.Environment === 'production') {
-//   console.log('using postgres session store');
-//   const PostgresqlStore = genFunc(session);
-//   const sessionStore = new PostgresqlStore({
-//     conString: config.PostgresConnectionURL,
-//   });
 
-//   app.use(
-//     session({
-//       secret: 'secret',
-//       resave: false,
-//       saveUninitialized: false,
-//       cookie: { secure: true },
-//       store: sessionStore,
-//     }),
-//   );
-// } else {
-console.log('using in-memory session store');
+console.log('using postgres session store');
+const PostgresqlStore = genFunc(session);
+console.log('Postgres Connection URL:', config.PostgresConnectionURL);
+const sessionStore = new PostgresqlStore({
+  conString: config.PostgresConnectionURL,
+});
+
 app.use(
   session({
-    secret: config.JWTSecret,
+    secret: 'secret',
     resave: false,
     saveUninitialized: true,
+    cookie: {
+      secure: config.Environment === 'production',
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+    },
+    store: sessionStore,
   }),
 );
-// }
 
 // configure passport
 app.use(passport.initialize());
