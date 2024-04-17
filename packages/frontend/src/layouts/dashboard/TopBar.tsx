@@ -1,12 +1,24 @@
-import * as React from 'react';
-import { Avatar, Badge, IconButton, Typography, Toolbar } from '@mui/material';
+import React, { useCallback } from 'react';
+import {
+  Avatar,
+  Badge,
+  Box,
+  IconButton,
+  Popper,
+  Typography,
+  Toolbar,
+} from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import LogoutIcon from '@mui/icons-material/Logout';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import { useRecoilValue } from 'recoil';
+import { signupStatusIssues } from 'backend/view_models/signup_status';
 import { getFrontendConfig } from '../../config/config';
 import AppBar from './AppBar';
-import PageState, { UserState } from '../../state/store';
+import PageState, {
+  UserState,
+  CurrentUserSignupStatus,
+} from '../../state/store';
 
 const frontendConfig = getFrontendConfig();
 
@@ -18,6 +30,23 @@ interface TopBarProps {
 export default function TopBar({ open, toggleDrawer }: TopBarProps) {
   const pageState = useRecoilValue(PageState);
   const appUser = useRecoilValue(UserState);
+  const signupStatus = useRecoilValue(CurrentUserSignupStatus);
+  const issues = signupStatusIssues(signupStatus);
+
+  const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
+  const popperOpen = Boolean(anchorEl);
+  const id = popperOpen ? 'simple-popper' : undefined;
+
+  const handlePopperOpen = useCallback(
+    (event: React.MouseEvent<HTMLElement>) => {
+      setAnchorEl(event.currentTarget);
+    },
+    [setAnchorEl],
+  );
+
+  const handlePopperClose = useCallback(() => {
+    setAnchorEl(null);
+  }, [setAnchorEl]);
 
   const handleLogout = () => {
     console.log('logout');
@@ -56,8 +85,8 @@ export default function TopBar({ open, toggleDrawer }: TopBarProps) {
           {appUser.firstName[0]}
           {appUser.lastName[0]}
         </Avatar>
-        <IconButton color="inherit">
-          <Badge badgeContent={4} color="secondary">
+        <IconButton color="inherit" onClick={handlePopperOpen}>
+          <Badge badgeContent={issues.length} color="secondary">
             <NotificationsIcon />
           </Badge>
         </IconButton>
@@ -65,6 +94,19 @@ export default function TopBar({ open, toggleDrawer }: TopBarProps) {
           <LogoutIcon />
         </IconButton>
       </Toolbar>
+      <Popper
+        id={id}
+        open={popperOpen}
+        anchorEl={anchorEl}
+        onMouseEnter={handlePopperClose}
+        sx={{ zIndex: 9999 }}
+      >
+        <Box sx={{ border: 1, p: 1, bgcolor: 'background.paper' }}>
+          {issues.map((issue) => (
+            <Typography key={issue}>{issue}</Typography>
+          ))}
+        </Box>
+      </Popper>
     </AppBar>
   );
 }
