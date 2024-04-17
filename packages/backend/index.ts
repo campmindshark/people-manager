@@ -83,11 +83,8 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 
-// TODO: use a real session store
-
 console.log('using postgres session store');
 const PostgresqlStore = genFunc(session);
-console.log('Postgres Connection URL:', config.PostgresConnectionURL);
 const sessionStore = new PostgresqlStore({
   conString: config.PostgresConnectionURL,
 });
