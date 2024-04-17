@@ -26,4 +26,30 @@ export const NewPlaceholderSignupStatus = (): SignupStatus => ({
   shiftCount: 0,
 });
 
+export const signupStatusIssues = (status: SignupStatus): string[] => {
+  const issues: string[] = [];
+
+  if (!status.hasSignedUpForRoster) {
+    issues.push('You have not signed up for this roster.');
+  }
+
+  if (!status.hasCompletedPrivateProfile) {
+    issues.push('You have not completed your private profile.');
+  }
+
+  if (!status.hasCompletedPublicProfile) {
+    issues.push('You have not completed your public profile.');
+  }
+
+  if (!status.hasPaidDues) {
+    issues.push('You have not paid your dues.');
+  }
+
+  if (!status.isVerified) {
+    issues.push('You have not been verified.');
+  }
+
+  return issues;
+};
+
 export default SignupStatus;
