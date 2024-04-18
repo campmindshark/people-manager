@@ -1,4 +1,5 @@
 import type { Knex } from 'knex';
+import fs from 'fs';
 import { getConfig } from './config/config';
 
 // Update with your config settings.
@@ -38,7 +39,7 @@ const config: { [key: string]: Knex.Config } = {
       connectionString: appConfig.PostgresConnectionURL,
       ssl: {
         maxVersion: 'TLSv1.2',
-        rejectUnauthorized: false,
+        ca: fs.readFileSync(appConfig.PostgresConnectionURL).toString(),
       },
     },
     pool: {
