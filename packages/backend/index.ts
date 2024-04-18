@@ -5,11 +5,11 @@ import express, {
   Application,
   NextFunction,
 } from 'express';
+import fs from 'fs';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import logger from 'morgan';
 import createError from 'http-errors';
-import FileSystem from 'fs';
 import Knex from 'knex';
 import { Model } from 'objection';
 import dotenv from 'dotenv';
@@ -42,7 +42,7 @@ const envFilePath = process.argv[2];
 
 console.log(`Starting people-manager backend with env file: ${envFilePath}`);
 
-if (!FileSystem.existsSync(envFilePath)) {
+if (!fs.existsSync(envFilePath)) {
   console.log(`env file not found at ${envFilePath}`);
 } else {
   console.log(`env file found at ${envFilePath}`);
@@ -92,7 +92,7 @@ const sessionStore = new PostgresqlStore({
     ssl:
       config.Environment === 'production'
         ? {
-            cert: fs.readFileSync(config.PostgresSSLCertPath).toString(),
+            ca: fs.readFileSync(config.PostgresSSLCertPath).toString(),
           }
         : false,
   },
