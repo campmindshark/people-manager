@@ -93,7 +93,7 @@ const sessionStore = new PostgresqlStore({
     ssl:
       config.Environment === 'production'
         ? {
-            cert: fs.readFileSync(config.PostgresSSLCertPath).toString(),
+            ca: fs.readFileSync(config.PostgresSSLCertPath).toString(),
           }
         : false,
   },

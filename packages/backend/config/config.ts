@@ -10,7 +10,7 @@ export interface Config {
   JWTSecret: string;
   Port: number;
   PostgresConnectionURL: string;
-  PostgresSSLCertPath?: string;
+  PostgresSSLCertPath: string;
 }
 
 function getCORSWhitelist(): string[] {
