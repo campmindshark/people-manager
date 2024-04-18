@@ -87,6 +87,15 @@ console.log('using postgres session store');
 const PostgresqlStore = genFunc(session);
 const sessionStore = new PostgresqlStore({
   conString: config.PostgresConnectionURL,
+  conObject: {
+    connectionString: config.PostgresConnectionURL,
+    ssl:
+      config.Environment === 'production'
+        ? {
+            cert: fs.readFileSync(config.PostgresSSLCertPath).toString(),
+          }
+        : false,
+  },
 });
 
 app.use(

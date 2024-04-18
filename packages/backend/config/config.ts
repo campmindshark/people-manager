@@ -10,6 +10,7 @@ export interface Config {
   JWTSecret: string;
   Port: number;
   PostgresConnectionURL: string;
+  PostgresSSLCertPath?: string;
 }
 
 function getCORSWhitelist(): string[] {
@@ -39,6 +40,8 @@ export function getConfig(): Config {
     Port: parseInt((process.env.BACKEND_PORT as string) ?? '3001', 10),
     PostgresConnectionURL:
       (process.env.POSTGRES_CONNECTION_URL as string) ?? '',
+    PostgresSSLCertPath:
+      '/usr/local/certs/ca-certificates/us-west-2-bundle.pem',
   };
 
   return config;
