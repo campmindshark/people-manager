@@ -6,7 +6,7 @@ WORKDIR /usr/src/app
 RUN apk update && apk add bash curl
 
 RUN mkdir -p /usr/local/certs/ca-certificates
-RUN curl -ks 'https://s3.amazonaws.com/rds-downloads/rds-ca-2015-root.pem' -o '/usr/local/certs/ca-certificates/rds-ca-2015-root.pem'
+RUN curl -ks 'https://truststore.pki.rds.amazonaws.com/us-west-2/us-west-2-bundle.pem' -o '/usr/local/certs/ca-certificates/us-west-2-bundle.pem'
 
 COPY . .
 
@@ -33,7 +33,7 @@ COPY --from=builder /usr/src/app/packages/backend/tsconfig.json /usr/src/app
 
 COPY --from=builder /usr/src/app/packages/frontend/build /usr/src/app/public
 
-COPY --from=builder /usr/local/certs/ca-certificates/rds-ca-2015-root.pem /usr/local/certs/ca-certificates/rds-ca-2015-root.pem
+COPY --from=builder /usr/local/certs/ca-certificates/us-west-2-bundle.pem /usr/local/certs/ca-certificates/us-west-2-bundle.pem
 
 RUN yarn install --production
 
