@@ -5,6 +5,7 @@ import express, {
   Application,
   NextFunction,
 } from 'express';
+import fs from 'fs';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import logger from 'morgan';
