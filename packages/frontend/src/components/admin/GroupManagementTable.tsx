@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import {
   Button,
   IconButton,
+  List,
+  ListItem,
   TableContainer,
   Table,
   TableHead,
@@ -18,11 +20,16 @@ import {
   useRecoilValue_TRANSITION_SUPPORT_UNSTABLE,
   useRecoilRefresher_UNSTABLE,
 } from 'recoil';
+import Group from 'backend/models/group/group';
 import GroupViewModel from 'backend/view_models/group';
 import GroupsState from '../../state/groups';
 import CreateGroupDialog from './CreateGroupDialog';
+import GroupMembershipManagementDialog from './GroupMemberManagementDialog';
 
-const generateTableRow = (group: GroupViewModel) => (
+const generateTableRow = (
+  group: GroupViewModel,
+  handleMemberClick: () => void,
+) => (
   <TableRow
     key={group.group.id}
     sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
@@ -40,13 +47,19 @@ const generateTableRow = (group: GroupViewModel) => (
       })}
     </TableCell>
     <TableCell component="th" scope="row">
-      {group.members.map((member) => `${member.firstName} ${member.lastName}`)}
+      <List dense>
+        {group.members.map((member) => (
+          <ListItem>
+            {member.firstName} {member.lastName}
+          </ListItem>
+        ))}
+      </List>
     </TableCell>
     <TableCell component="th" scope="row">
       <IconButton>
         <EditIcon />
       </IconButton>
-      <IconButton>
+      <IconButton onClick={handleMemberClick}>
         <PeopleIcon />
       </IconButton>
     </TableCell>
@@ -57,8 +70,11 @@ function GroupManagementTable() {
   const groups = useRecoilValue_TRANSITION_SUPPORT_UNSTABLE(GroupsState);
   const updateGroups = useRecoilRefresher_UNSTABLE(GroupsState);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [activeGroup, setActiveGroup] = useState<Group>(Group.fromJson({}));
+  const [membershipManagementDialogOpen, setMembershipManagementDialogOpen] =
+    useState(false);
 
-  const handleCreateSuccess = () => {
+  const handleSuccess = () => {
     setCreateDialogOpen(false);
     console.log('Group created');
     updateGroups();
@@ -82,7 +98,7 @@ function GroupManagementTable() {
               <CreateGroupDialog
                 open={createDialogOpen}
                 handleClose={() => setCreateDialogOpen(false)}
-                handleSuccess={handleCreateSuccess}
+                handleSuccess={handleSuccess}
               />
             </Typography>
           </Grid>
@@ -100,10 +116,22 @@ function GroupManagementTable() {
             </TableRow>
           </TableHead>
           <TableBody>
-            {groups.map((group) => generateTableRow(group))}
+            {groups.map((group) => {
+              const handleMemberClick = () => {
+                setActiveGroup(group.group);
+                setMembershipManagementDialogOpen(true);
+              };
+              return generateTableRow(group, handleMemberClick);
+            })}
           </TableBody>
         </Table>
       </TableContainer>
+      <GroupMembershipManagementDialog
+        open={membershipManagementDialogOpen}
+        group={activeGroup}
+        handleSuccess={handleSuccess}
+        handleClose={() => setMembershipManagementDialogOpen(false)}
+      />
     </>
   );
 }

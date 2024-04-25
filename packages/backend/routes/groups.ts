@@ -78,6 +78,11 @@ router.get(
   async (req: Request, res: Response) => {
     const groupID = req.params.id;
 
+    if (!groupID || groupID === 'undefined') {
+      res.status(400).send('Group ID is required');
+      return;
+    }
+
     const members = await Group.relatedQuery('members').for(groupID);
 
     if (!members) {
@@ -86,6 +91,69 @@ router.get(
     }
 
     res.json(members);
+  },
+);
+
+// POST a new member to a group
+router.post(
+  '/:id/members/:memberID',
+  hasPermission('groups:addMember'),
+  async (req: Request, res: Response) => {
+    const groupID = req.params.id;
+    const newMemberID = req.params.memberID;
+    // const newMember = req.body;
+
+    if (!groupID || groupID === 'undefined') {
+      res.status(400).send('Group ID is required');
+      return;
+    }
+
+    if (!newMemberID || newMemberID === 'undefined') {
+      res.status(400).send('Member ID is required');
+      return;
+    }
+
+    const group = await Group.query().findById(groupID);
+
+    if (!group) {
+      res.status(404).send('Group not found');
+      return;
+    }
+
+    await group.$relatedQuery('members').relate(newMemberID);
+
+    res.json(true);
+  },
+);
+
+// DELETE a member from a group
+router.delete(
+  '/:id/members/:memberID',
+  hasPermission('groups:removeMember'),
+  async (req: Request, res: Response) => {
+    const groupID = req.params.id;
+    const memberID = req.params.memberID;
+
+    if (!groupID || groupID === 'undefined') {
+      res.status(400).send('Group ID is required');
+      return;
+    }
+
+    if (!memberID || memberID === 'undefined') {
+      res.status(400).send('Member ID is required');
+      return;
+    }
+
+    const group = await Group.query().findById(groupID);
+
+    if (!group) {
+      res.status(404).send('Group not found');
+      return;
+    }
+
+    await group.$relatedQuery('members').unrelate().where('id', memberID);
+
+    res.json(true);
   },
 );
 

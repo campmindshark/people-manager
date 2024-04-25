@@ -9,6 +9,8 @@
         "groups:create",
         "groups:edit",
         "groups:readMembers",
+        "groups:addMember",
+        "groups:removeMember",
         "schedules:create",
         "schedules:delete",
         "shifts:create",

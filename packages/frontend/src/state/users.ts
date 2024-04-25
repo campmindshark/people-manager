@@ -5,6 +5,16 @@ import BackendUserClient from '../api/users/client';
 
 const frontendConfig = getFrontendConfig();
 
+export const AllUsers = selector<User[]>({
+  key: 'allUsers',
+  get: async () => {
+    const apiMethod = new BackendUserClient(frontendConfig.BackendURL);
+    const users = await apiMethod.GetAllUsers();
+
+    return users;
+  },
+});
+
 const UnverifiedUserState = selector<User[]>({
   key: 'unverifiedUsers',
   get: async () => {

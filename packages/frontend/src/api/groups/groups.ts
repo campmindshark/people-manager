@@ -1,6 +1,7 @@
 import axios from 'axios';
 import Group from 'backend/models/group/group';
 import GroupViewModel from 'backend/view_models/group';
+import User from 'backend/models/user/user';
 import defaultRequestConfig from '../common/requestConfig';
 
 export default class BackendGroupClient {
@@ -36,11 +37,26 @@ export default class BackendGroupClient {
     return data;
   }
 
-  async GetGroupMembers(groupID: number): Promise<number[]> {
-    const { data } = await axios.get<number[]>(
+  async GetGroupMembers(groupID: number): Promise<User[]> {
+    const { data } = await axios.get<User[]>(
       `${this.baseApiURL}/api/groups/${groupID}/members`,
       defaultRequestConfig,
     );
     return data;
+  }
+
+  async AddGroupMember(groupID: number, userID: number): Promise<void> {
+    await axios.post(
+      `${this.baseApiURL}/api/groups/${groupID}/members/${userID}`,
+      {},
+      defaultRequestConfig,
+    );
+  }
+
+  async RemoveGroupMember(groupID: number, userID: number): Promise<void> {
+    await axios.delete(
+      `${this.baseApiURL}/api/groups/${groupID}/members/${userID}`,
+      defaultRequestConfig,
+    );
   }
 }
