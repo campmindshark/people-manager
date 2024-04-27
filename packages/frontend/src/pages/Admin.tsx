@@ -8,6 +8,7 @@ import Dashboard from '../layouts/dashboard/Dashboard';
 import PageState, { MyRolesState } from '../state/store';
 import AllParticipantUserSignupStateTable from '../components/AllParticipantUserSignupStateTable';
 import VerifyUsersTable from '../components/VerifyUsersTable';
+import GroupManagementTable from '../components/admin/GroupManagementTable';
 
 export default function Admin() {
   const setPageState = useSetRecoilState(PageState);
@@ -69,6 +70,12 @@ export default function Admin() {
               </Typography>
               <br />
               <VerifyUsersTable />
+            </Paper>
+          </Grid>
+          <Grid item xs={12}>
+            <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column' }}>
+              <h1>Groups</h1>
+              <GroupManagementTable />
             </Paper>
           </Grid>
         </Grid>

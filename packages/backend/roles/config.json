@@ -5,9 +5,12 @@
       "name": "admin",
       "description": "A Web Administrator.",
       "permissions": [
-        "users:readAll",
-        "userVerification:edit",
-        "userVerification:readAll",
+        "groups:readAll",
+        "groups:create",
+        "groups:edit",
+        "groups:readMembers",
+        "groups:addMember",
+        "groups:removeMember",
         "schedules:create",
         "schedules:delete",
         "shifts:create",
@@ -15,7 +18,10 @@
         "signupStatus:readAll",
         "rosters:create",
         "rosters:delete",
-        "rosterParticipant:readAll"
+        "rosterParticipant:readAll",
+        "users:readAll",
+        "userVerification:edit",
+        "userVerification:readAll"
       ]
     }
   ]

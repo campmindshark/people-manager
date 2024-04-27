@@ -5,6 +5,28 @@ import BackendUserClient from '../api/users/client';
 
 const frontendConfig = getFrontendConfig();
 
+export const AllUsers = selector<User[]>({
+  key: 'allUsers',
+  get: async () => {
+    const apiMethod = new BackendUserClient(frontendConfig.BackendURL);
+    const users = await apiMethod.GetAllUsers();
+
+    return users;
+  },
+});
+
+export const UserCanSignupForShifts = selector<boolean>({
+  key: 'userCanSignupForShifts',
+  get: async () => {
+    const apiMethod = new BackendUserClient(
+      frontendConfig.BackendURL,
+    ).UserCanSignupForShifts(1);
+    const canSignup = await apiMethod;
+
+    return canSignup;
+  },
+});
+
 const UnverifiedUserState = selector<User[]>({
   key: 'unverifiedUsers',
   get: async () => {

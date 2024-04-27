@@ -1960,9 +1960,9 @@
   integrity sha512-BHdhcWgeiudl91HvVa2wxqZjSHbheSgIiDvxrF1VjFzBzpTtuDPkOdOi3Iqvc08kXtFkLjhbS+ML9aM8mJS+wQ==
 
 "@rjsf/core@^5.17.1":
-  version "5.17.1"
-  resolved "https://registry.yarnpkg.com/@rjsf/core/-/core-5.17.1.tgz#747e82bc68347fc8b786fd817d380c7d8c36f766"
-  integrity sha512-COZSuumwHskWN8Pz3RxdxvuQUP6M/qBMXAkIi+TSWLFLaF6SUugpLiceMT1jGemDCr7fOSTiPxjkToSsgpvueQ==
+  version "5.18.3"
+  resolved "https://registry.npmjs.org/@rjsf/core/-/core-5.18.3.tgz"
+  integrity sha512-HVqqoVzcjYX1BUCqHm7iUjBoVx1UDud1KP6bJ5drtOOvHChfKEbMUt2hWJcuXIlmNPuw2lRxETtcuRbEM2wsRA==
   dependencies:
     lodash "^4.17.21"
     lodash-es "^4.17.21"
@@ -1971,14 +1971,14 @@
     prop-types "^15.8.1"
 
 "@rjsf/mui@^5.17.1":
-  version "5.17.1"
-  resolved "https://registry.yarnpkg.com/@rjsf/mui/-/mui-5.17.1.tgz#e3aa1cd5b5217b37985958abcab8c11621af52b6"
-  integrity sha512-SToKW8i8dVbYEFo6BDG1oTolfw7ywbrYcvKoFPPIOvoOUv+VJi1cVaWGQ3q0gJQjyXdYYmt5YsLiC4L388LRiA==
+  version "5.18.3"
+  resolved "https://registry.npmjs.org/@rjsf/mui/-/mui-5.18.3.tgz"
+  integrity sha512-zcudsSECpm3hSTEjWsRLnrT5IMzG4Q3/muBaYtdlapzTaK0Mb3ktEPyXN+iZ6NjxZQTwH7aYn1vo/msbend4ww==
 
 "@rjsf/utils@^5.17.1":
-  version "5.17.1"
-  resolved "https://registry.yarnpkg.com/@rjsf/utils/-/utils-5.17.1.tgz#ad85d503dd15cc9fc49b5d6870534fa2ed8103b0"
-  integrity sha512-q1Igz/cuM2hi+jiXFkoaXqdRTUFB+a0jfVKNmZlHmvPmfYeeJfcfyOTzO8dQ41fHNHUFb15ryxa/TblDQimwkA==
+  version "5.18.3"
+  resolved "https://registry.npmjs.org/@rjsf/utils/-/utils-5.18.3.tgz"
+  integrity sha512-0TzjAKAlqXSCneVnHhcL3gAr4DlIPgwzkFdNEI4A+LFjLFlECPah2o3RhEgvqJnUXFviDGF1dqhkxa/Pr59ajw==
   dependencies:
     json-schema-merge-allof "^0.8.1"
     jsonpointer "^5.0.1"
@@ -1987,18 +1987,18 @@
     react-is "^18.2.0"
 
 "@rjsf/validator-ajv6@^5.17.1":
-  version "5.17.1"
-  resolved "https://registry.yarnpkg.com/@rjsf/validator-ajv6/-/validator-ajv6-5.17.1.tgz#d62da382587a7108b15e99919e8379f65ce3e360"
-  integrity sha512-laYuJQviJ1vP43Ir4lCS1hOjBuNUXoSQUFVab+NzAciT0HRiYEPJXJUC/nihIlQ4F3+SDfKQ72+BqcAvPt6FrA==
+  version "5.18.3"
+  resolved "https://registry.npmjs.org/@rjsf/validator-ajv6/-/validator-ajv6-5.18.3.tgz"
+  integrity sha512-rVG/Wc2wqhnw85CFfgyOsPG+a1x0P9lo7mHXTHLZkAS0xM1xJ6B+GgyIOfW1U2KKF35Z+euwo9jEERwuIcz/IA==
   dependencies:
     ajv "^6.12.6"
     lodash "^4.17.21"
     lodash-es "^4.17.21"
 
 "@rjsf/validator-ajv8@^5.17.1":
-  version "5.17.1"
-  resolved "https://registry.yarnpkg.com/@rjsf/validator-ajv8/-/validator-ajv8-5.17.1.tgz#9b5e4b22f3ab47316c7a19da22639812e4a91193"
-  integrity sha512-KdvHsjDQ60b04fqnoqhfkiCv7E4n4NIHli8QU8dtpuUAVS/TOqDuOtDJVz6bv/rd/QNROGpxlO/OCccE0rmxLQ==
+  version "5.18.3"
+  resolved "https://registry.npmjs.org/@rjsf/validator-ajv8/-/validator-ajv8-5.18.3.tgz"
+  integrity sha512-geEVuNuYulHVUBnnkLCS7QZRvAuD1clOjuUbwNjFzSpnYHVO0+mvvi4uHTia/eSvRyDy4vdkxu320uPe4TsgeQ==
   dependencies:
     ajv "^8.12.0"
     ajv-formats "^2.1.1"
@@ -2496,7 +2496,7 @@
 
 "@types/luxon@^3.4.2":
   version "3.4.2"
-  resolved "https://registry.yarnpkg.com/@types/luxon/-/luxon-3.4.2.tgz#e4fc7214a420173cea47739c33cdf10874694db7"
+  resolved "https://registry.npmjs.org/@types/luxon/-/luxon-3.4.2.tgz"
   integrity sha512-TifLZlFudklWlMBfhubvgqTXRzLDI5pCbGa4P8a3wPyUQSW+1xQ5eDsreP9DWHX3tjq1ke96uYG/nwundroWcA==
 
 "@types/mime@*":
@@ -7888,7 +7888,7 @@ lru-cache@^6.0.0:
 
 luxon@^3.4.4:
   version "3.4.4"
-  resolved "https://registry.yarnpkg.com/luxon/-/luxon-3.4.4.tgz#cf20dc27dc532ba41a169c43fdcc0063601577af"
+  resolved "https://registry.npmjs.org/luxon/-/luxon-3.4.4.tgz"
   integrity sha512-zobTr7akeGHnv7eBOXcRgMeCP6+uyYsczwmeRCauvpvaAltgNyTbLH/+VaEAPUeWBT+1GuNmz4wC/6jtQzbbVA==
 
 lz-string@^1.5.0:
@@ -7952,9 +7952,9 @@ makeerror@1.0.12:
     tmpl "1.0.5"
 
 markdown-to-jsx@^7.4.1:
-  version "7.4.1"
-  resolved "https://registry.yarnpkg.com/markdown-to-jsx/-/markdown-to-jsx-7.4.1.tgz#1ed6a60f8f9cd944bec39d9923fbbc8d3d60dcb9"
-  integrity sha512-GbrbkTnHp9u6+HqbPRFJbObi369AgJNXi/sGqq5HRsoZW063xR1XDCaConqq+whfEIAlzB1YPnOgsPc7B7bc/A==
+  version "7.4.7"
+  resolved "https://registry.npmjs.org/markdown-to-jsx/-/markdown-to-jsx-7.4.7.tgz"
+  integrity sha512-0+ls1IQZdU6cwM1yu0ZjjiVWYtkbExSyUIFU2ZeDIFuZM1W42Mh4OlJ4nb4apX4H8smxDHRdFaoIVJGwfv5hkg==
 
 mdn-data@2.0.14:
   version "2.0.14"
@@ -8245,14 +8245,9 @@ mz@^2.4.0, mz@^2.7.0:
     object-assign "^4.0.1"
     thenify-all "^1.0.0"
 
-nanoid@^3.3.6:
-  version "3.3.6"
-  resolved "https://registry.npmjs.org/nanoid/-/nanoid-3.3.6.tgz"
-  integrity sha512-BGcqMMJuToF7i1rt+2PWSNVnWIkGCU78jBG3RxO/bZlnZPK2Cmi2QaffxGO/2RvWi9sL+FAiRiXMgsyxQ1DIDA==
-
-nanoid@^3.3.7:
+nanoid@^3.3.6, nanoid@^3.3.7:
   version "3.3.7"
-  resolved "https://registry.yarnpkg.com/nanoid/-/nanoid-3.3.7.tgz#d0c301a691bc8d54efa0a2226ccf3fe2fd656bd8"
+  resolved "https://registry.npmjs.org/nanoid/-/nanoid-3.3.7.tgz"
   integrity sha512-eSRppjcPIatRIMC1U6UngP8XFcz8MQWGQdt1MTBQ7NaAmvXDfvNxbvWV3x2y6CdEUciCSsDHDQZbhYaB8QEo2g==
 
 napi-build-utils@^1.0.1:

@@ -3,6 +3,7 @@ import User from '../models/user/user';
 import UserController from '../controllers/user';
 import PrivateProfile from '../models/user/user_private';
 import AnalysisController from '../controllers/analysis';
+import GroupController from '../controllers/group';
 import hasPermission from '../middleware/rbac';
 import UserVerification from '../models/user_verification/user_verification';
 
@@ -177,5 +178,28 @@ router.get('/signup-status/:rosterID', async (req: Request, res: Response) => {
 
   res.json(status);
 });
+
+/* GET if user can signup for shifts. */
+router.get(
+  '/can-signup-for-shifts/:rosterID',
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async (req: Request, res: Response, next: NextFunction) => {
+    const { rosterID } = req.params;
+
+    if (!req.user) {
+      res.json({ error: 'User not found' });
+      return;
+    }
+
+    const authenticatedUser = req.user as User;
+
+    const canSignup = await GroupController.UserCanSignupForShifts(
+      authenticatedUser,
+      parseInt(rosterID, 10),
+    );
+
+    res.json(canSignup);
+  },
+);
 
 export default router;
