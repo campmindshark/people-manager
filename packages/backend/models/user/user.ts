@@ -84,7 +84,7 @@ export default class User extends Model {
       },
       skillsOfNote: {
         type: 'array',
-        title: 'Skills of Note',
+        title: 'Skills of Note (Select all that apply)',
         uniqueItems: true,
         items: {
           type: ['string', 'null'],

@@ -27,7 +27,7 @@ const mdTheme = createTheme({
       main: '#00bcd4',
     },
     success: {
-      main: '#0f9d58',
+      main: '#1A85FF',
     },
   },
 });

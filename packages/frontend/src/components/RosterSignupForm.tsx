@@ -7,6 +7,7 @@ import BackendRosterClient from 'src/api/roster/roster';
 
 import { CurrentRosterID } from 'src/state/roster';
 import { getFrontendConfig } from '../config/config';
+import './css/form.css';
 
 const frontendConfig = getFrontendConfig();
 
