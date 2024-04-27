@@ -49,6 +49,7 @@ function RosterTable() {
           <TableCell>Referral Name</TableCell>
           <TableCell>Sleeping Arrangement</TableCell>
           <TableCell>Estimated Arrival</TableCell>
+          <TableCell>Estimated Departure</TableCell>
           <TableCell>Skills</TableCell>
           <TableCell>Interested in EA</TableCell>
           <TableCell>Interested in Post Burn</TableCell>
@@ -99,6 +100,11 @@ function RosterTable() {
             <TableCell component="th" scope="row">
               {BurningManDateFormatter.format(
                 new Date(participant.rosterParticipant.estimatedArrivalDate),
+              )}
+            </TableCell>
+            <TableCell component="th" scope="row">
+              {BurningManDateFormatter.format(
+                new Date(participant.rosterParticipant.estimatedDepartureDate),
               )}
             </TableCell>
             <TableCell component="th" scope="row">

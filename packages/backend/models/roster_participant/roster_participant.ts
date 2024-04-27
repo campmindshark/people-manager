@@ -65,7 +65,7 @@ export default class RosterParticipant extends Model {
     },
     estimatedDepartureDate: {
       'ui:description':
-        'In-camp MANDATORY tear-down occurs at least until 4p on Sunday, September 3th, so it best not be before then.',
+        'In-camp MANDATORY tear-down occurs at least until 4p on Sunday, September 1st, so it best not be before then.',
     },
   };
 
