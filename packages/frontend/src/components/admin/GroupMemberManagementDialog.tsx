@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRecoilValue_TRANSITION_SUPPORT_UNSTABLE } from 'recoil';
 import {
   Autocomplete,
@@ -43,16 +43,12 @@ function GroupMembershipManagementDialog(props: Props) {
     [allUsers, members, reloadCounter],
   );
 
-  console.log('allUsers', allUsers);
-  console.log('members', members);
-  console.log('potentialNewMembers', potentialNewMembers);
-
   const groupClient = useMemo(
     () => new BackendGroupClient(frontendConfig.BackendURL),
     [frontendConfig.BackendURL],
   );
 
-  const handleSubmit = async () => {
+  const handleSubmit = useCallback(async () => {
     if (!group.id || !newMemberString) {
       return;
     }
@@ -65,17 +61,20 @@ function GroupMembershipManagementDialog(props: Props) {
     await groupClient.AddGroupMember(group.id, userID);
     setReloadCounter(reloadCounter + 1);
     handleSuccess();
-  };
+  }, [group.id, newMemberString, reloadCounter, handleSuccess]);
 
-  const handleRemove = async (userID: number) => {
-    if (!group.id) {
-      return;
-    }
+  const handleRemove = useCallback(
+    async (userID: number) => {
+      if (!group.id) {
+        return;
+      }
 
-    await groupClient.RemoveGroupMember(group.id, userID);
-    setReloadCounter(reloadCounter + 1);
-    handleSuccess();
-  };
+      await groupClient.RemoveGroupMember(group.id, userID);
+      setReloadCounter(reloadCounter + 1);
+      handleSuccess();
+    },
+    [group.id, reloadCounter, handleSuccess],
+  );
 
   useEffect(() => {
     console.log('fetching members');

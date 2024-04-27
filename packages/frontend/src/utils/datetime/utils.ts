@@ -7,12 +7,15 @@ export const daylightSavingTimeIsActive = (date: Date): boolean => {
   return date < novemberDate && date > marchDate;
 };
 
+// Convert a UTC date to a DateTime object in a specific timezone.
+// The utcDate argument will be forced into the UTC timezone regardless
+// of a defined TZ offset.
 export function utcDateToDateTimeInTimezone(
   utcDate: Date,
   timeZone: string,
 ): DateTime {
-  let dateTime = DateTime.fromISO(utcDate.toISOString(), { zone: 'utc' })
-    .toUTC()
+  let dateTime = DateTime.fromJSDate(utcDate)
+    .setZone('utc', { keepLocalTime: true })
     .setZone(timeZone);
 
   if (daylightSavingTimeIsActive(new Date())) {
@@ -20,10 +23,4 @@ export function utcDateToDateTimeInTimezone(
   }
 
   return dateTime;
-}
-
-export function dateToUTCDate(d: Date): Date {
-  return DateTime.fromJSDate(d)
-    .setZone('utc', { keepLocalTime: true })
-    .toJSDate();
 }

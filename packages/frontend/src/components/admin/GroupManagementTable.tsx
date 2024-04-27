@@ -26,10 +26,7 @@ import GroupViewModel from 'backend/view_models/group';
 import GroupsState from '../../state/groups';
 import CreateGroupDialog from './CreateGroupDialog';
 import GroupMembershipManagementDialog from './GroupMemberManagementDialog';
-import {
-  utcDateToDateTimeInTimezone,
-  dateToUTCDate,
-} from '../../utils/datetime/utils';
+import { utcDateToDateTimeInTimezone } from '../../utils/datetime/utils';
 
 const generateTableRow = (
   group: GroupViewModel,
@@ -47,7 +44,7 @@ const generateTableRow = (
     </TableCell>
     <TableCell component="th" scope="row">
       {utcDateToDateTimeInTimezone(
-        dateToUTCDate(new Date(group.group.shiftSignupOpenDate)),
+        new Date(group.group.shiftSignupOpenDate),
         Intl.DateTimeFormat().resolvedOptions().timeZone,
       ).toLocaleString(DateTime.DATETIME_MED_WITH_WEEKDAY)}
     </TableCell>
