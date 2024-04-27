@@ -39,6 +39,8 @@ function RosterTable() {
           <TableCell>Name</TableCell>
           <TableCell>Playa Name</TableCell>
           <TableCell>Location</TableCell>
+          <TableCell>Phone</TableCell>
+          <TableCell>Email</TableCell>
           <TableCell>Probability of Attending</TableCell>
           <TableCell>Ticket</TableCell>
           <TableCell>Extra Tickets</TableCell>
@@ -66,6 +68,12 @@ function RosterTable() {
             </TableCell>
             <TableCell component="th" scope="row">
               {participant.user.location}
+            </TableCell>
+            <TableCell component="th" scope="row">
+              {participant.user.phoneNumber}
+            </TableCell>
+            <TableCell component="th" scope="row">
+              {participant.user.email}
             </TableCell>
             <TableCell component="th" scope="row">
               {participant.rosterParticipant.probabilityOfAttending}

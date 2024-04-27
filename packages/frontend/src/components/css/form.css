@@ -1,0 +1,9 @@
+@media screen and (max-width: 480px) {
+    .MuiFormControl-fullWidth .css-5crnnq-MuiFormLabel-root-MuiInputLabel-root {
+        overflow: visible;
+    }
+
+    ul.MuiList-root.MuiMenu-list {
+        overflow-x: scroll;
+    }
+}

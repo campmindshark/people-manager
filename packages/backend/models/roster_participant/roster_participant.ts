@@ -102,7 +102,7 @@ export default class RosterParticipant extends Model {
       },
       yearsAtCamp: {
         type: 'array',
-        title: 'How many years have you been at this camp?',
+        title: 'How many years have you camped with MindShark?',
         uniqueItems: true,
         items: {
           type: 'integer',
@@ -111,12 +111,13 @@ export default class RosterParticipant extends Model {
       },
       estimatedArrivalDate: {
         type: 'string',
-        title: 'When do you plan to arrive?',
+        title: 'When do you plan to arrive? (Gates open Sunday, August 25th)',
         format: 'date-time',
       },
       estimatedDepartureDate: {
         type: 'string',
-        title: 'When do you plan to depart?',
+        title:
+          'When do you plan to depart? (Temple burns Sunday, September 1st)',
         format: 'date-time',
       },
       sleepingArrangement: {
