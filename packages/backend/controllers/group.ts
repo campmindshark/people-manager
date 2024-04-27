@@ -4,6 +4,7 @@ import { getConfig } from '../config/config';
 import Group from '../models/group/group';
 import GroupViewModel from '../view_models/group';
 import User from '../models/user/user';
+import { DateTime } from 'luxon';
 import RoleConfigCollection, { RoleConfig } from '../roles/role';
 
 const knex = Knex(knexConfig[getConfig().Environment]);
@@ -62,7 +63,22 @@ export default class GroupController {
         a.shiftSignupOpenDate.getTime() - b.shiftSignupOpenDate.getTime(),
     );
 
-    if (groups[0].shiftSignupOpenDate > new Date()) {
+    console.log('groups', groups);
+
+    console.log(
+      'Earliest signup date UTC',
+      DateTime.fromJSDate(groups[0].shiftSignupOpenDate)
+        .setZone('utc', { keepLocalTime: true })
+        .toISO(),
+    );
+
+    console.log('Current date UTC', DateTime.utc().toISO());
+
+    if (
+      DateTime.fromJSDate(groups[0].shiftSignupOpenDate).setZone('utc', {
+        keepLocalTime: true,
+      }) > DateTime.utc()
+    ) {
       return false;
     }
 
