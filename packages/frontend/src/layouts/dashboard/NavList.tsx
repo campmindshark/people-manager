@@ -13,6 +13,7 @@ import Divider from '@mui/material/Divider';
 import { Link } from 'react-router-dom';
 import { useRecoilValue } from 'recoil';
 import PageState, { MyRolesState } from '../../state/store';
+import { UserCanSignupForShifts } from '../../state/users';
 
 interface MenuItemLinkData {
   text: string;
@@ -66,8 +67,13 @@ const utilityLinks: MenuItemLinkData[] = [
 export default function NavList() {
   const pageState = useRecoilValue(PageState);
   const myRoles = useRecoilValue(MyRolesState);
+  const canSignupForShifts = useRecoilValue(UserCanSignupForShifts);
 
   const isUserAllowed = (link: MenuItemLinkData) => {
+    if (link.index === 'shifts' && !canSignupForShifts) {
+      return false;
+    }
+
     if (link.needsRole.length === 0) {
       return true;
     }

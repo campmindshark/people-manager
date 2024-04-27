@@ -15,6 +15,18 @@ export const AllUsers = selector<User[]>({
   },
 });
 
+export const UserCanSignupForShifts = selector<boolean>({
+  key: 'userCanSignupForShifts',
+  get: async () => {
+    const apiMethod = new BackendUserClient(
+      frontendConfig.BackendURL,
+    ).UserCanSignupForShifts(1);
+    const canSignup = await apiMethod;
+
+    return canSignup;
+  },
+});
+
 const UnverifiedUserState = selector<User[]>({
   key: 'unverifiedUsers',
   get: async () => {

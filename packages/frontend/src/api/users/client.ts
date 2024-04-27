@@ -125,4 +125,13 @@ export default class BackendUserClient implements UserClient {
 
     return data;
   }
+
+  async UserCanSignupForShifts(rosterID: number): Promise<boolean> {
+    const { data } = await axios.get<boolean>(
+      `${this.baseApiURL}/api/users/can-signup-for-shifts/${rosterID}`,
+      defaultRequestConfig,
+    );
+
+    return data;
+  }
 }

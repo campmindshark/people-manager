@@ -33,4 +33,39 @@ export default class GroupController {
 
     return viewModels;
   }
+
+  public static async GetAllGroupsForUser(user: User): Promise<Group[]> {
+    const groups = await knex<Group>('groups')
+      .from('group_members')
+      .where({
+        userID: user.id,
+      })
+      .join('groups', 'group_members.groupID', '=', 'groups.id');
+
+    return groups;
+  }
+
+  public static async UserCanSignupForShifts(
+    user: User,
+    rosterID: number,
+  ): Promise<boolean> {
+    const groups = await GroupController.GetAllGroupsForUser(user);
+
+    if (groups.length === 0) {
+      return false;
+    }
+
+    groups.filter((group) => group.rosterID === rosterID);
+
+    groups.sort(
+      (a, b) =>
+        a.shiftSignupOpenDate.getTime() - b.shiftSignupOpenDate.getTime(),
+    );
+
+    if (groups[0].shiftSignupOpenDate > new Date()) {
+      return false;
+    }
+
+    return true;
+  }
 }

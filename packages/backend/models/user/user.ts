@@ -1,5 +1,6 @@
 import { Model } from 'objection';
 import { RJSFSchema, UiSchema } from '@rjsf/utils';
+import Group from '../group/group';
 
 export default class User extends Model {
   id!: number;
