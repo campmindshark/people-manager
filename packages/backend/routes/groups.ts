@@ -99,9 +99,7 @@ router.post(
   '/:id/members/:memberID',
   hasPermission('groups:addMember'),
   async (req: Request, res: Response) => {
-    const groupID = req.params.id;
-    const newMemberID = req.params.memberID;
-    // const newMember = req.body;
+    const { id: groupID, memberID: newMemberID } = req.params;
 
     if (!groupID || groupID === 'undefined') {
       res.status(400).send('Group ID is required');

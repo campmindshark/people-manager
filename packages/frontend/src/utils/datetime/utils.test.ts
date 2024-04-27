@@ -1,4 +1,4 @@
-import { utcDateToDateTimeInTimezone } from '../datetime/utils';
+import { utcDateToDateTimeInTimezone } from './utils';
 
 test('utcDateToDateTimeInTimezone LA', async () => {
   const testDate = new Date('2021-01-01T09:00:00Z');

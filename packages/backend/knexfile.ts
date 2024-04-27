@@ -39,7 +39,7 @@ const config: { [key: string]: Knex.Config } = {
       connectionString: appConfig.PostgresConnectionURL,
       ssl: {
         ca:
-          appConfig.Environment == 'production'
+          appConfig.Environment === 'production'
             ? fs.readFileSync(appConfig.PostgresSSLCertPath).toString()
             : '',
       },
