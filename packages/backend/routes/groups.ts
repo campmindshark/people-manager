@@ -129,8 +129,7 @@ router.delete(
   '/:id/members/:memberID',
   hasPermission('groups:removeMember'),
   async (req: Request, res: Response) => {
-    const groupID = req.params.id;
-    const memberID = req.params.memberID;
+    const { id: groupID, memberID } = req.params;
 
     if (!groupID || groupID === 'undefined') {
       res.status(400).send('Group ID is required');
