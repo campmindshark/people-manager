@@ -2,6 +2,7 @@ import express, { Request, Response, Router } from 'express';
 import User from '../models/user/user';
 import RosterParticipant from '../models/roster_participant/roster_participant';
 import hasPermission from '../middleware/rbac';
+import { DateTime } from 'luxon';
 
 const router: Router = express.Router();
 
@@ -50,12 +51,28 @@ router.post('/:id', async (req: Request, res: Response) => {
 
   const checkCurrent = await RosterParticipant.query().where(signupScope);
 
+  const parsedArrivalDate = DateTime.fromJSDate(
+    new Date(proposedRosterParticipant.estimatedArrivalDate),
+  )
+    .setZone('America/Los_Angeles', { keepLocalTime: true })
+    .toUTC()
+    .toJSDate();
+
+  const parsedDepartureDate = DateTime.fromJSDate(
+    new Date(proposedRosterParticipant.estimatedDepartureDate),
+  )
+    .setZone('America/Los_Angeles', { keepLocalTime: true })
+    .toUTC()
+    .toJSDate();
+
   if (checkCurrent.length > 0) {
     delete req.body.id;
     await RosterParticipant.query()
       .where(signupScope)
       .patch({
         ...req.body,
+        estimatedArrivalDate: parsedArrivalDate,
+        estimatedDepartureDate: parsedDepartureDate,
         yearsAtCamp: JSON.stringify(proposedRosterParticipant.yearsAtCamp),
       });
 
