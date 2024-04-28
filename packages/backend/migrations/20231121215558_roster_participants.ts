@@ -13,8 +13,8 @@ export async function up(knex: Knex): Promise<void> {
     table.boolean('extraTickets');
     table.integer('yearsAttended');
     table.json('yearsAtCamp');
-    table.date('estimatedArrivalDate');
-    table.date('estimatedDepartureDate');
+    table.timestamp('estimatedArrivalDate', { useTz: false }).notNullable();
+    table.timestamp('estimatedDepartureDate', { useTz: false }).notNullable();
     table.string('sleepingArrangement');
     table.boolean('earlyArrivalInterest');
     table.boolean('postBurnInterest');
