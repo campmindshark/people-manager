@@ -1,8 +1,8 @@
 import express, { Request, Response, Router } from 'express';
+import { DateTime } from 'luxon';
 import User from '../models/user/user';
 import RosterParticipant from '../models/roster_participant/roster_participant';
 import hasPermission from '../middleware/rbac';
-import { DateTime } from 'luxon';
 
 const router: Router = express.Router();
 
