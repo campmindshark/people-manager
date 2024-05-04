@@ -31,6 +31,14 @@ export default class RosterParticipant extends Model {
 
   postBurnInterest = false;
 
+  hasReadEssentialMindshark = false;
+
+  agreesToParticipateInTearDown = false;
+
+  agreesToParticipateInShifts = false;
+
+  agreesToPayDues = false;
+
   // Table name is the only required property.
   static tableName = 'roster_participants';
 
@@ -76,6 +84,10 @@ export default class RosterParticipant extends Model {
       'estimatedArrivalDate',
       'estimatedDepartureDate',
       'sleepingArrangement',
+      'hasReadEssentialMindshark',
+      'agreesToParticipateInTearDown',
+      'agreesToParticipateInShifts',
+      'agreesToPayDues',
     ],
     properties: {
       probabilityOfAttending: {
@@ -137,6 +149,22 @@ export default class RosterParticipant extends Model {
       postBurnInterest: {
         type: 'boolean',
         title: 'Are you interested in post-burn?',
+      },
+      hasReadEssentialMindshark: {
+        type: 'boolean',
+        title: 'Have you read the essential MindShark? (https://rb.gy/v5f6dw)',
+      },
+      agreesToParticipateInTearDown: {
+        type: 'boolean',
+        title: 'Do you agree to participate in the camp tear-down?',
+      },
+      agreesToParticipateInShifts: {
+        type: 'boolean',
+        title: 'Do you agree to participate in camp shifts?',
+      },
+      agreesToPayDues: {
+        type: 'boolean',
+        title: 'Do you agree to pay camp dues?',
       },
     },
   };
