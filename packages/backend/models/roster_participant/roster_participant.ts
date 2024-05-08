@@ -75,6 +75,22 @@ export default class RosterParticipant extends Model {
       'ui:description':
         'In-camp MANDATORY tear-down occurs at least until 4p on Sunday, September 1st, so it best not be before then.',
     },
+    hasReadEssentialMindshark: {
+      'ui:description':
+        'You must read The Essential Mindshark to camp with MindShark.',
+    },
+    agreesToParticipateInTearDown: {
+      'ui:description':
+        'You must agree to participate in camp tear-down to camp with MindShark.',
+    },
+    agreesToParticipateInShifts: {
+      'ui:description':
+        'You must agree to participate in camp shifts to camp with MindShark.',
+    },
+    agreesToPayDues: {
+      'ui:description':
+        'You must agree to pay camp dues to camp with MindShark.',
+    },
   };
 
   static formSchema: RJSFSchema = {
@@ -152,19 +168,19 @@ export default class RosterParticipant extends Model {
       },
       hasReadEssentialMindshark: {
         type: 'boolean',
-        title: 'Have you read the essential MindShark? (https://rb.gy/v5f6dw)',
+        title: 'I have read the essential MindShark. (https://rb.gy/v5f6dw)',
       },
       agreesToParticipateInTearDown: {
         type: 'boolean',
-        title: 'Do you agree to participate in the camp tear-down?',
+        title: 'I agree to participate in the camp tear-down.',
       },
       agreesToParticipateInShifts: {
         type: 'boolean',
-        title: 'Do you agree to participate in camp shifts?',
+        title: 'I agree to participate in camp shifts.',
       },
       agreesToPayDues: {
         type: 'boolean',
-        title: 'Do you agree to pay camp dues?',
+        title: 'I agree to pay camp dues.',
       },
     },
   };
