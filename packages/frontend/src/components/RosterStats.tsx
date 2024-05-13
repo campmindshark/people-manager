@@ -28,6 +28,13 @@ function RosterStats() {
     [participants],
   );
 
+  const interestedInEA = useCallback(
+    () =>
+      participants.filter((p) => p.rosterParticipant.earlyArrivalInterest)
+        .length,
+    [participants],
+  );
+
   return (
     <Grid container spacing={2}>
       <Grid item>
@@ -44,6 +51,9 @@ function RosterStats() {
       </Grid>
       <Grid item>
         <Stat value={hasTickets()} unit="Has Ticket" />
+      </Grid>
+      <Grid item>
+        <Stat value={interestedInEA()} unit="Interested in EA" />
       </Grid>
     </Grid>
   );
