@@ -4,4 +4,5 @@ import RosterParticipant from '../models/roster_participant/roster_participant';
 export default interface RosterParticipantViewModel {
   user: User;
   rosterParticipant: RosterParticipant;
+  signupDate: Date;
 }

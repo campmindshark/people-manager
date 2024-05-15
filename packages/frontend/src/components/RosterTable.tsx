@@ -28,6 +28,16 @@ const skillsString = (skills: string[]): string => {
 function RosterTable() {
   const participants = useRecoilValue(CurrentRosterParticipantsState);
 
+  const orderedParticipants = [...participants].sort((a, b) => {
+    if (a.signupDate < b.signupDate) {
+      return -1;
+    }
+    if (a.signupDate > b.signupDate) {
+      return 1;
+    }
+    return 0;
+  });
+
   return (
     <Table
       stickyHeader
@@ -56,7 +66,7 @@ function RosterTable() {
         </TableRow>
       </TableHead>
       <TableBody>
-        {participants.map((participant: RosterParticipantViewModel) => (
+        {orderedParticipants.map((participant: RosterParticipantViewModel) => (
           <TableRow
             key={participant.user.id}
             sx={{ '&:last-child td, &:last-child th': { border: 0 } }}

@@ -46,6 +46,7 @@ export default class RosterController {
     return {
       user,
       rosterParticipant: participant[0],
+      signupDate: participant[0].created_at,
     };
   }
 }
