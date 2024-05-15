@@ -54,6 +54,7 @@ export default class User extends Model {
 
   static formSchema: RJSFSchema = {
     title: 'Edit Your Public Profile',
+    description: `Please fill out the following information to update your public profile. This information will be used from year to year. Note: all of this information will be hidden to anyone until they are on a "verified" list. We take your data seriously.`,
     type: 'object',
     required: [
       'firstName',
