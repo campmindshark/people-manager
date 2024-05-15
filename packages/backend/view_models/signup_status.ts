@@ -41,9 +41,9 @@ export const signupStatusIssues = (status: SignupStatus): string[] => {
     issues.push('You have not completed your public profile.');
   }
 
-  if (!status.hasPaidDues) {
-    issues.push('You have not paid your dues.');
-  }
+  // if (!status.hasPaidDues) {
+  //   issues.push('You have not paid your dues.');
+  // }
 
   if (!status.isVerified) {
     issues.push('You have not been verified.');
