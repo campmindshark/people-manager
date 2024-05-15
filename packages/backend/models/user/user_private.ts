@@ -35,6 +35,7 @@ export default class PrivateProfile extends Model {
 
   static formSchema: RJSFSchema = {
     title: 'Edit Your Private Profile',
+    description: `Please fill out the following information to update your private profile. Note: all of this information will be hidden from everyone except a select few administrators. We take your data seriously.`,
     type: 'object',
     required: [
       'emergencyContactName',

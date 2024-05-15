@@ -13,6 +13,7 @@ import RosterTable from '../components/RosterTable';
 import RosterSignupDialog from '../components/RosterSignupDialog';
 import RosterDropoutDialog from '../components/RosterDropoutDialog';
 import RosterStats from '../components/RosterStats';
+import SignupIssues from '../components/SignupIssues';
 
 function Roster() {
   const setPageState = useSetRecoilState(PageState);
@@ -41,6 +42,9 @@ function Roster() {
             <>
               <Grid item xs={12} sx={{ marginBottom: '20px' }}>
                 <RosterStats />
+              </Grid>
+              <Grid item xs={12}>
+                <SignupIssues />
               </Grid>
               <Grid item xs={12}>
                 <Grid container spacing={1}>
