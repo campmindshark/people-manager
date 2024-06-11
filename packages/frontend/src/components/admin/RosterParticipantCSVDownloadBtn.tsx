@@ -13,9 +13,10 @@ function RosterParticipantCSVDownloadBtn() {
   );
 
   const csvData = useMemo(() => {
-    const header = CreateCSVHeader(detailedParticipants[0]);
+    const header = CreateCSVHeader();
     const rows = detailedParticipants.map(CreateCSVRow);
-    return [header, ...rows].join('\n');
+    const allRows = [header, ...rows];
+    return allRows.join('\n');
   }, [detailedParticipants]);
 
   const downloadCSV = () => {

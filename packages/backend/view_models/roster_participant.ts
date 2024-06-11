@@ -21,10 +21,7 @@ function quoteWrap(value: string): string {
   return `"${value.replace(/"/g, '""')}"`;
 }
 
-export function CreateCSVHeader(
-  participant: RosterParticipantViewModelWithPrivateFields,
-): string {
-  console.log(participant);
+export function CreateCSVHeader(): string {
   const columns: string[] = [
     'googleID',
     'firstName',
@@ -65,6 +62,11 @@ export function CreateCSVHeader(
 export function CreateCSVRow(
   participant: RosterParticipantViewModelWithPrivateFields,
 ): string {
+  let yearsAtCamp: number[] = [];
+  if (participant.rosterParticipant.yearsAtCamp !== null) {
+    yearsAtCamp = participant.rosterParticipant.yearsAtCamp;
+  }
+
   const columns: string[] = [
     quoteWrap(participant.user.googleID),
     quoteWrap(participant.user.firstName),
@@ -74,11 +76,7 @@ export function CreateCSVRow(
     quoteWrap(participant.user.phoneNumber),
     quoteWrap(participant.user.location),
     quoteWrap(participant.user.referralName),
-    quoteWrap(
-      (participant.user.skillsOfNote ? participant.user.skillsOfNote : []).join(
-        ',',
-      ),
-    ),
+    quoteWrap(JSON.stringify(participant.user.skillsOfNote)),
     quoteWrap(participant.user.skillsNotInList),
     quoteWrap(new Date(participant.signupDate).toISOString()),
     quoteWrap(participant.rosterParticipant.probabilityOfAttending.toString()),
@@ -90,12 +88,7 @@ export function CreateCSVRow(
         ? participant.rosterParticipant.yearsAttended.toString()
         : '',
     ),
-    quoteWrap(
-      (participant.rosterParticipant.yearsAtCamp
-        ? participant.rosterParticipant.yearsAtCamp
-        : []
-      ).join(','),
-    ),
+    quoteWrap(yearsAtCamp.join(',')),
     quoteWrap(
       new Date(
         participant.rosterParticipant.estimatedArrivalDate,
@@ -119,11 +112,11 @@ export function CreateCSVRow(
       participant.rosterParticipant.agreesToParticipateInShifts.toString(),
     ),
     quoteWrap(participant.rosterParticipant.agreesToPayDues.toString()),
-    quoteWrap(participant.privateProfile.emergencyContactName),
-    quoteWrap(participant.privateProfile.emergencyContactPhone),
-    quoteWrap(participant.privateProfile.medications),
-    quoteWrap(participant.privateProfile.allergies),
-    quoteWrap(participant.privateProfile.dietaryRestrictions),
+    quoteWrap(participant.privateProfile?.emergencyContactName),
+    quoteWrap(participant.privateProfile?.emergencyContactPhone),
+    quoteWrap(participant.privateProfile?.medications),
+    quoteWrap(participant.privateProfile?.allergies),
+    quoteWrap(participant.privateProfile?.dietaryRestrictions),
   ];
 
   return columns.join(',');
