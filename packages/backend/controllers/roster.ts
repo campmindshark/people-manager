@@ -2,7 +2,9 @@ import Knex from 'knex';
 import knexConfig from '../knexfile';
 import { getConfig } from '../config/config';
 import User from '../models/user/user';
-import RosterParticipantViewModel from '../view_models/roster_participant';
+import RosterParticipantViewModel, {
+  RosterParticipantViewModelWithPrivateFields,
+} from '../view_models/roster_participant';
 
 const knex = Knex(knexConfig[getConfig().Environment]);
 
@@ -47,6 +49,29 @@ export default class RosterController {
       user,
       rosterParticipant: participant[0],
       signupDate: participant[0].created_at,
+    };
+  }
+
+  public static async GetRosterParticipantsViewModelWithPrivateFields(
+    user: User,
+  ): Promise<RosterParticipantViewModelWithPrivateFields> {
+    const participantQuery = knex('roster_participants').where(
+      'userID',
+      user.id,
+    );
+    const participant = await participantQuery;
+
+    const privateProfileQuery = knex('private_profiles').where(
+      'userID',
+      user.id,
+    );
+    const privateProfile = await privateProfileQuery;
+
+    return {
+      user,
+      rosterParticipant: participant[0],
+      signupDate: participant[0].created_at,
+      privateProfile: privateProfile[0],
     };
   }
 }
