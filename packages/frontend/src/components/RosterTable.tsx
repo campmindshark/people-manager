@@ -7,9 +7,14 @@ import {
   TableBody,
 } from '@mui/material';
 import { useRecoilValue } from 'recoil';
+import { styled } from '@mui/material/styles';
 import RosterParticipantViewModel from 'backend/view_models/roster_participant';
 import { CurrentRosterParticipantsState } from '../state/roster';
 import BurningManDateFormatter from '../utils/datetime/formatter';
+
+const HeaderTableCell = styled(TableCell)({
+  top: '60px',
+});
 
 const skillsString = (skills: string[]): string => {
   if (!skills || skills.length === 0) {
@@ -24,6 +29,67 @@ const skillsString = (skills: string[]): string => {
   }
   return skillString;
 };
+
+const participantToRow = (participant: RosterParticipantViewModel) => (
+  <TableRow key={participant.user.id}>
+    <TableCell component="th" scope="row">
+      {participant.user.firstName} {participant.user.lastName}
+    </TableCell>
+    <TableCell component="th" scope="row">
+      {participant.user.playaName}
+    </TableCell>
+    <TableCell component="th" scope="row">
+      {participant.user.location}
+    </TableCell>
+    <TableCell component="th" scope="row">
+      {participant.user.phoneNumber}
+    </TableCell>
+    <TableCell component="th" scope="row">
+      {participant.user.email}
+    </TableCell>
+    <TableCell component="th" scope="row">
+      {participant.rosterParticipant.probabilityOfAttending}
+    </TableCell>
+    <TableCell component="th" scope="row">
+      {participant.rosterParticipant.hasTicket ? 'Yes' : 'No'}
+    </TableCell>
+    <TableCell component="th" scope="row">
+      {participant.rosterParticipant.extraTickets ? 'Yes' : 'No'}
+    </TableCell>
+    <TableCell component="th" scope="row">
+      {participant.rosterParticipant.yearsAttended}
+    </TableCell>
+    <TableCell component="th" scope="row">
+      {participant.rosterParticipant.yearsAtCamp.join(', ')}
+    </TableCell>
+    <TableCell component="th" scope="row">
+      {participant.user.referralName}
+    </TableCell>
+    <TableCell component="th" scope="row">
+      {participant.rosterParticipant.sleepingArrangement}
+    </TableCell>
+    <TableCell component="th" scope="row">
+      {BurningManDateFormatter.format(
+        new Date(participant.rosterParticipant.estimatedArrivalDate),
+      )}
+    </TableCell>
+    <TableCell component="th" scope="row">
+      {BurningManDateFormatter.format(
+        new Date(participant.rosterParticipant.estimatedDepartureDate),
+      )}
+    </TableCell>
+    <TableCell component="th" scope="row">
+      {skillsString(participant.user.skillsOfNote)},
+      {participant.user.skillsNotInList}
+    </TableCell>
+    <TableCell component="th" scope="row">
+      {participant.rosterParticipant.earlyArrivalInterest ? 'Yes' : 'No'}
+    </TableCell>
+    <TableCell component="th" scope="row">
+      {participant.rosterParticipant.postBurnInterest ? 'Yes' : 'No'}
+    </TableCell>
+  </TableRow>
+);
 
 function RosterTable() {
   const participants = useRecoilValue(CurrentRosterParticipantsState);
@@ -46,91 +112,31 @@ function RosterTable() {
     >
       <TableHead>
         <TableRow>
-          <TableCell>Name</TableCell>
-          <TableCell>Playa Name</TableCell>
-          <TableCell>Location</TableCell>
-          <TableCell>Phone</TableCell>
-          <TableCell>Email</TableCell>
-          <TableCell>Probability of Attending</TableCell>
-          <TableCell>Ticket</TableCell>
-          <TableCell>Extra Tickets</TableCell>
-          <TableCell>Years Attended</TableCell>
-          <TableCell>Years At Camp</TableCell>
-          <TableCell>Referral Name</TableCell>
-          <TableCell>Sleeping Arrangement</TableCell>
-          <TableCell>Estimated Arrival</TableCell>
-          <TableCell>Estimated Departure</TableCell>
-          <TableCell>Skills</TableCell>
-          <TableCell>Interested in EA</TableCell>
-          <TableCell>Interested in Post Burn</TableCell>
+          <HeaderTableCell>Name</HeaderTableCell>
+          <HeaderTableCell>Playa Name</HeaderTableCell>
+          <HeaderTableCell>Location</HeaderTableCell>
+          <HeaderTableCell>Phone</HeaderTableCell>
+          <HeaderTableCell>Email</HeaderTableCell>
+          <HeaderTableCell>Probability of Attending</HeaderTableCell>
+          <HeaderTableCell>Ticket</HeaderTableCell>
+          <HeaderTableCell>Extra Tickets</HeaderTableCell>
+          <HeaderTableCell>Years Attended</HeaderTableCell>
+          <HeaderTableCell>Years At Camp</HeaderTableCell>
+          <HeaderTableCell>Referral Name</HeaderTableCell>
+          <HeaderTableCell>Sleeping Arrangement</HeaderTableCell>
+          <HeaderTableCell>Estimated Arrival</HeaderTableCell>
+          <HeaderTableCell>Estimated Departure</HeaderTableCell>
+          <HeaderTableCell>Skills</HeaderTableCell>
+          <HeaderTableCell>Interested in EA</HeaderTableCell>
+          <HeaderTableCell>Interested in Post Burn</HeaderTableCell>
         </TableRow>
       </TableHead>
       <TableBody>
-        {orderedParticipants.map((participant: RosterParticipantViewModel) => (
-          <TableRow
-            key={participant.user.id}
-            sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
-          >
-            <TableCell component="th" scope="row">
-              {participant.user.firstName} {participant.user.lastName}
-            </TableCell>
-            <TableCell component="th" scope="row">
-              {participant.user.playaName}
-            </TableCell>
-            <TableCell component="th" scope="row">
-              {participant.user.location}
-            </TableCell>
-            <TableCell component="th" scope="row">
-              {participant.user.phoneNumber}
-            </TableCell>
-            <TableCell component="th" scope="row">
-              {participant.user.email}
-            </TableCell>
-            <TableCell component="th" scope="row">
-              {participant.rosterParticipant.probabilityOfAttending}
-            </TableCell>
-            <TableCell component="th" scope="row">
-              {participant.rosterParticipant.hasTicket ? 'Yes' : 'No'}
-            </TableCell>
-            <TableCell component="th" scope="row">
-              {participant.rosterParticipant.extraTickets ? 'Yes' : 'No'}
-            </TableCell>
-            <TableCell component="th" scope="row">
-              {participant.rosterParticipant.yearsAttended}
-            </TableCell>
-            <TableCell component="th" scope="row">
-              {participant.rosterParticipant.yearsAtCamp.join(', ')}
-            </TableCell>
-            <TableCell component="th" scope="row">
-              {participant.user.referralName}
-            </TableCell>
-            <TableCell component="th" scope="row">
-              {participant.rosterParticipant.sleepingArrangement}
-            </TableCell>
-            <TableCell component="th" scope="row">
-              {BurningManDateFormatter.format(
-                new Date(participant.rosterParticipant.estimatedArrivalDate),
-              )}
-            </TableCell>
-            <TableCell component="th" scope="row">
-              {BurningManDateFormatter.format(
-                new Date(participant.rosterParticipant.estimatedDepartureDate),
-              )}
-            </TableCell>
-            <TableCell component="th" scope="row">
-              {skillsString(participant.user.skillsOfNote)},
-              {participant.user.skillsNotInList}
-            </TableCell>
-            <TableCell component="th" scope="row">
-              {participant.rosterParticipant.earlyArrivalInterest
-                ? 'Yes'
-                : 'No'}
-            </TableCell>
-            <TableCell component="th" scope="row">
-              {participant.rosterParticipant.postBurnInterest ? 'Yes' : 'No'}
-            </TableCell>
-          </TableRow>
-        ))}
+        {orderedParticipants.map(participantToRow)}
+        {orderedParticipants.map(participantToRow)}
+        {orderedParticipants.map(participantToRow)}
+        {orderedParticipants.map(participantToRow)}
+        {orderedParticipants.map(participantToRow)}
       </TableBody>
     </Table>
   );
