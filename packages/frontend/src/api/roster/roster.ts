@@ -1,7 +1,9 @@
 import axios from 'axios';
 import Roster from 'backend/models/roster/roster';
 import RosterParticipant from 'backend/models/roster_participant/roster_participant';
-import RosterParticipantViewModel from 'backend/view_models/roster_participant';
+import RosterParticipantViewModel, {
+  RosterParticipantViewModelWithPrivateFields,
+} from 'backend/view_models/roster_participant';
 import BasicResponse from 'backend/models/common/basic_response';
 import SignupStatus from 'backend/view_models/signup_status';
 import defaultRequestConfig from '../common/requestConfig';
@@ -48,6 +50,25 @@ export default class BackendRosterClient implements RosterClient {
     try {
       const { data } = await axios.get<RosterParticipantViewModel[]>(
         `${this.baseApiURL}/api/rosters/${rosterID}/participants`,
+        defaultRequestConfig,
+      );
+
+      return data;
+    } catch (error) {
+      console.error(error);
+    }
+
+    return [];
+  }
+
+  async GetRosterParticipantsDetailed(
+    rosterID: number,
+  ): Promise<RosterParticipantViewModelWithPrivateFields[]> {
+    try {
+      const { data } = await axios.get<
+        RosterParticipantViewModelWithPrivateFields[]
+      >(
+        `${this.baseApiURL}/api/rosters/${rosterID}/participants-detailed`,
         defaultRequestConfig,
       );
 

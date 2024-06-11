@@ -9,6 +9,7 @@ import PageState, { MyRolesState } from '../state/store';
 import AllParticipantUserSignupStateTable from '../components/AllParticipantUserSignupStateTable';
 import VerifyUsersTable from '../components/VerifyUsersTable';
 import GroupManagementTable from '../components/admin/GroupManagementTable';
+import RosterParticipantCSVDownloadBtn from '../components/admin/RosterParticipantCSVDownloadBtn';
 
 export default function Admin() {
   const setPageState = useSetRecoilState(PageState);
@@ -34,7 +35,8 @@ export default function Admin() {
                 height: 240,
               }}
             >
-              <h1>Settings</h1>
+              <h1>Tools</h1>
+              <RosterParticipantCSVDownloadBtn />
             </Paper>
           </Grid>
           <Grid item xs={12} md={4} lg={3}>

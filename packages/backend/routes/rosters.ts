@@ -94,6 +94,29 @@ router.get(
   },
 );
 
+router.get(
+  '/:id/participants-detailed',
+  userIsVerified(),
+  hasPermission('rosters:read-detailed'),
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async (req: Request, res: Response, next: NextFunction) => {
+    const query = Roster.relatedQuery('participants').for(req.params.id);
+
+    const users = await query;
+
+    const promises: Promise<RosterParticipantViewModel>[] = [];
+    for (let index = 0; index < users.length; index += 1) {
+      const user = User.fromJson(users[index]);
+      promises.push(
+        RosterController.GetRosterParticipantsViewModelWithPrivateFields(user),
+      );
+    }
+
+    const viewModels = await Promise.all(promises);
+    res.json(viewModels);
+  },
+);
+
 router.post(
   '/',
   hasPermission('rosters:create'),

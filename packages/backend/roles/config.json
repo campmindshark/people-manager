@@ -18,6 +18,7 @@
         "signupStatus:readAll",
         "rosters:create",
         "rosters:delete",
+        "rosters:read-detailed",
         "rosterParticipant:readAll",
         "users:readAll",
         "userVerification:edit",
