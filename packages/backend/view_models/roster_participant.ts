@@ -13,6 +13,10 @@ export interface RosterParticipantViewModelWithPrivateFields
   privateProfile: PrivateProfile;
 }
 
+function quoteWrap(value: string): string {
+  return `"${value.replace(/"/g, '""')}"`;
+}
+
 export function CreateCSVHeader(
   participant: RosterParticipantViewModelWithPrivateFields,
 ): string {
@@ -106,8 +110,4 @@ export function CreateCSVRow(
   ];
 
   return columns.join(',');
-}
-
-function quoteWrap(value: string): string {
-  return `"${value.replace(/"/g, '""')}"`;
 }

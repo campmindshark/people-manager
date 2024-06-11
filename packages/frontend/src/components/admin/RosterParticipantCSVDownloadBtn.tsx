@@ -31,7 +31,7 @@ function RosterParticipantCSVDownloadBtn() {
 
   return (
     <Button variant="contained" color="primary" onClick={downloadCSV}>
-      Download CSV
+      Download Roster Participants CSV
     </Button>
   );
 }
