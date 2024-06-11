@@ -14,6 +14,10 @@ export interface RosterParticipantViewModelWithPrivateFields
 }
 
 function quoteWrap(value: string): string {
+  if (!value || value == null || value === '') {
+    return '""';
+  }
+
   return `"${value.replace(/"/g, '""')}"`;
 }
 
@@ -70,15 +74,28 @@ export function CreateCSVRow(
     quoteWrap(participant.user.phoneNumber),
     quoteWrap(participant.user.location),
     quoteWrap(participant.user.referralName),
-    quoteWrap(participant.user.skillsOfNote.join(',')),
+    quoteWrap(
+      (participant.user.skillsOfNote ? participant.user.skillsOfNote : []).join(
+        ',',
+      ),
+    ),
     quoteWrap(participant.user.skillsNotInList),
     quoteWrap(new Date(participant.signupDate).toISOString()),
     quoteWrap(participant.rosterParticipant.probabilityOfAttending.toString()),
     quoteWrap(participant.rosterParticipant.hasTicket.toString()),
     quoteWrap(participant.rosterParticipant.hasVehiclePass.toString()),
     quoteWrap(participant.rosterParticipant.extraTickets.toString()),
-    quoteWrap(participant.rosterParticipant.yearsAttended.toString()),
-    quoteWrap(participant.rosterParticipant.yearsAtCamp.join(',')),
+    quoteWrap(
+      participant.rosterParticipant.yearsAttended
+        ? participant.rosterParticipant.yearsAttended.toString()
+        : '',
+    ),
+    quoteWrap(
+      (participant.rosterParticipant.yearsAtCamp
+        ? participant.rosterParticipant.yearsAtCamp
+        : []
+      ).join(','),
+    ),
     quoteWrap(
       new Date(
         participant.rosterParticipant.estimatedArrivalDate,
