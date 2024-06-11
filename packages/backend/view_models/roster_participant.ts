@@ -62,8 +62,9 @@ export function CreateCSVHeader(): string {
 export function CreateCSVRow(
   participant: RosterParticipantViewModelWithPrivateFields,
 ): string {
-  if (participant.rosterParticipant.yearsAtCamp == null) {
-    participant.rosterParticipant.yearsAtCamp = [];
+  let yearsAtCamp: number[] = [];
+  if (participant.rosterParticipant.yearsAtCamp !== null) {
+    yearsAtCamp = participant.rosterParticipant.yearsAtCamp;
   }
 
   const columns: string[] = [
@@ -87,7 +88,7 @@ export function CreateCSVRow(
         ? participant.rosterParticipant.yearsAttended.toString()
         : '',
     ),
-    quoteWrap(participant.rosterParticipant.yearsAtCamp.join(',')),
+    quoteWrap(yearsAtCamp.join(',')),
     quoteWrap(
       new Date(
         participant.rosterParticipant.estimatedArrivalDate,
