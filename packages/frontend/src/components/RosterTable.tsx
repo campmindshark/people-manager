@@ -131,13 +131,7 @@ function RosterTable() {
           <HeaderTableCell>Interested in Post Burn</HeaderTableCell>
         </TableRow>
       </TableHead>
-      <TableBody>
-        {orderedParticipants.map(participantToRow)}
-        {orderedParticipants.map(participantToRow)}
-        {orderedParticipants.map(participantToRow)}
-        {orderedParticipants.map(participantToRow)}
-        {orderedParticipants.map(participantToRow)}
-      </TableBody>
+      <TableBody>{orderedParticipants.map(participantToRow)}</TableBody>
     </Table>
   );
 }
