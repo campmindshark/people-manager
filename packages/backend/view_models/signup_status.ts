@@ -33,11 +33,11 @@ export const signupStatusIssues = (status: SignupStatus): string[] => {
     issues.push('You have not signed up for this roster.');
   }
 
-  if (status.hasCompletedPrivateProfile) {
+  if (!status.hasCompletedPrivateProfile) {
     issues.push('You have not completed your private profile.');
   }
 
-  if (status.hasCompletedPublicProfile) {
+  if (!status.hasCompletedPublicProfile) {
     issues.push('You have not completed your public profile.');
   }
 
