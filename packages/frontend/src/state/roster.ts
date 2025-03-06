@@ -10,7 +10,7 @@ import BackendRosterClient from '../api/roster/roster';
 const frontendConfig = getFrontendConfig();
 const rosterClient = new BackendRosterClient(frontendConfig.BackendURL);
 
-export const CurrentRosterID = 1;
+export const CurrentRosterID = 2;
 
 export const CurrentRosterState = selector<Roster>({
   key: 'currentRoster',
