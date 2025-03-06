@@ -73,7 +73,7 @@ export default class RosterParticipant extends Model {
     },
     estimatedDepartureDate: {
       'ui:description':
-        'In-camp MANDATORY tear-down occurs at least until 4p on Sunday, September 1st, so it best not be before then.',
+        'In-camp MANDATORY tear-down occurs at least until 4p on Sunday, August 31st, so it best not be before then.',
     },
     hasReadEssentialMindshark: {
       'ui:description':
@@ -134,18 +134,17 @@ export default class RosterParticipant extends Model {
         uniqueItems: true,
         items: {
           type: 'integer',
-          enum: [2013, 2014, 2015, 2016, 2017, 2018, 2019, 2022, 2023],
+          enum: [2013, 2014, 2015, 2016, 2017, 2018, 2019, 2022, 2023, 2024],
         },
       },
       estimatedArrivalDate: {
         type: 'string',
-        title: 'When do you plan to arrive? (Gates open Sunday, August 25th)',
+        title: 'When do you plan to arrive? (Gates open Sunday, August 24th)',
         format: 'date-time',
       },
       estimatedDepartureDate: {
         type: 'string',
-        title:
-          'When do you plan to depart? (Temple burns Sunday, September 1st)',
+        title: 'When do you plan to depart? (Temple burns Sunday, August 31st)',
         format: 'date-time',
       },
       sleepingArrangement: {

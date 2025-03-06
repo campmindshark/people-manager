@@ -31,7 +31,7 @@ jobs:
         uses: hashicorp/setup-terraform@v3
 
       - name: Terraform Init
-        working-directory: terraform/
+        working-directory: terraform/`
         run: terraform init -backend-config "bucket=terraform-state-nilo2024" -backend-config "key=people-manager.tfstate"
 
       - name: Terraform Plan Check
