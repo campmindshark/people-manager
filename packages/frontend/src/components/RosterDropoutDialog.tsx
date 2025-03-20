@@ -7,6 +7,8 @@ import {
   DialogTitle,
   DialogContent,
   Typography,
+  Box,
+  Divider,
 } from '@mui/material';
 import BackendRosterClient from '../api/roster/roster';
 import { getFrontendConfig } from '../config/config';
@@ -36,19 +38,45 @@ function RosterDropoutDialog(props: Props) {
   }, []);
 
   return (
-    <Dialog onClose={handleClose} open={open} maxWidth="lg">
-      <DialogTitle>
-        <Typography variant="h4">Roster Drop Out</Typography>
+    <Dialog onClose={handleClose} open={open} maxWidth="md" fullWidth>
+      <DialogTitle sx={{ bgcolor: 'error.main', color: 'white', py: 2 }}>
+        <Typography variant="h4" align="center">
+          ⚠️ Drop Out Confirmation ⚠️
+        </Typography>
       </DialogTitle>
-      <DialogContent dividers>
-        Are you sure you want to drop out of this years burn?
+      <DialogContent sx={{ mt: 2, p: 4 }}>
+        <Box sx={{ textAlign: 'center', mb: 3 }}>
+          <Typography variant="h5" color="error" gutterBottom>
+            Are you absolutely sure?
+          </Typography>
+          <Typography variant="body1">
+            You are about to drop out of Burning Man {rosterState.year}. This
+            action cannot be undone.
+          </Typography>
+        </Box>
+        <Divider sx={{ my: 2 }} />
+        <Typography variant="body2" color="text.secondary" align="center">
+          Please confirm your decision below
+        </Typography>
       </DialogContent>
-      <DialogActions>
-        <Button onClick={handleClose} color="error">
-          No. I want to worship at the eternal flame of Mindshark.
+      <DialogActions sx={{ p: 3, bgcolor: 'grey.50' }}>
+        <Button
+          onClick={handleClose}
+          variant="contained"
+          color="primary"
+          size="large"
+          sx={{ px: 4 }}
+        >
+          Keep Me In The Camp
         </Button>
-        <Button onClick={handleDropout} color="primary">
-          Yes. I hate this camp.
+        <Button
+          onClick={handleDropout}
+          variant="outlined"
+          color="error"
+          size="large"
+          sx={{ px: 4 }}
+        >
+          Yes, Drop Out
         </Button>
       </DialogActions>
     </Dialog>

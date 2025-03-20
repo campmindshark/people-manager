@@ -80,13 +80,17 @@ router.get(
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async (req: Request, res: Response, next: NextFunction) => {
     const query = Roster.relatedQuery('participants').for(req.params.id);
-
     const users = await query;
 
     const promises: Promise<RosterParticipantViewModel>[] = [];
     for (let index = 0; index < users.length; index += 1) {
       const user = User.fromJson(users[index]);
-      promises.push(RosterController.GetRosterParticipantViewModel(user));
+      promises.push(
+        RosterController.GetRosterParticipantViewModel(
+          user,
+          parseInt(req.params.id, 10),
+        ),
+      );
     }
 
     const viewModels = await Promise.all(promises);

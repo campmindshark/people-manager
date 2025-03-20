@@ -39,11 +39,11 @@ export default class RosterController {
 
   public static async GetRosterParticipantViewModel(
     user: User,
+    rosterID: number,
   ): Promise<RosterParticipantViewModel> {
-    const participantQuery = knex('roster_participants').where(
-      'userID',
-      user.id,
-    );
+    const participantQuery = knex('roster_participants')
+      .where('userID', user.id)
+      .andWhere('rosterID', rosterID);
     const participant = await participantQuery;
     return {
       user,
