@@ -2,6 +2,8 @@ import React from 'react';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
+import { LocalizationProvider } from '@mui/x-date-pickers';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import './App.css';
 import Admin from './pages/Admin';
 import Home from './pages/Home';
@@ -94,8 +96,10 @@ const router = createBrowserRouter([
 export default function App() {
   return (
     <ThemeProvider theme={mdTheme}>
-      <CssBaseline />
-      <RouterProvider router={router} fallbackElement={<p>Loading...</p>} />
+      <LocalizationProvider dateAdapter={AdapterDateFns}>
+        <CssBaseline />
+        <RouterProvider router={router} fallbackElement={<p>Loading...</p>} />
+      </LocalizationProvider>
     </ThemeProvider>
   );
 }

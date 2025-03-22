@@ -30,6 +30,14 @@ const skillsString = (skills: string[]): string => {
   return skillString;
 };
 
+const formatDate = (date: Date) => {
+  const formatted = BurningManDateFormatter.format(date);
+  // Split the date and time parts
+  const [datePart, timePart] = formatted.split(', ');
+  // Add the dash separator
+  return `${datePart} - ${timePart}`;
+};
+
 const participantToRow = (participant: RosterParticipantViewModel) => (
   <TableRow key={participant.user.id}>
     <TableCell component="th" scope="row">
@@ -69,12 +77,10 @@ const participantToRow = (participant: RosterParticipantViewModel) => (
       {participant.rosterParticipant.sleepingArrangement}
     </TableCell>
     <TableCell component="th" scope="row">
-      {BurningManDateFormatter.format(
-        new Date(participant.rosterParticipant.estimatedArrivalDate),
-      )}
+      {formatDate(new Date(participant.rosterParticipant.estimatedArrivalDate))}
     </TableCell>
     <TableCell component="th" scope="row">
-      {BurningManDateFormatter.format(
+      {formatDate(
         new Date(participant.rosterParticipant.estimatedDepartureDate),
       )}
     </TableCell>

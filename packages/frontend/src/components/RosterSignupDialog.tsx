@@ -2,7 +2,7 @@ import React, { useCallback } from 'react';
 import { useRecoilValue } from 'recoil';
 import { Dialog, DialogTitle, DialogContent, Typography } from '@mui/material';
 import RosterParticipant from 'backend/models/roster_participant/roster_participant';
-import RosterSignupForm from './RosterSignupForm';
+import RosterSignupFormV2 from './RosterSignupFormV2';
 import { CurrentRosterParticipantsState } from '../state/roster';
 import { UserState } from '../state/store';
 
@@ -44,7 +44,7 @@ function RosterSignupDialog(props: Props) {
         <Typography variant="h4">Roster Sign Up</Typography>
       </DialogTitle>
       <DialogContent dividers>
-        <RosterSignupForm
+        <RosterSignupFormV2
           handleSuccess={handleSuccess}
           rosterParticipant={getFormData()}
         />

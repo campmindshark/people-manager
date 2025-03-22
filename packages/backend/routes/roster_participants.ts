@@ -51,6 +51,7 @@ router.post('/:id', async (req: Request, res: Response) => {
 
   const checkCurrent = await RosterParticipant.query().where(signupScope);
 
+  // Convert the dates to UTC while preserving the local time
   const parsedArrivalDate = DateTime.fromJSDate(
     new Date(proposedRosterParticipant.estimatedArrivalDate),
   )
@@ -86,6 +87,8 @@ router.post('/:id', async (req: Request, res: Response) => {
 
   const rosterParticipant = await RosterParticipant.query().insert({
     ...req.body,
+    estimatedArrivalDate: parsedArrivalDate,
+    estimatedDepartureDate: parsedDepartureDate,
     yearsAtCamp: JSON.stringify(proposedRosterParticipant.yearsAtCamp),
     userID: user.id,
     rosterID: req.params.id,
