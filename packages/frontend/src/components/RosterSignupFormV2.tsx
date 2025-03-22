@@ -104,10 +104,13 @@ function RosterSignupFormV2({ handleSuccess, rosterParticipant }: Props) {
   return (
     <>
       <Box component="form" onSubmit={handleSubmit} sx={{ mt: 3 }}>
+        <FormHelperText sx={{ mb: 2, color: 'text.secondary' }}>
+          * Required fields
+        </FormHelperText>
         <Grid container spacing={3}>
           <Grid item xs={12}>
-            <FormControl fullWidth>
-              <FormLabel>Probability of attending (0-100)</FormLabel>
+            <FormControl fullWidth required>
+              <FormLabel>Probability of attending (0-100) *</FormLabel>
               <Slider
                 value={formData.probabilityOfAttending || 0}
                 onChange={(_, value) =>
@@ -203,7 +206,7 @@ function RosterSignupFormV2({ handleSuccess, rosterParticipant }: Props) {
 
           <Grid item xs={12} sm={6}>
             <DateTimePicker
-              label="When do you plan to arrive?"
+              label="When do you plan to arrive? *"
               value={
                 formData.estimatedArrivalDate
                   ? new Date(formData.estimatedArrivalDate)
@@ -216,6 +219,7 @@ function RosterSignupFormV2({ handleSuccess, rosterParticipant }: Props) {
               slotProps={{
                 textField: {
                   fullWidth: true,
+                  required: true,
                   helperText: 'Gates open Sunday, August 24th',
                 },
               }}
@@ -224,7 +228,7 @@ function RosterSignupFormV2({ handleSuccess, rosterParticipant }: Props) {
 
           <Grid item xs={12} sm={6}>
             <DateTimePicker
-              label="When do you plan to depart?"
+              label="When do you plan to depart? *"
               value={
                 formData.estimatedDepartureDate
                   ? new Date(formData.estimatedDepartureDate)
@@ -237,6 +241,7 @@ function RosterSignupFormV2({ handleSuccess, rosterParticipant }: Props) {
               slotProps={{
                 textField: {
                   fullWidth: true,
+                  required: true,
                   helperText: 'Temple burns Sunday, August 31st',
                 },
               }}
@@ -244,8 +249,8 @@ function RosterSignupFormV2({ handleSuccess, rosterParticipant }: Props) {
           </Grid>
 
           <Grid item xs={12}>
-            <FormControl fullWidth>
-              <FormLabel>What is your sleeping arrangement?</FormLabel>
+            <FormControl fullWidth required>
+              <FormLabel>What is your sleeping arrangement? *</FormLabel>
               <TextField
                 select
                 value={formData.sleepingArrangement || ''}
@@ -317,7 +322,7 @@ function RosterSignupFormV2({ handleSuccess, rosterParticipant }: Props) {
                   }
                 />
               }
-              label="I have read the essential MindShark. (https://rb.gy/v5f6dw)"
+              label="I have read the essential MindShark. (https://rb.gy/v5f6dw) *"
             />
           </Grid>
 
@@ -334,7 +339,7 @@ function RosterSignupFormV2({ handleSuccess, rosterParticipant }: Props) {
                   }
                 />
               }
-              label="I agree to participate in the camp tear-down."
+              label="I agree to participate in the camp tear-down. *"
             />
           </Grid>
 
@@ -351,7 +356,7 @@ function RosterSignupFormV2({ handleSuccess, rosterParticipant }: Props) {
                   }
                 />
               }
-              label="I agree to participate in camp shifts."
+              label="I agree to participate in camp shifts. *"
             />
           </Grid>
 
@@ -365,7 +370,7 @@ function RosterSignupFormV2({ handleSuccess, rosterParticipant }: Props) {
                   }
                 />
               }
-              label="I agree to pay camp dues."
+              label="I agree to pay camp dues. *"
             />
           </Grid>
 
