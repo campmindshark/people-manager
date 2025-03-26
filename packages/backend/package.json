@@ -22,8 +22,6 @@
   "dependencies": {
     "@rjsf/core": "^5.17.1",
     "@rjsf/utils": "^5.17.1",
-    "better-sqlite3": "^9.0.0",
-    "better-sqlite3-session-store": "^0.1.0",
     "connect-pg-simple": "^9.0.1",
     "connect-typeorm": "^2.0.0",
     "cookie-parser": "~1.4.4",
@@ -52,7 +50,6 @@
     "typescript": "^5.2.2"
   },
   "devDependencies": {
-    "@types/better-sqlite3": "^7.6.6",
     "@types/connect-pg-simple": "^7.0.3",
     "@types/cookie-parser": "^1.4.5",
     "@types/cors": "^2.8.15",
