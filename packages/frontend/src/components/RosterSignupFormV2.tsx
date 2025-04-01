@@ -177,7 +177,8 @@ function RosterSignupFormV2({ handleSuccess, rosterParticipant }: Props) {
             <TextField
               fullWidth
               type="number"
-              label="How many years have you attended the burn?"
+              label="How many years have you attended the burn? *"
+              required
               value={formData.yearsAttended || ''}
               onChange={(e) =>
                 handleChange('yearsAttended', parseInt(e.target.value, 10))
