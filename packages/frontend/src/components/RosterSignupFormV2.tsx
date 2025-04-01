@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useRecoilValue } from 'recoil';
 import {
   Box,
   Button,
@@ -16,6 +17,7 @@ import {
 } from '@mui/material';
 import { DateTimePicker } from '@mui/x-date-pickers';
 import RosterParticipant from 'backend/models/roster_participant/roster_participant';
+import { CurrentUserSignupStatus } from '../state/store';
 import { getFrontendConfig } from '../config/config';
 import BackendRosterClient from '../api/roster/roster';
 
@@ -75,13 +77,21 @@ function RosterSignupFormV2({ handleSuccess, rosterParticipant }: Props) {
     agreesToPayDues: rosterParticipant.agreesToPayDues || false,
   });
   const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const userSignupStatus = useRecoilValue(CurrentUserSignupStatus);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       await rosterClient.Signup(2, formData as unknown as RosterParticipant);
       setSnackbarOpen(true);
-      handleSuccess();
+      if (
+        !userSignupStatus.hasCompletedPrivateProfile ||
+        !userSignupStatus.hasCompletedPublicProfile
+      ) {
+        window.location.href = '/profile-edit';
+      } else {
+        handleSuccess();
+      }
     } catch (error) {
       console.error('Failed to submit form:', error);
     }
