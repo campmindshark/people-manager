@@ -333,7 +333,20 @@ function RosterSignupFormV2({ handleSuccess, rosterParticipant }: Props) {
                   }
                 />
               }
-              label="I have read the essential MindShark. (https://rb.gy/v5f6dw) *"
+              label={
+                <>
+                  I have read the essential MindShark. (
+                  <a
+                    href="https://rb.gy/zmxncc"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ color: '#1976d2', textDecoration: 'underline' }}
+                  >
+                    https://rb.gy/zmxncc
+                  </a>
+                  ) *
+                </>
+              }
             />
           </Grid>
 
