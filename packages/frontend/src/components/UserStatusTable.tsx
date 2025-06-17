@@ -71,7 +71,7 @@ function UserStatusTable() {
             {generateTableRow(
               'Your account has been verified',
               signupStatus.isVerified,
-              'Your account must be verified in order for you to signup for chores and view the roster. You can verify your account by reaching out to portal-support@campmindshark.com.',
+              'Your account must be verified in order for you to signup for chores and view the roster. You can verify your account by reaching out to your most familiar council member.',
             )}
             {generateTableRow(
               'Dues have been paid',

@@ -86,8 +86,8 @@ function Roster() {
               <RosterTable />
             ) : (
               <h1>
-                You cannot view the roster until you are verified. Please email
-                portal-support@campmindshark.com for verification.
+                You cannot view the roster until you are verified. Please speak
+                with your referral or a council member for verification.
               </h1>
             )}
           </Grid>
