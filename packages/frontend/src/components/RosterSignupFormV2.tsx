@@ -97,7 +97,10 @@ function RosterSignupFormV2({ handleSuccess, rosterParticipant }: Props) {
     }
   };
 
-  const handleChange = (field: keyof RosterParticipantFormData, value: any) => {
+  const handleChange = <K extends keyof RosterParticipantFormData>(
+    field: K,
+    value: RosterParticipantFormData[K],
+  ) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
