@@ -127,7 +127,10 @@ function RosterSignupFormV2({ handleSuccess, rosterParticipant }: Props) {
               <Slider
                 value={formData.probabilityOfAttending || 0}
                 onChange={(_, value) =>
-                  handleChange('probabilityOfAttending', value)
+                  handleChange(
+                    'probabilityOfAttending',
+                    Array.isArray(value) ? value[0] : value,
+                  )
                 }
                 min={0}
                 max={100}
