@@ -6,6 +6,7 @@ import { LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import './App.css';
 import Admin from './pages/Admin';
+import AdminUserManagement from './pages/AdminUserManagement';
 import Home from './pages/Home';
 import ProfileEdit from './pages/ProfileEdit';
 import Login from './pages/Login';
@@ -51,6 +52,16 @@ const router = createBrowserRouter([
       return (
         <AuthenticatedPage>
           <Admin />
+        </AuthenticatedPage>
+      );
+    },
+  },
+  {
+    path: '/admin/manage-users',
+    Component() {
+      return (
+        <AuthenticatedPage>
+          <AdminUserManagement />
         </AuthenticatedPage>
       );
     },

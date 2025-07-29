@@ -5,6 +5,7 @@ import ListItemText from '@mui/material/ListItemText';
 import ListSubheader from '@mui/material/ListSubheader';
 import BackupTableIcon from '@mui/icons-material/BackupTable';
 import SupervisorAccountIcon from '@mui/icons-material/SupervisorAccount';
+import ManageAccountsIcon from '@mui/icons-material/ManageAccounts';
 import HomeIcon from '@mui/icons-material/Home';
 import CelebrationIcon from '@mui/icons-material/Celebration';
 import SettingsIcon from '@mui/icons-material/Settings';
@@ -53,6 +54,13 @@ const utilityLinks: MenuItemLinkData[] = [
     index: 'admin',
     icon: <SupervisorAccountIcon />,
     path: '/admin',
+    needsRole: ['admin'],
+  },
+  {
+    text: 'Manage Users',
+    index: 'admin-users',
+    icon: <ManageAccountsIcon />,
+    path: '/admin/manage-users',
     needsRole: ['admin'],
   },
   {
