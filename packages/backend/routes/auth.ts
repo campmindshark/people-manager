@@ -10,6 +10,15 @@ router.get('/login/success', async (req: Request, res) => {
   if (req.user && req.isAuthenticated()) {
     const query = User.query().findById(req.user.id);
     const user = await query;
+
+    if (user && user.isBlocked) {
+      res.status(403).json({
+        success: false,
+        message: 'user account is blocked',
+      });
+      return;
+    }
+
     res.status(200).json({
       success: true,
       message: 'successful',

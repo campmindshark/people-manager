@@ -14,6 +14,7 @@
     "db-seed": "yarn workspace backend seed",
     "build": "concurrently \"yarn workspace frontend build\"  \"yarn workspace backend build\"",
     "lint": "concurrently \"yarn lint-frontend\"  \"yarn lint-backend\"",
+    "lint-fix": "concurrently \"yarn workspace frontend lint-fix\"  \"yarn workspace backend lint-fix\"",
     "lint-frontend": "yarn workspace frontend lint",
     "lint-backend": "yarn workspace backend lint",
     "style": "concurrently \"yarn style-frontend\"  \"yarn style-backend\"",
