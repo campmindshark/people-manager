@@ -23,7 +23,10 @@ import { useRecoilValue, useSetRecoilState } from 'recoil';
 import { RosterParticipantViewModelWithPrivateFields } from 'backend/view_models/roster_participant';
 import Dashboard from '../layouts/dashboard/Dashboard';
 import PageState from '../state/store';
-import { CurrentRosterParticipantsDetailedState, CurrentRosterID } from '../state/roster';
+import {
+  CurrentRosterParticipantsDetailedState,
+  CurrentRosterID,
+} from '../state/roster';
 import BackendRosterClient from '../api/roster/roster';
 import { getFrontendConfig } from '../config/config';
 
@@ -38,7 +41,10 @@ export default function AdminUserManagement() {
   const [userToRemove, setUserToRemove] = useState<number | null>(null);
   const [bulkRemoveDialogOpen, setBulkRemoveDialogOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [message, setMessage] = useState<{
+    type: 'success' | 'error';
+    text: string;
+  } | null>(null);
 
   useEffect(() => {
     setPageState({
@@ -48,10 +54,10 @@ export default function AdminUserManagement() {
   }, [setPageState]);
 
   const handleSelectUser = (userId: number) => {
-    setSelectedUsers(prev => 
-      prev.includes(userId) 
-        ? prev.filter(id => id !== userId)
-        : [...prev, userId]
+    setSelectedUsers((prev) =>
+      prev.includes(userId)
+        ? prev.filter((id) => id !== userId)
+        : [...prev, userId],
     );
   };
 
@@ -59,7 +65,7 @@ export default function AdminUserManagement() {
     if (selectedUsers.length === participants.length) {
       setSelectedUsers([]);
     } else {
-      setSelectedUsers(participants.map(p => p.user.id));
+      setSelectedUsers(participants.map((p) => p.user.id));
     }
   };
 
@@ -81,14 +87,17 @@ export default function AdminUserManagement() {
 
   const handleBulkRemove = async () => {
     if (selectedUsers.length === 0) return;
-    
+
     setLoading(true);
     setMessage(null);
     try {
-      const result = await rosterClient.RemoveUsersFromRoster(CurrentRosterID, selectedUsers);
-      setMessage({ 
-        type: 'success', 
-        text: `Successfully removed ${result.deletedCount} users from roster` 
+      const result = await rosterClient.RemoveUsersFromRoster(
+        CurrentRosterID,
+        selectedUsers,
+      );
+      setMessage({
+        type: 'success',
+        text: `Successfully removed ${result.deletedCount} users from roster`,
       });
       setBulkRemoveDialogOpen(false);
       setSelectedUsers([]);
@@ -109,10 +118,12 @@ export default function AdminUserManagement() {
     setBulkRemoveDialogOpen(true);
   };
 
-  const getUserName = (participant: RosterParticipantViewModelWithPrivateFields) => 
-    participant.user.displayName ? 
-      participant.user.displayName() : 
-      `${participant.user.firstName} ${participant.user.lastName}`;
+  const getUserName = (
+    participant: RosterParticipantViewModelWithPrivateFields,
+  ) =>
+    participant.user.displayName
+      ? participant.user.displayName()
+      : `${participant.user.firstName} ${participant.user.lastName}`;
 
   return (
     <Dashboard>
@@ -123,14 +134,16 @@ export default function AdminUserManagement() {
               <Typography variant="h4" gutterBottom>
                 Manage Current Roster Users
               </Typography>
-              
+
               {message && (
                 <Alert severity={message.type} sx={{ mb: 2 }}>
                   {message.text}
                 </Alert>
               )}
 
-              <div style={{ display: 'flex', gap: '16px', marginBottom: '16px' }}>
+              <div
+                style={{ display: 'flex', gap: '16px', marginBottom: '16px' }}
+              >
                 <Button
                   variant="contained"
                   color="error"
@@ -145,7 +158,9 @@ export default function AdminUserManagement() {
                   onClick={handleSelectAll}
                   disabled={participants.length === 0}
                 >
-                  {selectedUsers.length === participants.length ? 'Deselect All' : 'Select All'}
+                  {selectedUsers.length === participants.length
+                    ? 'Deselect All'
+                    : 'Select All'}
                 </Button>
               </div>
 
@@ -155,8 +170,14 @@ export default function AdminUserManagement() {
                     <TableRow>
                       <TableCell padding="checkbox">
                         <Checkbox
-                          indeterminate={selectedUsers.length > 0 && selectedUsers.length < participants.length}
-                          checked={participants.length > 0 && selectedUsers.length === participants.length}
+                          indeterminate={
+                            selectedUsers.length > 0 &&
+                            selectedUsers.length < participants.length
+                          }
+                          checked={
+                            participants.length > 0 &&
+                            selectedUsers.length === participants.length
+                          }
                           onChange={handleSelectAll}
                         />
                       </TableCell>
@@ -172,18 +193,25 @@ export default function AdminUserManagement() {
                       <TableRow key={participant.user.id}>
                         <TableCell padding="checkbox">
                           <Checkbox
-                            checked={selectedUsers.includes(participant.user.id)}
-                            onChange={() => handleSelectUser(participant.user.id)}
+                            checked={selectedUsers.includes(
+                              participant.user.id,
+                            )}
+                            onChange={() =>
+                              handleSelectUser(participant.user.id)
+                            }
                           />
                         </TableCell>
                         <TableCell>{getUserName(participant)}</TableCell>
                         <TableCell>{participant.user.email}</TableCell>
-                        <TableCell>{participant.privateProfile?.phone || 'N/A'}</TableCell>
                         <TableCell>
-                          {participant.signupDate ? 
-                            new Date(participant.signupDate).toLocaleDateString() : 
-                            'N/A'
-                          }
+                          {participant.privateProfile?.phone || 'N/A'}
+                        </TableCell>
+                        <TableCell>
+                          {participant.signupDate
+                            ? new Date(
+                                participant.signupDate,
+                              ).toLocaleDateString()
+                            : 'N/A'}
                         </TableCell>
                         <TableCell>
                           <Button
@@ -191,7 +219,9 @@ export default function AdminUserManagement() {
                             color="error"
                             size="small"
                             startIcon={<PersonRemoveIcon />}
-                            onClick={() => openSingleRemoveDialog(participant.user.id)}
+                            onClick={() =>
+                              openSingleRemoveDialog(participant.user.id)
+                            }
                             disabled={loading}
                           >
                             Remove
@@ -204,7 +234,10 @@ export default function AdminUserManagement() {
               </TableContainer>
 
               {participants.length === 0 && (
-                <Typography variant="body1" sx={{ mt: 2, textAlign: 'center', color: 'text.secondary' }}>
+                <Typography
+                  variant="body1"
+                  sx={{ mt: 2, textAlign: 'center', color: 'text.secondary' }}
+                >
                   No participants found in the current roster.
                 </Typography>
               )}
@@ -213,19 +246,28 @@ export default function AdminUserManagement() {
         </Grid>
 
         {/* Single User Remove Confirmation Dialog */}
-        <Dialog open={confirmDialogOpen} onClose={() => !loading && setConfirmDialogOpen(false)}>
+        <Dialog
+          open={confirmDialogOpen}
+          onClose={() => !loading && setConfirmDialogOpen(false)}
+        >
           <DialogTitle>Confirm User Removal</DialogTitle>
           <DialogContent>
             <DialogContentText>
-              Are you sure you want to remove this user from the current roster? This action cannot be undone.
+              Are you sure you want to remove this user from the current roster?
+              This action cannot be undone.
             </DialogContentText>
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setConfirmDialogOpen(false)} disabled={loading}>
+            <Button
+              onClick={() => setConfirmDialogOpen(false)}
+              disabled={loading}
+            >
               Cancel
             </Button>
-            <Button 
-              onClick={() => userToRemove && handleRemoveSingleUser(userToRemove)} 
+            <Button
+              onClick={() =>
+                userToRemove && handleRemoveSingleUser(userToRemove)
+              }
               color="error"
               disabled={loading}
             >
@@ -235,23 +277,25 @@ export default function AdminUserManagement() {
         </Dialog>
 
         {/* Bulk Remove Confirmation Dialog */}
-        <Dialog open={bulkRemoveDialogOpen} onClose={() => !loading && setBulkRemoveDialogOpen(false)}>
+        <Dialog
+          open={bulkRemoveDialogOpen}
+          onClose={() => !loading && setBulkRemoveDialogOpen(false)}
+        >
           <DialogTitle>Confirm Bulk User Removal</DialogTitle>
           <DialogContent>
             <DialogContentText>
-              Are you sure you want to remove {selectedUsers.length} selected users from the current roster? 
-              This action cannot be undone.
+              Are you sure you want to remove {selectedUsers.length} selected
+              users from the current roster? This action cannot be undone.
             </DialogContentText>
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setBulkRemoveDialogOpen(false)} disabled={loading}>
-              Cancel
-            </Button>
-            <Button 
-              onClick={handleBulkRemove} 
-              color="error"
+            <Button
+              onClick={() => setBulkRemoveDialogOpen(false)}
               disabled={loading}
             >
+              Cancel
+            </Button>
+            <Button onClick={handleBulkRemove} color="error" disabled={loading}>
               Remove {selectedUsers.length} Users
             </Button>
           </DialogActions>

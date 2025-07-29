@@ -19,8 +19,14 @@ export interface RosterClient {
     rosterParticipant: RosterParticipant,
   ): Promise<RosterParticipant>;
   DropOut(rosterID: number): Promise<BasicResponse>;
-  RemoveUserFromRoster(rosterID: number, userID: number): Promise<BasicResponse>;
-  RemoveUsersFromRoster(rosterID: number, userIDs: number[]): Promise<{ success: boolean; deletedCount: number }>;
+  RemoveUserFromRoster(
+    rosterID: number,
+    userID: number,
+  ): Promise<BasicResponse>;
+  RemoveUsersFromRoster(
+    rosterID: number,
+    userIDs: number[],
+  ): Promise<{ success: boolean; deletedCount: number }>;
 }
 
 export default class BackendRosterClient implements RosterClient {
@@ -132,7 +138,10 @@ export default class BackendRosterClient implements RosterClient {
     return data;
   }
 
-  async RemoveUserFromRoster(rosterID: number, userID: number): Promise<BasicResponse> {
+  async RemoveUserFromRoster(
+    rosterID: number,
+    userID: number,
+  ): Promise<BasicResponse> {
     const { data } = await axios.delete<BasicResponse>(
       `${this.baseApiURL}/api/roster_participants/${rosterID}/users/${userID}`,
       defaultRequestConfig,
@@ -145,14 +154,17 @@ export default class BackendRosterClient implements RosterClient {
     return data;
   }
 
-  async RemoveUsersFromRoster(rosterID: number, userIDs: number[]): Promise<{ success: boolean; deletedCount: number }> {
-    const { data } = await axios.delete<{ success: boolean; deletedCount: number }>(
-      `${this.baseApiURL}/api/roster_participants/${rosterID}/users`,
-      {
-        ...defaultRequestConfig,
-        data: { userIds: userIDs },
-      },
-    );
+  async RemoveUsersFromRoster(
+    rosterID: number,
+    userIDs: number[],
+  ): Promise<{ success: boolean; deletedCount: number }> {
+    const { data } = await axios.delete<{
+      success: boolean;
+      deletedCount: number;
+    }>(`${this.baseApiURL}/api/roster_participants/${rosterID}/users`, {
+      ...defaultRequestConfig,
+      data: { userIds: userIDs },
+    });
 
     return data;
   }
