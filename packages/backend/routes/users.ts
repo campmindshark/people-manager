@@ -216,9 +216,7 @@ router.post(
       return;
     }
 
-    await User.query()
-      .findById(userID)
-      .patch({ isBlocked: true });
+    await User.query().findById(userID).patch({ isBlocked: true });
 
     res.json({ success: true, message: 'User blocked successfully' });
   },
@@ -238,9 +236,7 @@ router.post(
       return;
     }
 
-    await User.query()
-      .findById(userID)
-      .patch({ isBlocked: false });
+    await User.query().findById(userID).patch({ isBlocked: false });
 
     res.json({ success: true, message: 'User unblocked successfully' });
   },

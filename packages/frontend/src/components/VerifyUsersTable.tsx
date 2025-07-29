@@ -34,7 +34,11 @@ async function verifyUser(user: User, cb: () => void) {
   cb();
 }
 
-async function blockUser(user: User, cb: () => void, setMessage: (msg: { type: 'success' | 'error'; text: string } | null) => void) {
+async function blockUser(
+  user: User,
+  cb: () => void,
+  setMessage: (msg: { type: 'success' | 'error'; text: string } | null) => void,
+) {
   console.log('Blocking user:', user);
 
   try {
@@ -69,8 +73,8 @@ function generateVerifyTableRows(
             >
               Verify User
             </Button>
-            <Button 
-              variant="outlined" 
+            <Button
+              variant="outlined"
               color="error"
               onClick={() => openBlockDialog(user)}
             >
@@ -92,7 +96,7 @@ function VerifyUsersTable() {
   const unverifiedUsers = useRecoilValueLoadable(UnverifiedUserState);
   const updateUnverifiedUsers =
     useRecoilRefresher_UNSTABLE(UnverifiedUserState);
-  
+
   const [blockDialogOpen, setBlockDialogOpen] = useState(false);
   const [userToBlock, setUserToBlock] = useState<User | null>(null);
   const [message, setMessage] = useState<{
@@ -120,7 +124,7 @@ function VerifyUsersTable() {
           {message.text}
         </Alert>
       )}
-      
+
       <TableContainer>
         <Table sx={{ minWidth: 650 }} size="small" aria-label="simple table">
           <TableHead>
@@ -132,26 +136,26 @@ function VerifyUsersTable() {
             </TableRow>
           </TableHead>
           <TableBody>
-            {generateVerifyTableRows(unverifiedUsers, updateUnverifiedUsers, openBlockDialog)}
+            {generateVerifyTableRows(
+              unverifiedUsers,
+              updateUnverifiedUsers,
+              openBlockDialog,
+            )}
           </TableBody>
         </Table>
       </TableContainer>
 
-      <Dialog
-        open={blockDialogOpen}
-        onClose={() => setBlockDialogOpen(false)}
-      >
+      <Dialog open={blockDialogOpen} onClose={() => setBlockDialogOpen(false)}>
         <DialogTitle>Confirm User Block</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            Are you sure you want to block user &quot;{userToBlock?.firstName} {userToBlock?.lastName}&quot;? 
-            This will prevent them from logging into the system entirely.
+            Are you sure you want to block user &quot;{userToBlock?.firstName}{' '}
+            {userToBlock?.lastName}&quot;? This will prevent them from logging
+            into the system entirely.
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setBlockDialogOpen(false)}>
-            Cancel
-          </Button>
+          <Button onClick={() => setBlockDialogOpen(false)}>Cancel</Button>
           <Button onClick={handleBlockUser} color="error">
             Block User
           </Button>

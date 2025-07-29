@@ -135,7 +135,9 @@ export default class BackendUserClient implements UserClient {
     return data;
   }
 
-  async BlockUser(userID: number): Promise<{ success: boolean; message: string }> {
+  async BlockUser(
+    userID: number,
+  ): Promise<{ success: boolean; message: string }> {
     const { data } = await axios.post<{ success: boolean; message: string }>(
       `${this.baseApiURL}/api/users/block/${userID}`,
       {},
@@ -145,7 +147,9 @@ export default class BackendUserClient implements UserClient {
     return data;
   }
 
-  async UnBlockUser(userID: number): Promise<{ success: boolean; message: string }> {
+  async UnBlockUser(
+    userID: number,
+  ): Promise<{ success: boolean; message: string }> {
     const { data } = await axios.post<{ success: boolean; message: string }>(
       `${this.baseApiURL}/api/users/unblock/${userID}`,
       {},
