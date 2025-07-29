@@ -202,4 +202,48 @@ router.get(
   },
 );
 
+/* POST - block user by ID. */
+router.post(
+  '/block/:id',
+  hasPermission('users:block'),
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async (req: Request, res: Response, next: NextFunction) => {
+    const userID = parseInt(req.params.id, 10);
+
+    const user = await User.query().findById(userID);
+    if (!user) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+
+    const updatedUser = await User.query()
+      .findById(userID)
+      .patch({ isBlocked: true });
+
+    res.json({ success: true, message: 'User blocked successfully' });
+  },
+);
+
+/* POST - unblock user by ID. */
+router.post(
+  '/unblock/:id',
+  hasPermission('users:block'),
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async (req: Request, res: Response, next: NextFunction) => {
+    const userID = parseInt(req.params.id, 10);
+
+    const user = await User.query().findById(userID);
+    if (!user) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+
+    const updatedUser = await User.query()
+      .findById(userID)
+      .patch({ isBlocked: false });
+
+    res.json({ success: true, message: 'User unblocked successfully' });
+  },
+);
+
 export default router;

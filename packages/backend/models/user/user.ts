@@ -24,6 +24,8 @@ export default class User extends Model {
 
   skillsNotInList = '';
 
+  isBlocked = false;
+
   // Table name is the only required property.
   static tableName = 'users';
 
