@@ -61,7 +61,7 @@ router.get(
 
     const results = await Promise.all(promises);
     const unverifiedUsers = results
-      .filter((result) => !result.isVerified)
+      .filter((result) => !result.isVerified && !result.user.isBlocked)
       .map((result) => result.user);
 
     res.json(unverifiedUsers);
@@ -216,7 +216,7 @@ router.post(
       return;
     }
 
-    const updatedUser = await User.query()
+    await User.query()
       .findById(userID)
       .patch({ isBlocked: true });
 
@@ -238,7 +238,7 @@ router.post(
       return;
     }
 
-    const updatedUser = await User.query()
+    await User.query()
       .findById(userID)
       .patch({ isBlocked: false });
 
