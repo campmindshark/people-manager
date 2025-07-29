@@ -20,7 +20,7 @@
         "rosters:delete",
         "rosters:read-detailed",
         "rosterParticipant:readAll",
-        "rosterParticipant:remove",
+        "rosterParticipant:delete",
         "users:readAll",
         "userVerification:edit",
         "userVerification:readAll"

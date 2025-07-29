@@ -100,7 +100,7 @@ router.post('/:id', async (req: Request, res: Response) => {
 /* DELETE remove user from roster (admin only). */
 router.delete(
   '/:rosterId/users/:userId',
-  hasPermission('rosterParticipant:remove'),
+  hasPermission('rosterParticipant:delete'),
   async (req: Request, res: Response) => {
     const { rosterId, userId } = req.params;
 
@@ -135,27 +135,35 @@ router.delete(
 /* DELETE remove multiple users from roster (admin only). */
 router.delete(
   '/:rosterId/users',
-  hasPermission('rosterParticipant:remove'),
+  hasPermission('rosterParticipant:delete'),
   async (req: Request, res: Response) => {
     const { rosterId } = req.params;
     const { userIds } = req.body;
 
     if (!rosterId || !userIds || !Array.isArray(userIds)) {
-      res.status(400).json({ error: 'Roster ID and user IDs array are required' });
+      res
+        .status(400)
+        .json({ error: 'Roster ID and user IDs array are required' });
       return;
     }
 
-    const participants = await RosterParticipant.query().where({
-      rosterID: parseInt(rosterId, 10),
-    }).whereIn('userID', userIds);
+    const participants = await RosterParticipant.query()
+      .where({
+        rosterID: parseInt(rosterId, 10),
+      })
+      .whereIn('userID', userIds);
 
     if (participants.length === 0) {
-      res.status(404).json({ error: 'No participants found for the given user IDs' });
+      res
+        .status(404)
+        .json({ error: 'No participants found for the given user IDs' });
       return;
     }
 
-    const participantIds = participants.map(p => p.id);
-    const deletedCount = await RosterParticipant.query().whereIn('id', participantIds).delete();
+    const participantIds = participants.map((p) => p.id);
+    const deletedCount = await RosterParticipant.query()
+      .whereIn('id', participantIds)
+      .delete();
 
     res.json({ success: true, deletedCount });
   },
