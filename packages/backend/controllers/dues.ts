@@ -15,7 +15,7 @@ export interface DuesParticipantInfo {
   paid: boolean;
   amount?: string;
   paymentMethod?: string;
-  paymentDate?: string;
+  paymentDate?: Date;
 }
 
 export default class DuesController {
@@ -67,9 +67,9 @@ export default class DuesController {
     paid: boolean,
     amount?: string,
     paymentMethod?: string,
-    paymentDate?: string
+    paymentDate?: Date
   ): Promise<DuesPayment> {
-    const finalPaymentDate = paid ? (paymentDate || new Date().toISOString()) : undefined;
+    const finalPaymentDate = paid ? (paymentDate || new Date()) : undefined;
     
     const existingPayment = await DuesPayment.query()
       .findOne({ userID, rosterID });

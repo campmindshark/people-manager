@@ -50,7 +50,7 @@ function PaymentDetailsDialog({ open, participant, onClose, onSave }: PaymentDet
       setAmount(participant.amount?.toString() || '');
       setPaymentMethod(participant.paymentMethod || '');
       // Format date for input field (YYYY-MM-DD format)
-      const date = participant.paymentDate ? new Date(participant.paymentDate) : new Date();
+      const date = participant.paymentDate || new Date();
       setPaymentDate(date.toISOString().split('T')[0]);
     }
   }, [participant]);
@@ -61,7 +61,7 @@ function PaymentDetailsDialog({ open, participant, onClose, onSave }: PaymentDet
         paid: true,
         amount: amount || undefined,
         paymentMethod: paymentMethod || undefined,
-        paymentDate: paymentDate || undefined,
+        paymentDate: paymentDate ? new Date(paymentDate) : undefined,
       });
       onClose();
     }
@@ -285,8 +285,8 @@ export default function DuesManagementTable() {
           bValue = b.paymentMethod || '';
           break;
         case 'paymentDate':
-          aValue = a.paymentDate ? new Date(a.paymentDate).getTime() : 0;
-          bValue = b.paymentDate ? new Date(b.paymentDate).getTime() : 0;
+          aValue = a.paymentDate ? a.paymentDate.getTime() : 0;
+          bValue = b.paymentDate ? b.paymentDate.getTime() : 0;
           break;
         default:
           return 0;
@@ -481,7 +481,7 @@ export default function DuesManagementTable() {
                 </TableCell>
                 <TableCell align="center">
                   {participant.paymentDate 
-                    ? new Date(participant.paymentDate).toLocaleDateString() 
+                    ? participant.paymentDate.toLocaleDateString() 
                     : '-'
                   }
                 </TableCell>

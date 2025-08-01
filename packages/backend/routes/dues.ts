@@ -48,7 +48,7 @@ router.put(
         paid,
         amount,
         paymentMethod,
-        paymentDate,
+        paymentDate ? new Date(paymentDate) : undefined,
       );
 
       return res.json(payment);

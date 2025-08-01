@@ -15,7 +15,7 @@ export default class DuesPayment extends Model {
 
   paymentMethod?: string;
 
-  paymentDate?: string;
+  paymentDate?: Date;
 
   createdAt!: Date;
 

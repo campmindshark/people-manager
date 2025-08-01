@@ -10,14 +10,14 @@ export interface DuesParticipantInfo {
   paid: boolean;
   amount?: string;
   paymentMethod?: string;
-  paymentDate?: string;
+  paymentDate?: Date;
 }
 
 export interface DuesPaymentUpdate {
   paid: boolean;
   amount?: string;
   paymentMethod?: string;
-  paymentDate?: string;
+  paymentDate?: Date;
 }
 
 export interface DuesPayment {
@@ -27,7 +27,7 @@ export interface DuesPayment {
   paid: boolean;
   amount?: string;
   paymentMethod?: string;
-  paymentDate?: string;
+  paymentDate?: Date;
 }
 
 export interface DuesClient {
@@ -48,15 +48,30 @@ export default class BackendDuesClient implements DuesClient {
       `${this.baseApiURL}/api/dues/participants/${rosterID}`,
       defaultRequestConfig,
     );
-    return data;
+    // Convert ISO date strings to Date objects
+    return data.map(participant => ({
+      ...participant,
+      paymentDate: participant.paymentDate ? new Date(participant.paymentDate) : undefined,
+    }));
   }
 
   async UpdateDuesPayment(userID: number, rosterID: number, payment: DuesPaymentUpdate): Promise<DuesPayment> {
+    // Convert Date object to ISO string for API
+    const paymentForAPI = {
+      ...payment,
+      rosterID,
+      paymentDate: payment.paymentDate ? payment.paymentDate.toISOString() : undefined,
+    };
+    
     const { data } = await axios.put<DuesPayment>(
       `${this.baseApiURL}/api/dues/payment/${userID}`,
-      { ...payment, rosterID },
+      paymentForAPI,
       defaultRequestConfig,
     );
-    return data;
+    // Convert ISO date string to Date object
+    return {
+      ...data,
+      paymentDate: data.paymentDate ? new Date(data.paymentDate) : undefined,
+    };
   }
 }
