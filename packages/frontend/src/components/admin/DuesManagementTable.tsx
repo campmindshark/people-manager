@@ -26,7 +26,10 @@ import {
   Grid,
 } from '@mui/material';
 import { Edit as EditIcon } from '@mui/icons-material';
-import BackendDuesClient, { DuesParticipantInfo, DuesPaymentUpdate } from '../../api/dues/client';
+import BackendDuesClient, {
+  DuesParticipantInfo,
+  DuesPaymentUpdate,
+} from '../../api/dues/client';
 import { getFrontendConfig } from '../../config/config';
 import BackendRosterClient from '../../api/roster/roster';
 
@@ -40,7 +43,12 @@ interface PaymentDetailsDialogProps {
   onSave: (userID: number, payment: DuesPaymentUpdate) => void;
 }
 
-function PaymentDetailsDialog({ open, participant, onClose, onSave }: PaymentDetailsDialogProps) {
+function PaymentDetailsDialog({
+  open,
+  participant,
+  onClose,
+  onSave,
+}: PaymentDetailsDialogProps) {
   const [amount, setAmount] = useState<string>('');
   const [paymentMethod, setPaymentMethod] = useState<string>('');
   const [paymentDate, setPaymentDate] = useState<string>('');
@@ -69,7 +77,9 @@ function PaymentDetailsDialog({ open, participant, onClose, onSave }: PaymentDet
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Payment Details - {participant?.firstName} {participant?.lastName}</DialogTitle>
+      <DialogTitle>
+        Payment Details - {participant?.firstName} {participant?.lastName}
+      </DialogTitle>
       <DialogContent>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
           <TextField
@@ -110,13 +120,21 @@ function PaymentDetailsDialog({ open, participant, onClose, onSave }: PaymentDet
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>Cancel</Button>
-        <Button onClick={handleSave} variant="contained">Save</Button>
+        <Button onClick={handleSave} variant="contained">
+          Save
+        </Button>
       </DialogActions>
     </Dialog>
   );
 }
 
-type SortField = 'name' | 'email' | 'paid' | 'amount' | 'paymentMethod' | 'paymentDate';
+type SortField =
+  | 'name'
+  | 'email'
+  | 'paid'
+  | 'amount'
+  | 'paymentMethod'
+  | 'paymentDate';
 type SortDirection = 'asc' | 'desc';
 
 export default function DuesManagementTable() {
@@ -125,60 +143,70 @@ export default function DuesManagementTable() {
   const [error, setError] = useState<string | null>(null);
   const [currentRosterID, setCurrentRosterID] = useState<number | null>(null);
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
-  const [selectedParticipant, setSelectedParticipant] = useState<DuesParticipantInfo | null>(null);
-  
+  const [selectedParticipant, setSelectedParticipant] =
+    useState<DuesParticipantInfo | null>(null);
+
   // Sorting state
   const [sortField, setSortField] = useState<SortField>('name');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
-  
+
   // Filtering state
   const [nameFilter, setNameFilter] = useState('');
-  const [paymentStatusFilter, setPaymentStatusFilter] = useState<'all' | 'paid' | 'unpaid'>('all');
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState<
+    'all' | 'paid' | 'unpaid'
+  >('all');
   const [paymentMethodFilter, setPaymentMethodFilter] = useState<string>('all');
 
   const fetchParticipants = async () => {
     try {
       setError(null);
       setLoading(true);
-      
+
       // First, get all rosters and find the most recent one (current roster)
       const rosters = await rosterClient.GetAllRosters();
-      
+
       if (rosters.length === 0) {
         setError('No rosters found. Please create a roster first.');
         setParticipants([]);
         return;
       }
-      
+
       // Get the most recent roster (highest year)
-      const currentRoster = rosters.reduce((latest, roster) => 
-        roster.year > latest.year ? roster : latest
+      const currentRoster = rosters.reduce((latest, roster) =>
+        roster.year > latest.year ? roster : latest,
       );
-      
+
       setCurrentRosterID(currentRoster.id);
-      
-      const data = await duesClient.GetRosterParticipantsWithDues(currentRoster.id);
+
+      const data = await duesClient.GetRosterParticipantsWithDues(
+        currentRoster.id,
+      );
       setParticipants(data);
     } catch (err) {
       console.error('Error fetching participants:', err);
-      let errorMessage = 'Failed to load participants. Please try refreshing the page.';
-      
+      let errorMessage =
+        'Failed to load participants. Please try refreshing the page.';
+
       if (err instanceof Error) {
         console.error('Error details:', err.message);
         errorMessage = err.message;
       } else if (err && typeof err === 'object' && 'response' in err) {
-        const axiosError = err as { response?: { status?: number; data?: { error?: string } } };
+        const axiosError = err as {
+          response?: { status?: number; data?: { error?: string } };
+        };
         console.error('Error details:', axiosError.response?.data);
-        
+
         if (axiosError.response?.status === 401) {
-          errorMessage = 'You are not authorized to view this data. Please check your permissions.';
+          errorMessage =
+            'You are not authorized to view this data. Please check your permissions.';
         } else if (axiosError.response?.status === 403) {
-          errorMessage = 'You do not have permission to access dues management.';
+          errorMessage =
+            'You do not have permission to access dues management.';
         } else if (axiosError.response?.data?.error) {
           errorMessage = axiosError.response.data.error;
         }
       }
-      
+
       setError(errorMessage);
       setParticipants([]);
     } finally {
@@ -194,7 +222,7 @@ export default function DuesManagementTable() {
     try {
       if (paid) {
         // Open details dialog for setting amount and payment method
-        const participant = participants.find(p => p.userID === userID);
+        const participant = participants.find((p) => p.userID === userID);
         setSelectedParticipant(participant || null);
         setDetailsDialogOpen(true);
       } else {
@@ -203,7 +231,9 @@ export default function DuesManagementTable() {
           setError('No current roster available');
           return;
         }
-        await duesClient.UpdateDuesPayment(userID, currentRosterID, { paid: false });
+        await duesClient.UpdateDuesPayment(userID, currentRosterID, {
+          paid: false,
+        });
         await fetchParticipants();
       }
     } catch (err) {
@@ -212,7 +242,10 @@ export default function DuesManagementTable() {
     }
   };
 
-  const handlePaymentDetailsSave = async (userID: number, payment: DuesPaymentUpdate) => {
+  const handlePaymentDetailsSave = async (
+    userID: number,
+    payment: DuesPaymentUpdate,
+  ) => {
     try {
       if (!currentRosterID) {
         setError('No current roster available');
@@ -242,27 +275,35 @@ export default function DuesManagementTable() {
 
   // Filter and sort participants
   const filteredAndSortedParticipants = participants
-    .filter(participant => {
+    .filter((participant) => {
       // Name filter
-      if (nameFilter && !`${participant.firstName} ${participant.lastName}`.toLowerCase().includes(nameFilter.toLowerCase())) {
+      if (
+        nameFilter &&
+        !`${participant.firstName} ${participant.lastName}`
+          .toLowerCase()
+          .includes(nameFilter.toLowerCase())
+      ) {
         return false;
       }
-      
+
       // Payment status filter
       if (paymentStatusFilter === 'paid' && !participant.paid) return false;
       if (paymentStatusFilter === 'unpaid' && participant.paid) return false;
-      
+
       // Payment method filter
-      if (paymentMethodFilter !== 'all' && participant.paymentMethod !== paymentMethodFilter) {
+      if (
+        paymentMethodFilter !== 'all' &&
+        participant.paymentMethod !== paymentMethodFilter
+      ) {
         return false;
       }
-      
+
       return true;
     })
     .sort((a, b) => {
       let aValue: string | number;
       let bValue: string | number;
-      
+
       switch (sortField) {
         case 'name':
           aValue = `${a.firstName} ${a.lastName}`.toLowerCase();
@@ -291,17 +332,20 @@ export default function DuesManagementTable() {
         default:
           return 0;
       }
-      
+
       if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
       if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
       return 0;
     });
 
   // Get unique payment methods for filter dropdown
-  const uniquePaymentMethods = Array.from(new Set(participants
-    .map(p => p.paymentMethod)
-    .filter(method => method && method.trim() !== '')
-  ));
+  const uniquePaymentMethods = Array.from(
+    new Set(
+      participants
+        .map((p) => p.paymentMethod)
+        .filter((method) => method && method.trim() !== ''),
+    ),
+  );
 
   if (loading) {
     return <Typography>Loading participants...</Typography>;
@@ -313,11 +357,7 @@ export default function DuesManagementTable() {
         <Typography color="error" gutterBottom>
           {error}
         </Typography>
-        <Button 
-          variant="outlined" 
-          onClick={fetchParticipants}
-          sx={{ mt: 2 }}
-        >
+        <Button variant="outlined" onClick={fetchParticipants} sx={{ mt: 2 }}>
           Retry
         </Button>
       </Box>
@@ -328,13 +368,10 @@ export default function DuesManagementTable() {
     return (
       <Box sx={{ textAlign: 'center', py: 4 }}>
         <Typography color="textSecondary" gutterBottom>
-          No roster participants found. Make sure there are users signed up for the current roster.
+          No roster participants found. Make sure there are users signed up for
+          the current roster.
         </Typography>
-        <Button 
-          variant="outlined" 
-          onClick={fetchParticipants}
-          sx={{ mt: 2 }}
-        >
+        <Button variant="outlined" onClick={fetchParticipants} sx={{ mt: 2 }}>
           Refresh
         </Button>
       </Box>
@@ -346,7 +383,8 @@ export default function DuesManagementTable() {
       {/* Filter Controls */}
       <Paper sx={{ p: 2, mb: 2 }}>
         <Typography variant="h6" gutterBottom>
-          Filters ({filteredAndSortedParticipants.length} of {participants.length} participants)
+          Filters ({filteredAndSortedParticipants.length} of{' '}
+          {participants.length} participants)
         </Typography>
         <Grid container spacing={2}>
           <Grid item xs={12} sm={4}>
@@ -363,7 +401,11 @@ export default function DuesManagementTable() {
               <InputLabel>Payment Status</InputLabel>
               <Select
                 value={paymentStatusFilter}
-                onChange={(e) => setPaymentStatusFilter(e.target.value as 'all' | 'paid' | 'unpaid')}
+                onChange={(e) =>
+                  setPaymentStatusFilter(
+                    e.target.value as 'all' | 'paid' | 'unpaid',
+                  )
+                }
                 label="Payment Status"
               >
                 <MenuItem value="all">All</MenuItem>
@@ -381,8 +423,10 @@ export default function DuesManagementTable() {
                 label="Payment Method"
               >
                 <MenuItem value="all">All</MenuItem>
-                {uniquePaymentMethods.map(method => (
-                  <MenuItem key={method} value={method}>{method}</MenuItem>
+                {uniquePaymentMethods.map((method) => (
+                  <MenuItem key={method} value={method}>
+                    {method}
+                  </MenuItem>
                 ))}
               </Select>
             </FormControl>
@@ -433,7 +477,9 @@ export default function DuesManagementTable() {
               <TableCell align="center">
                 <TableSortLabel
                   active={sortField === 'paymentMethod'}
-                  direction={sortField === 'paymentMethod' ? sortDirection : 'asc'}
+                  direction={
+                    sortField === 'paymentMethod' ? sortDirection : 'asc'
+                  }
                   onClick={() => handleSort('paymentMethod')}
                 >
                   Payment Method
@@ -442,7 +488,9 @@ export default function DuesManagementTable() {
               <TableCell align="center">
                 <TableSortLabel
                   active={sortField === 'paymentDate'}
-                  direction={sortField === 'paymentDate' ? sortDirection : 'asc'}
+                  direction={
+                    sortField === 'paymentDate' ? sortDirection : 'asc'
+                  }
                   onClick={() => handleSort('paymentDate')}
                 >
                   Payment Date
@@ -461,29 +509,32 @@ export default function DuesManagementTable() {
                 <TableCell align="center">
                   <Switch
                     checked={participant.paid}
-                    onChange={(e) => handlePaidToggle(participant.userID, e.target.checked)}
+                    onChange={(e) =>
+                      handlePaidToggle(participant.userID, e.target.checked)
+                    }
                     color="primary"
                   />
                 </TableCell>
                 <TableCell align="center">
-                  {participant.amount ? `$${Number(participant.amount).toFixed(2)}` : '-'}
+                  {participant.amount
+                    ? `$${Number(participant.amount).toFixed(2)}`
+                    : '-'}
                 </TableCell>
                 <TableCell align="center">
                   {participant.paymentMethod ? (
-                    <Chip 
-                      label={participant.paymentMethod} 
-                      size="small" 
-                      variant="outlined" 
+                    <Chip
+                      label={participant.paymentMethod}
+                      size="small"
+                      variant="outlined"
                     />
                   ) : (
                     '-'
                   )}
                 </TableCell>
                 <TableCell align="center">
-                  {participant.paymentDate 
-                    ? participant.paymentDate.toLocaleDateString() 
-                    : '-'
-                  }
+                  {participant.paymentDate
+                    ? participant.paymentDate.toLocaleDateString()
+                    : '-'}
                 </TableCell>
                 <TableCell align="center">
                   {participant.paid && (

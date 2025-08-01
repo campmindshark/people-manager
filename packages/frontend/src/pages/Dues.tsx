@@ -28,8 +28,8 @@ export default function Dues() {
                 Dues Management
               </Typography>
               <Typography variant="body1" gutterBottom>
-                Manage payment status for current roster participants. Toggle the paid status 
-                and add payment details as needed.
+                Manage payment status for current roster participants. Toggle
+                the paid status and add payment details as needed.
               </Typography>
               <DuesManagementTable />
             </Paper>
