@@ -103,9 +103,14 @@ export default function DuesManagementTable() {
   const fetchParticipants = async () => {
     try {
       const data = await duesClient.GetCurrentRosterParticipantsWithDues();
+      console.log('Fetched participants:', data);
       setParticipants(data);
+      if (data.length === 0) {
+        console.warn('No roster participants found. Make sure there are users signed up for the current roster.');
+      }
     } catch (error) {
       console.error('Error fetching participants:', error);
+      console.error('Error details:', error.response?.data || error.message);
     } finally {
       setLoading(false);
     }
@@ -148,6 +153,14 @@ export default function DuesManagementTable() {
 
   if (loading) {
     return <Typography>Loading participants...</Typography>;
+  }
+
+  if (participants.length === 0) {
+    return (
+      <Typography color="textSecondary">
+        No roster participants found. Make sure there are users signed up for the current roster.
+      </Typography>
+    );
   }
 
   return (
