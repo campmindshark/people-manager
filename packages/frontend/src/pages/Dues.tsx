@@ -14,7 +14,7 @@ export default function Dues() {
   useEffect(() => {
     setPageState({
       title: 'Dues Management',
-      index: 'dues',
+      index: 'admin-dues',
     });
   });
 

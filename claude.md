@@ -1,5 +1,4 @@
-- Be sure to typecheck when you’re done making a series of code changes
-- Always fix linting before finishing
+- Be sure to lint when you’re done making a series of code changes
 - All changes should be pushed into a PR first.
 - Use the PR template that is located in .github/pull_request_template.md.
 - Always use newlines at the end of files.
