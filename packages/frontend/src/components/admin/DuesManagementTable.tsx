@@ -110,7 +110,12 @@ export default function DuesManagementTable() {
       }
     } catch (error) {
       console.error('Error fetching participants:', error);
-      console.error('Error details:', error.response?.data || error.message);
+      if (error instanceof Error) {
+        console.error('Error details:', error.message);
+      } else if (error && typeof error === 'object' && 'response' in error) {
+        const axiosError = error as { response?: { data?: unknown } };
+        console.error('Error details:', axiosError.response?.data);
+      }
     } finally {
       setLoading(false);
     }
