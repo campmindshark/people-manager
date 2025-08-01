@@ -21,6 +21,7 @@
         "rosters:read-detailed",
         "rosterParticipant:readAll",
         "rosterParticipant:delete",
+        "rosterParticipant:dues",
         "users:block",
         "users:readAll",
         "userVerification:edit",
