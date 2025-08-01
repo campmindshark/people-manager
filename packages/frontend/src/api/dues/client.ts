@@ -31,7 +31,6 @@ export interface DuesPayment {
 }
 
 export interface DuesClient {
-  GetCurrentRosterParticipantsWithDues(): Promise<DuesParticipantInfo[]>;
   GetRosterParticipantsWithDues(rosterID: number): Promise<DuesParticipantInfo[]>;
   UpdateDuesPayment(userID: number, rosterID: number, payment: DuesPaymentUpdate): Promise<DuesPayment>;
 }
@@ -43,11 +42,6 @@ export default class BackendDuesClient implements DuesClient {
     this.baseApiURL = baseApiURL;
   }
 
-  async GetCurrentRosterParticipantsWithDues(): Promise<DuesParticipantInfo[]> {
-    // This method is deprecated - use GetRosterParticipantsWithDues instead
-    // For backwards compatibility, we'll assume roster ID 2 (current hardcoded value)
-    return this.GetRosterParticipantsWithDues(2);
-  }
 
   async GetRosterParticipantsWithDues(rosterID: number): Promise<DuesParticipantInfo[]> {
     const { data } = await axios.get<DuesParticipantInfo[]>(

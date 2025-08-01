@@ -24,13 +24,6 @@ export default class DuesController {
     return roster || null;
   }
 
-  public static async getCurrentRosterParticipantsWithDues(): Promise<DuesParticipantInfo[]> {
-    const currentRoster = await this.getCurrentRoster();
-    if (!currentRoster) {
-      return [];
-    }
-    return this.getRosterParticipantsWithDues(currentRoster.id);
-  }
 
   public static async getRosterParticipantsWithDues(rosterID: number): Promise<DuesParticipantInfo[]> {
     const participantsWithDues = await knex
