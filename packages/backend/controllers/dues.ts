@@ -24,31 +24,35 @@ export default class DuesController {
     return roster || null;
   }
 
-
-  public static async getRosterParticipantsWithDues(rosterID: number): Promise<DuesParticipantInfo[]> {
+  public static async getRosterParticipantsWithDues(
+    rosterID: number,
+  ): Promise<DuesParticipantInfo[]> {
     const participantsWithDues = await knex
       .select(
         'users.id as userID',
         'users.firstName',
-        'users.lastName', 
+        'users.lastName',
         'users.email',
         'roster_participants.rosterID',
         'dues_payments.paid',
         'dues_payments.amount',
         'dues_payments.paymentMethod',
-        'dues_payments.paymentDate'
+        'dues_payments.paymentDate',
       )
       .from('roster_participants')
       .join('users', 'roster_participants.userID', 'users.id')
       .leftJoin('dues_payments', function join() {
-        this.on('dues_payments.userID', '=', 'roster_participants.userID')
-            .andOn('dues_payments.rosterID', '=', 'roster_participants.rosterID');
+        this.on(
+          'dues_payments.userID',
+          '=',
+          'roster_participants.userID',
+        ).andOn('dues_payments.rosterID', '=', 'roster_participants.rosterID');
       })
       .where('roster_participants.rosterID', rosterID)
       .orderBy('users.lastName', 'asc')
       .orderBy('users.firstName', 'asc');
 
-    return participantsWithDues.map(row => ({
+    return participantsWithDues.map((row) => ({
       userID: row.userID,
       rosterID: row.rosterID,
       firstName: row.firstName,
@@ -67,12 +71,14 @@ export default class DuesController {
     paid: boolean,
     amount?: string,
     paymentMethod?: string,
-    paymentDate?: Date
+    paymentDate?: Date,
   ): Promise<DuesPayment> {
-    const finalPaymentDate = paid ? (paymentDate || new Date()) : undefined;
-    
-    const existingPayment = await DuesPayment.query()
-      .findOne({ userID, rosterID });
+    const finalPaymentDate = paid ? paymentDate || new Date() : undefined;
+
+    const existingPayment = await DuesPayment.query().findOne({
+      userID,
+      rosterID,
+    });
 
     if (existingPayment) {
       return existingPayment.$query().patchAndFetch({
@@ -82,7 +88,7 @@ export default class DuesController {
         paymentDate: finalPaymentDate,
       });
     }
-    
+
     return DuesPayment.query().insert({
       userID,
       rosterID,

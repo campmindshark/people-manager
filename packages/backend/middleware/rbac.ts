@@ -7,7 +7,7 @@ const hasPermission =
   (permission: string) =>
   async (req: Request, res: Response, next: NextFunction) => {
     const user = req.user as User;
-    
+
     try {
       const roles = await RoleController.getRolesByUserID(user.id);
       const roleIDs = roles.map((role) => role.id);

@@ -8,7 +8,7 @@ const userIsVerified =
 
     try {
       const isVerified = await UserController.isVerified(user);
-      
+
       if (!isVerified) {
         res.status(403).send('Forbidden');
         return;

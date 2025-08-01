@@ -1,5 +1,6 @@
-- Be sure to lint when you’re done making a series of code changes
+- Be sure to yarn lint-fix when you’re done making a series of code changes
 - All changes should be pushed into a PR first.
+- Never push directly to the main branch.
 - Use the PR template that is located in .github/pull_request_template.md.
 - Always use newlines at the end of files.
 - Dont add Claude as a co-author.

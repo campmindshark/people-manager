@@ -15,12 +15,15 @@ router.get(
       if (Number.isNaN(rosterID)) {
         return res.status(400).json({ error: 'Invalid roster ID' });
       }
-      
-      const participants = await DuesController.getRosterParticipantsWithDues(rosterID);
+
+      const participants =
+        await DuesController.getRosterParticipantsWithDues(rosterID);
       return res.json(participants);
     } catch (error) {
       console.error('Error fetching dues participants:', error);
-      return res.status(500).json({ error: 'Failed to fetch dues participants' });
+      return res
+        .status(500)
+        .json({ error: 'Failed to fetch dues participants' });
     }
   },
 );
@@ -37,7 +40,7 @@ router.put(
       if (Number.isNaN(userID)) {
         return res.status(400).json({ error: 'Invalid user ID' });
       }
-      
+
       if (!rosterID || Number.isNaN(parseInt(rosterID, 10))) {
         return res.status(400).json({ error: 'Roster ID is required' });
       }
@@ -60,4 +63,3 @@ router.put(
 );
 
 export default router;
-
