@@ -1,2 +1,0 @@
-- Be sure to typecheck when you’re done making a series of code changes
-- Always fix linting before finishing
