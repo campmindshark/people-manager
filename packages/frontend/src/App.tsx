@@ -7,7 +7,6 @@ import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import './App.css';
 import Admin from './pages/Admin';
 import AdminUserManagement from './pages/AdminUserManagement';
-import Dues from './pages/Dues';
 import Home from './pages/Home';
 import ProfileEdit from './pages/ProfileEdit';
 import Login from './pages/Login';
@@ -63,16 +62,6 @@ const router = createBrowserRouter([
       return (
         <AuthenticatedPage>
           <AdminUserManagement />
-        </AuthenticatedPage>
-      );
-    },
-  },
-  {
-    path: '/dues',
-    Component() {
-      return (
-        <AuthenticatedPage>
-          <Dues />
         </AuthenticatedPage>
       );
     },
