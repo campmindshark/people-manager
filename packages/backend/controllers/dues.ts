@@ -13,9 +13,9 @@ export interface DuesParticipantInfo {
   lastName: string;
   email: string;
   paid: boolean;
-  amount?: number;
+  amount?: string;
   paymentMethod?: string;
-  paymentDate?: Date;
+  paymentDate?: string;
 }
 
 export default class DuesController {
@@ -29,7 +29,10 @@ export default class DuesController {
     if (!currentRoster) {
       return [];
     }
+    return this.getRosterParticipantsWithDues(currentRoster.id);
+  }
 
+  public static async getRosterParticipantsWithDues(rosterID: number): Promise<DuesParticipantInfo[]> {
     const participantsWithDues = await knex
       .select(
         'users.id as userID',
@@ -48,7 +51,7 @@ export default class DuesController {
         this.on('dues_payments.userID', '=', 'roster_participants.userID')
             .andOn('dues_payments.rosterID', '=', 'roster_participants.rosterID');
       })
-      .where('roster_participants.rosterID', currentRoster.id)
+      .where('roster_participants.rosterID', rosterID)
       .orderBy('users.lastName', 'asc')
       .orderBy('users.firstName', 'asc');
 
@@ -69,10 +72,11 @@ export default class DuesController {
     userID: number,
     rosterID: number,
     paid: boolean,
-    amount?: number,
-    paymentMethod?: string
+    amount?: string,
+    paymentMethod?: string,
+    paymentDate?: string
   ): Promise<DuesPayment> {
-    const paymentDate = paid ? new Date() : undefined;
+    const finalPaymentDate = paid ? (paymentDate || new Date().toISOString()) : undefined;
     
     const existingPayment = await DuesPayment.query()
       .findOne({ userID, rosterID });
@@ -82,7 +86,7 @@ export default class DuesController {
         paid,
         amount: paid ? amount : undefined,
         paymentMethod: paid ? paymentMethod : undefined,
-        paymentDate,
+        paymentDate: finalPaymentDate,
       });
     }
     
@@ -92,7 +96,7 @@ export default class DuesController {
       paid,
       amount: paid ? amount : undefined,
       paymentMethod: paid ? paymentMethod : undefined,
-      paymentDate,
+      paymentDate: finalPaymentDate,
     });
   }
 }

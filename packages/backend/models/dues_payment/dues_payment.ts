@@ -11,11 +11,11 @@ export default class DuesPayment extends Model {
 
   paid = false;
 
-  amount?: number;
+  amount?: string;
 
   paymentMethod?: string;
 
-  paymentDate?: Date;
+  paymentDate?: string;
 
   createdAt!: Date;
 
@@ -32,7 +32,7 @@ export default class DuesPayment extends Model {
       userID: { type: 'integer' },
       rosterID: { type: 'integer' },
       paid: { type: 'boolean' },
-      amount: { type: 'number' },
+      amount: { type: 'string' },
       paymentMethod: { type: 'string' },
       paymentDate: { type: 'string', format: 'date-time' },
     },

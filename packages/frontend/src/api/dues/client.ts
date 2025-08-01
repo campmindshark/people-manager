@@ -8,15 +8,16 @@ export interface DuesParticipantInfo {
   lastName: string;
   email: string;
   paid: boolean;
-  amount?: number;
+  amount?: string;
   paymentMethod?: string;
-  paymentDate?: Date;
+  paymentDate?: string;
 }
 
 export interface DuesPaymentUpdate {
   paid: boolean;
-  amount?: number;
+  amount?: string;
   paymentMethod?: string;
+  paymentDate?: string;
 }
 
 export interface DuesPayment {
@@ -24,14 +25,15 @@ export interface DuesPayment {
   userID: number;
   rosterID: number;
   paid: boolean;
-  amount?: number;
+  amount?: string;
   paymentMethod?: string;
-  paymentDate?: Date;
+  paymentDate?: string;
 }
 
 export interface DuesClient {
   GetCurrentRosterParticipantsWithDues(): Promise<DuesParticipantInfo[]>;
-  UpdateDuesPayment(userID: number, payment: DuesPaymentUpdate): Promise<DuesPayment>;
+  GetRosterParticipantsWithDues(rosterID: number): Promise<DuesParticipantInfo[]>;
+  UpdateDuesPayment(userID: number, rosterID: number, payment: DuesPaymentUpdate): Promise<DuesPayment>;
 }
 
 export default class BackendDuesClient implements DuesClient {
@@ -42,17 +44,23 @@ export default class BackendDuesClient implements DuesClient {
   }
 
   async GetCurrentRosterParticipantsWithDues(): Promise<DuesParticipantInfo[]> {
+    // This method is deprecated - use GetRosterParticipantsWithDues instead
+    // For backwards compatibility, we'll assume roster ID 2 (current hardcoded value)
+    return this.GetRosterParticipantsWithDues(2);
+  }
+
+  async GetRosterParticipantsWithDues(rosterID: number): Promise<DuesParticipantInfo[]> {
     const { data } = await axios.get<DuesParticipantInfo[]>(
-      `${this.baseApiURL}/api/dues/participants`,
+      `${this.baseApiURL}/api/dues/participants/${rosterID}`,
       defaultRequestConfig,
     );
     return data;
   }
 
-  async UpdateDuesPayment(userID: number, payment: DuesPaymentUpdate): Promise<DuesPayment> {
+  async UpdateDuesPayment(userID: number, rosterID: number, payment: DuesPaymentUpdate): Promise<DuesPayment> {
     const { data } = await axios.put<DuesPayment>(
       `${this.baseApiURL}/api/dues/payment/${userID}`,
-      payment,
+      { ...payment, rosterID },
       defaultRequestConfig,
     );
     return data;
