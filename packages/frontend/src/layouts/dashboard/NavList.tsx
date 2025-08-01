@@ -9,6 +9,7 @@ import ManageAccountsIcon from '@mui/icons-material/ManageAccounts';
 import HomeIcon from '@mui/icons-material/Home';
 import CelebrationIcon from '@mui/icons-material/Celebration';
 import SettingsIcon from '@mui/icons-material/Settings';
+import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import List from '@mui/material/List';
 import Divider from '@mui/material/Divider';
 import { Link } from 'react-router-dom';
@@ -54,6 +55,13 @@ const utilityLinks: MenuItemLinkData[] = [
     index: 'admin',
     icon: <SupervisorAccountIcon />,
     path: '/admin',
+    needsRole: ['admin'],
+  },
+  {
+    text: 'Dues',
+    index: 'dues',
+    icon: <AttachMoneyIcon />,
+    path: '/dues',
     needsRole: ['admin'],
   },
   {
