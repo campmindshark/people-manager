@@ -34,7 +34,6 @@ export default class DuesPayment extends Model {
       paid: { type: 'boolean' },
       amount: { type: 'string' },
       paymentMethod: { type: 'string' },
-      paymentDate: { type: 'string', format: 'date-time' },
     },
   };
 
