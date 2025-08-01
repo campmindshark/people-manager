@@ -33,10 +33,10 @@ router.put('/payment/:userID', verifiedUserMiddleware, hasPermission('rosterPart
       paymentMethod
     );
 
-    res.json(payment);
+    return res.json(payment);
   } catch (error) {
     console.error('Error updating dues payment:', error);
-    res.status(500).json({ error: 'Failed to update dues payment' });
+    return res.status(500).json({ error: 'Failed to update dues payment' });
   }
 });
 

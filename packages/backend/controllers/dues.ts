@@ -2,9 +2,7 @@ import Knex from 'knex';
 import knexConfig from '../knexfile';
 import { getConfig } from '../config/config';
 import DuesPayment from '../models/dues_payment/dues_payment';
-import User from '../models/user/user';
 import Roster from '../models/roster/roster';
-import RosterParticipant from '../models/roster_participant/roster_participant';
 
 const knex = Knex(knexConfig[getConfig().Environment]);
 
@@ -46,7 +44,7 @@ export default class DuesController {
       )
       .from('roster_participants')
       .join('users', 'roster_participants.userID', 'users.id')
-      .leftJoin('dues_payments', function() {
+      .leftJoin('dues_payments', function join() {
         this.on('dues_payments.userID', '=', 'roster_participants.userID')
             .andOn('dues_payments.rosterID', '=', 'roster_participants.rosterID');
       })
@@ -80,21 +78,21 @@ export default class DuesController {
       .findOne({ userID, rosterID });
 
     if (existingPayment) {
-      return await existingPayment.$query().patchAndFetch({
-        paid,
-        amount: paid ? amount : undefined,
-        paymentMethod: paid ? paymentMethod : undefined,
-        paymentDate,
-      });
-    } else {
-      return await DuesPayment.query().insert({
-        userID,
-        rosterID,
+      return existingPayment.$query().patchAndFetch({
         paid,
         amount: paid ? amount : undefined,
         paymentMethod: paid ? paymentMethod : undefined,
         paymentDate,
       });
     }
+    
+    return DuesPayment.query().insert({
+      userID,
+      rosterID,
+      paid,
+      amount: paid ? amount : undefined,
+      paymentMethod: paid ? paymentMethod : undefined,
+      paymentDate,
+    });
   }
 }
