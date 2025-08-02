@@ -1,0 +1,9 @@
+- Be sure to `yarn lint-fix` and `yarn style-fix` when you’re done making a series of code changes
+- All changes should be pushed into a PR first.
+- Never push directly to the main branch.
+- Use the PR template that is located in .github/pull_request_template.md.
+- Always use newlines at the end of files.
+- Dont add Claude as a co-author.
+- Use yarn not npm
+- Look at the Makefile for useful commands.
+- Look at the package.json for helpful yarn commands.

@@ -4,6 +4,7 @@ import SignupStatus, {
 import User from '../models/user/user';
 import PrivateProfile from '../models/user/user_private';
 import RosterParticipant from '../models/roster_participant/roster_participant';
+import DuesPayment from '../models/dues_payment/dues_payment';
 import UserController from './user';
 
 // this is a controller used to analyze things across many tables in the database
@@ -43,7 +44,16 @@ export default class AnalysisController {
       tmpResponse.isVerified = true;
     }
 
-    // TODO: add logic to determine if the user has paid dues
+    // Check if the user has paid dues for this roster (only if they're signed up)
+    if (rosterParticipant) {
+      const duesPayment = await DuesPayment.query()
+        .where({ userID, rosterID })
+        .first();
+      if (duesPayment && duesPayment.paid) {
+        tmpResponse.hasPaidDues = true;
+      }
+    }
+
     // TODO: add logic to determine if the user has signed up for shifts
     // TODO: add logic to determine if the user has completed the required number of shifts
 
