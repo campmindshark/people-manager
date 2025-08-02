@@ -55,7 +55,7 @@ function PaymentDetailsDialog({
 
   useEffect(() => {
     if (participant) {
-      setAmount(participant.amount?.toString() || '');
+      setAmount(participant.amount?.toString() || '550');
       setPaymentMethod(participant.paymentMethod || '');
       // Format date for input field (YYYY-MM-DD format)
       const date = participant.paymentDate || new Date();
