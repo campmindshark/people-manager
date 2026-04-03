@@ -14,6 +14,7 @@ export interface RosterClient {
   GetRosterParticipants(
     rosterID: number,
   ): Promise<RosterParticipantViewModel[]>;
+  CreateRoster(year: number): Promise<Roster>;
   Signup(
     rosterID: number,
     rosterParticipant: RosterParticipant,
@@ -47,6 +48,15 @@ export default class BackendRosterClient implements RosterClient {
   async GetRosterByID(rosterID: number): Promise<Roster> {
     const { data } = await axios.get<Roster>(
       `${this.baseApiURL}/api/rosters/${rosterID}`,
+      defaultRequestConfig,
+    );
+    return data;
+  }
+
+  async CreateRoster(year: number): Promise<Roster> {
+    const { data } = await axios.post<Roster>(
+      `${this.baseApiURL}/api/rosters`,
+      { year },
       defaultRequestConfig,
     );
     return data;

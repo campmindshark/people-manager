@@ -14,6 +14,7 @@ import Login from './pages/Login';
 import AuthenticatedPage from './components/AuthenticatedPage';
 import Roster from './pages/Roster';
 import Shifts from './pages/Shifts';
+import ManageRosters from './pages/ManageRosters';
 
 const mdTheme = createTheme({
   palette: {
@@ -73,6 +74,16 @@ const router = createBrowserRouter([
       return (
         <AuthenticatedPage>
           <Dues />
+        </AuthenticatedPage>
+      );
+    },
+  },
+  {
+    path: '/admin/rosters',
+    Component() {
+      return (
+        <AuthenticatedPage>
+          <ManageRosters />
         </AuthenticatedPage>
       );
     },
