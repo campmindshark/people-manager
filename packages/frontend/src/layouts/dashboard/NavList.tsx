@@ -4,6 +4,7 @@ import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import ListSubheader from '@mui/material/ListSubheader';
 import BackupTableIcon from '@mui/icons-material/BackupTable';
+import EditCalendarIcon from '@mui/icons-material/EditCalendar';
 import SupervisorAccountIcon from '@mui/icons-material/SupervisorAccount';
 import ManageAccountsIcon from '@mui/icons-material/ManageAccounts';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
@@ -69,6 +70,13 @@ const utilityLinks: MenuItemLinkData[] = [
     index: 'admin-dues',
     icon: <AttachMoneyIcon />,
     path: '/admin/dues',
+    needsRole: ['admin'],
+  },
+  {
+    text: 'Manage Rosters',
+    index: 'admin-rosters',
+    icon: <EditCalendarIcon />,
+    path: '/admin/rosters',
     needsRole: ['admin'],
   },
   {
