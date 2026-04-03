@@ -1,4 +1,5 @@
-import type { Knex } from 'knex';
+/* eslint-disable import/prefer-default-export */
+import { Knex } from 'knex';
 
 const DEV_USERS = [
   {
@@ -22,7 +23,7 @@ const DEV_USERS = [
 const ADMIN_GOOGLE_ID = 'dev-admin';
 const ADMIN_ROLE_ID = 1;
 
-export async function up(knex: Knex): Promise<void> {
+export async function seed(knex: Knex): Promise<void> {
   if (process.env.NODE_ENV !== 'development') {
     return;
   }
@@ -56,17 +57,4 @@ export async function up(knex: Knex): Promise<void> {
       });
     }
   }
-}
-
-export async function down(knex: Knex): Promise<void> {
-  const googleIDs = DEV_USERS.map((u) => u.googleID);
-
-  const devUsers = await knex('users').whereIn('googleID', googleIDs);
-  const devUserIDs = devUsers.map((u: { id: number }) => u.id);
-
-  if (devUserIDs.length > 0) {
-    await knex('user_roles').whereIn('userID', devUserIDs).del();
-  }
-
-  await knex('users').whereIn('googleID', googleIDs).del();
 }

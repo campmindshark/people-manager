@@ -32,7 +32,7 @@ router.get('/login/:role', async (req: Request, res: Response) => {
 
     if (!user) {
       res.status(404).json({
-        error: `Dev user "${role}" not found. Run migrations first: yarn db-migrate`,
+        error: `Dev user "${role}" not found. Run seeds first: yarn db-seed`,
       });
       return;
     }
