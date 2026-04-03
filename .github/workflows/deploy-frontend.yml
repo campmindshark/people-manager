@@ -23,6 +23,8 @@ jobs:
     env:
       S3_BUCKET: people-manager-bucket-1
       CLOUDFRONT_DISTRIBUTION_ID: EKQSELA6RXUSP
+      REACT_APP_BACKEND_URL: https://people-manager.mindsharkportal.com
+      NODE_ENV: production
 
     defaults:
       run:
