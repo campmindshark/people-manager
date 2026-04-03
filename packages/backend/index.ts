@@ -31,6 +31,7 @@ import rostersRouter from './routes/rosters';
 import rosterParticipantsRouter from './routes/roster_participants';
 import groupRouter from './routes/groups';
 import duesRouter from './routes/dues';
+import devAuthRouter from './routes/dev_auth';
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -52,6 +53,16 @@ if (!fs.existsSync(envFilePath)) {
 }
 
 const config: Config = getConfig();
+
+if (
+  process.env.DEV_AUTH_BYPASS === 'true' &&
+  config.Environment !== 'development'
+) {
+  console.error(
+    'FATAL: DEV_AUTH_BYPASS is enabled but NODE_ENV is not "development". Refusing to start.',
+  );
+  process.exit(1);
+}
 
 console.log(`running in ${config.Environment} mode`);
 
@@ -179,6 +190,10 @@ const checkAuthenticated = (
 };
 
 app.use('/api/auth', authRouter);
+if (config.DevAuthBypass) {
+  console.log('DEV AUTH BYPASS is enabled — dev login routes active');
+  app.use('/api/auth/dev', devAuthRouter);
+}
 app.use('/api/users/private', checkAuthenticated, userPrivateRouter);
 app.use('/api/users', checkAuthenticated, usersRouter);
 app.use('/api/roles', checkAuthenticated, rolesRouter);

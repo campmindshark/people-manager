@@ -2,6 +2,7 @@ export interface Config {
   ActiveRosterID: number;
   BackendURL: string;
   CORSWhitelist: string[];
+  DevAuthBypass: boolean;
   Environment: string;
   FrontendURL: string;
   GoogleOAuthClientID: string;
@@ -28,6 +29,9 @@ export function getConfig(): Config {
     ),
     BackendURL: (process.env.BACKEND_URL as string) ?? 'http://localhost:3001',
     CORSWhitelist: getCORSWhitelist(),
+    DevAuthBypass:
+      process.env.DEV_AUTH_BYPASS === 'true' &&
+      ((process.env.NODE_ENV as string) ?? 'development') === 'development',
     Environment: (process.env.NODE_ENV as string) ?? 'development',
     FrontendURL:
       (process.env.FRONTEND_URL as string) ?? 'http://localhost:3000',
