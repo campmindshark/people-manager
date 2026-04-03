@@ -3,9 +3,10 @@ import validator from '@rjsf/validator-ajv8';
 import Form from '@rjsf/mui';
 import RosterParticipant from 'backend/models/roster_participant/roster_participant';
 import Snackbar from '@mui/material/Snackbar';
+import { useRecoilValue } from 'recoil';
 import BackendRosterClient from 'src/api/roster/roster';
 
-import { CurrentRosterID } from 'src/state/roster';
+import { ActiveRosterIDState } from 'src/state/roster';
 import { getFrontendConfig } from '../config/config';
 import './css/form.css';
 
@@ -22,6 +23,7 @@ function RosterSignupForm(props: Props) {
     rosterParticipantProp,
   );
   const [open, setOpen] = React.useState(false);
+  const activeRosterID = useRecoilValue(ActiveRosterIDState);
 
   const rosterClient = useMemo(
     () => new BackendRosterClient(frontendConfig.BackendURL),
@@ -43,7 +45,7 @@ function RosterSignupForm(props: Props) {
   const handleSubmit = async (data: any) => {
     const { formData } = data as { formData: RosterParticipant };
 
-    const updatedUser = await rosterClient.Signup(CurrentRosterID, formData);
+    const updatedUser = await rosterClient.Signup(activeRosterID, formData);
     setRosterParticipant(updatedUser);
     handleSuccess();
     setOpen(true);

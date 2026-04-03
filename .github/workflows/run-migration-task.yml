@@ -1,15 +1,14 @@
-name: 'Infrastructure Deployment'
+name: Run ECS Migration Task
 
 on:
-  push:
-    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  terraform:
-    name: 'Terraform'
+  run-migration-task:
+    name: Run Migration Task
     runs-on: ubuntu-latest
     environment: production
 
@@ -18,9 +17,6 @@ jobs:
         shell: bash
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
@@ -28,52 +24,7 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-west-2
 
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-
-      - name: Terraform Init
-        working-directory: terraform/
-        run: terraform init -backend-config "bucket=terraform-state-nilo2024" -backend-config "key=people-manager.tfstate"
-
-      - name: Terraform Format
-        working-directory: terraform/
-        run: terraform fmt
-
-      - name: Terraform Plan
-        working-directory: terraform/
-        env:
-          TF_VAR_docker_image_tag: ${{ github.sha }}
-          TF_VAR_migration_docker_image_tag: ${{ github.sha }}-migration
-          TF_VAR_GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
-          TF_VAR_GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
-          TF_VAR_JWT_SECRET: ${{ secrets.JWT_SECRET }}
-          TF_LOG: info
-        run: terraform plan
-
-      - name: Terraform Apply
-        working-directory: terraform/
-        env:
-          TF_VAR_docker_image_tag: ${{ github.sha }}
-          TF_VAR_migration_docker_image_tag: ${{ github.sha }}-migration
-          TF_VAR_GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
-          TF_VAR_GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
-          TF_VAR_JWT_SECRET: ${{ secrets.JWT_SECRET }}
-          TF_LOG: info
-        run: terraform apply -auto-approve
-
-      - name: Detect migration file changes
-        id: migration_changes
-        run: |
-          set -euo pipefail
-
-          if git diff --name-only "${{ github.event.before }}" "${{ github.sha }}" | rg '^packages/backend/migrations/'; then
-            echo "run_migrations=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "run_migrations=false" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Run ECS migration task
-        if: steps.migration_changes.outputs.run_migrations == 'true'
         run: |
           set -euo pipefail
 
@@ -85,13 +36,13 @@ jobs:
             --cluster "$CLUSTER_NAME" \
             --services "$SERVICE_NAME" \
             --query 'services[0].networkConfiguration.awsvpcConfiguration.subnets' \
-            --output json | jq -r 'join(",")')
+            --output text | tr '\t' ',')
 
           SECURITY_GROUPS=$(aws ecs describe-services \
             --cluster "$CLUSTER_NAME" \
             --services "$SERVICE_NAME" \
             --query 'services[0].networkConfiguration.awsvpcConfiguration.securityGroups' \
-            --output json | jq -r 'join(",")')
+            --output text | tr '\t' ',')
 
           ASSIGN_PUBLIC_IP=$(aws ecs describe-services \
             --cluster "$CLUSTER_NAME" \

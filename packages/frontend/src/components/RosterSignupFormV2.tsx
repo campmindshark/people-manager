@@ -18,6 +18,7 @@ import {
 import { DateTimePicker } from '@mui/x-date-pickers';
 import RosterParticipant from 'backend/models/roster_participant/roster_participant';
 import { CurrentUserSignupStatus } from '../state/store';
+import { ActiveRosterIDState } from '../state/roster';
 import { getFrontendConfig } from '../config/config';
 import BackendRosterClient from '../api/roster/roster';
 
@@ -78,11 +79,15 @@ function RosterSignupFormV2({ handleSuccess, rosterParticipant }: Props) {
   });
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const userSignupStatus = useRecoilValue(CurrentUserSignupStatus);
+  const activeRosterID = useRecoilValue(ActiveRosterIDState);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await rosterClient.Signup(2, formData as unknown as RosterParticipant);
+      await rosterClient.Signup(
+        activeRosterID,
+        formData as unknown as RosterParticipant,
+      );
       setSnackbarOpen(true);
       if (
         !userSignupStatus.hasCompletedPrivateProfile ||
