@@ -4,12 +4,24 @@ import Roster from '../models/roster/roster';
 import hasPermission from '../middleware/rbac';
 
 const router: Router = express.Router();
+const ActiveRosterSettingKey = 'active_roster_id';
+
+async function ensureActiveRosterSetting(): Promise<AppSetting | undefined> {
+  await AppSetting.query()
+    .insert({ key: ActiveRosterSettingKey, value: '2' })
+    .onConflict('key')
+    .ignore();
+
+  const setting = await AppSetting.query()
+    .where({ key: ActiveRosterSettingKey })
+    .first();
+
+  return setting;
+}
 
 router.get('/active-roster', async (_req: Request, res: Response) => {
   try {
-    const setting = await AppSetting.query()
-      .where({ key: 'active_roster_id' })
-      .first();
+    const setting = await ensureActiveRosterSetting();
 
     if (!setting) {
       return res.status(404).json({ error: 'Active roster setting not found' });
@@ -30,14 +42,15 @@ router.put(
   async (req: Request, res: Response) => {
     try {
       const { activeRosterID } = req.body;
+      const parsedActiveRosterID = parseInt(activeRosterID, 10);
 
-      if (!activeRosterID || Number.isNaN(parseInt(activeRosterID, 10))) {
+      if (Number.isNaN(parsedActiveRosterID)) {
         return res
           .status(400)
           .json({ error: 'Valid activeRosterID is required' });
       }
 
-      const rosterID = parseInt(activeRosterID, 10);
+      const rosterID = parsedActiveRosterID;
 
       const roster = await Roster.query().findById(rosterID);
       if (!roster) {
@@ -46,16 +59,10 @@ router.put(
           .json({ error: `Roster with ID ${rosterID} does not exist` });
       }
 
-      const updated = await AppSetting.query()
-        .where({ key: 'active_roster_id' })
-        .patch({ value: String(rosterID) })
-        .returning('*');
-
-      if (!updated) {
-        return res
-          .status(404)
-          .json({ error: 'Active roster setting not found' });
-      }
+      await AppSetting.query()
+        .insert({ key: ActiveRosterSettingKey, value: String(rosterID) })
+        .onConflict('key')
+        .merge({ value: String(rosterID) });
 
       return res.json({ activeRosterID: rosterID });
     } catch (error) {

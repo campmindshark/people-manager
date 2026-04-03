@@ -15,8 +15,28 @@ const settingsClient = new BackendSettingsClient(frontendConfig.BackendURL);
 const ActiveRosterIDDefault = selector<number>({
   key: 'activeRosterIDDefault',
   get: async () => {
-    const activeRosterID = await settingsClient.GetActiveRosterID();
-    return activeRosterID;
+    try {
+      const activeRosterID = await settingsClient.GetActiveRosterID();
+      return activeRosterID;
+    } catch (error) {
+      console.error(
+        'Failed to load active roster from settings API, falling back to latest roster by year:',
+        error,
+      );
+
+      const rosters = await rosterClient.GetAllRosters();
+      if (rosters.length === 0) {
+        throw new Error(
+          'No rosters found while resolving fallback active roster ID',
+        );
+      }
+
+      const fallbackRoster = rosters.reduce((latestRoster, roster) =>
+        roster.year > latestRoster.year ? roster : latestRoster,
+      );
+
+      return fallbackRoster.id;
+    }
   },
 });
 
