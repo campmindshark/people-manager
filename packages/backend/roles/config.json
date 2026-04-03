@@ -25,7 +25,8 @@
         "users:block",
         "users:readAll",
         "userVerification:edit",
-        "userVerification:readAll"
+        "userVerification:readAll",
+        "settings:edit"
       ]
     }
   ]
