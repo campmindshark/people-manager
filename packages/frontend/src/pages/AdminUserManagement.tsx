@@ -25,7 +25,7 @@ import Dashboard from '../layouts/dashboard/Dashboard';
 import PageState from '../state/store';
 import {
   CurrentRosterParticipantsDetailedState,
-  CurrentRosterID,
+  ActiveRosterIDState,
 } from '../state/roster';
 import BackendRosterClient from '../api/roster/roster';
 import { getFrontendConfig } from '../config/config';
@@ -36,6 +36,7 @@ const rosterClient = new BackendRosterClient(frontendConfig.BackendURL);
 export default function AdminUserManagement() {
   const setPageState = useSetRecoilState(PageState);
   const participants = useRecoilValue(CurrentRosterParticipantsDetailedState);
+  const activeRosterID = useRecoilValue(ActiveRosterIDState);
   const [selectedUsers, setSelectedUsers] = useState<number[]>([]);
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [userToRemove, setUserToRemove] = useState<number | null>(null);
@@ -73,7 +74,7 @@ export default function AdminUserManagement() {
     setLoading(true);
     setMessage(null);
     try {
-      await rosterClient.RemoveUserFromRoster(CurrentRosterID, userId);
+      await rosterClient.RemoveUserFromRoster(activeRosterID, userId);
       setMessage({ type: 'success', text: 'User removed successfully' });
       setConfirmDialogOpen(false);
       setUserToRemove(null);
@@ -92,7 +93,7 @@ export default function AdminUserManagement() {
     setMessage(null);
     try {
       const result = await rosterClient.RemoveUsersFromRoster(
-        CurrentRosterID,
+        activeRosterID,
         selectedUsers,
       );
       setMessage({

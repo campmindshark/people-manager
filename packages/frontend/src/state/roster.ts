@@ -1,4 +1,4 @@
-import { selector } from 'recoil';
+import { atom, selector } from 'recoil';
 import Roster from 'backend/models/roster/roster';
 import SignupStatus from 'backend/view_models/signup_status';
 import RosterParticipantViewModel, {
@@ -6,16 +6,30 @@ import RosterParticipantViewModel, {
 } from 'backend/view_models/roster_participant';
 import { getFrontendConfig } from '../config/config';
 import BackendRosterClient from '../api/roster/roster';
+import BackendSettingsClient from '../api/settings/client';
 
 const frontendConfig = getFrontendConfig();
 const rosterClient = new BackendRosterClient(frontendConfig.BackendURL);
+const settingsClient = new BackendSettingsClient(frontendConfig.BackendURL);
 
-export const CurrentRosterID = 2;
+const ActiveRosterIDDefault = selector<number>({
+  key: 'activeRosterIDDefault',
+  get: async () => {
+    const activeRosterID = await settingsClient.GetActiveRosterID();
+    return activeRosterID;
+  },
+});
+
+export const ActiveRosterIDState = atom<number>({
+  key: 'activeRosterID',
+  default: ActiveRosterIDDefault,
+});
 
 export const CurrentRosterState = selector<Roster>({
   key: 'currentRoster',
-  get: async () => {
-    const roster = await rosterClient.GetRosterByID(CurrentRosterID);
+  get: async ({ get }) => {
+    const activeRosterID = get(ActiveRosterIDState);
+    const roster = await rosterClient.GetRosterByID(activeRosterID);
     return roster;
   },
 });
