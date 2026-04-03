@@ -7,6 +7,15 @@ db-reset:
 	yarn db-migrate
 	yarn db-seed
 
+docker-dev:
+	docker compose up
+
+docker-dev-down:
+	docker compose down
+
+docker-dev-reset:
+	docker compose down -v
+
 docker-build:
 	docker build -f ./docker/Dockerfile -t people-manager-repo .
 
@@ -66,6 +75,9 @@ test-backend:
 
 test-frontend:
 	cd packages/frontend && yarn test --all
+
+test-integration-docker:
+	yarn test:integration:docker
 
 test: test-backend test-frontend
 
