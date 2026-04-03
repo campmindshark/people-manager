@@ -42,10 +42,10 @@
     "build": "react-app-rewired build",
     "test": "react-app-rewired test",
     "eject": "react-scripts eject",
-    "lint": "eslint \"**/*.{ts,tsx}\"",
+    "lint": "pnpx eslint@8.57.0 \"**/*.{ts,tsx}\"",
     "lint-fix": "prettier --check '**/*.{js,jsx,ts,tsx}' --config prettierrc.json --write",
-    "style": "prettier --check '**/*.{js,jsx,ts,tsx}' --config prettierrc.json",
-    "style-fix": "prettier --write --check '**/*.{js,jsx,ts,tsx}' --config prettierrc.json"
+    "style": "pnpx prettier --check '**/*.{js,jsx,ts,tsx}' --config prettierrc.json",
+    "style-fix": "pnpx prettier --write --check '**/*.{js,jsx,ts,tsx}' --config prettierrc.json"
   },
   "eslintConfig": {
     "extends": [
