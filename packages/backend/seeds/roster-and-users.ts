@@ -11,23 +11,6 @@ async function upsertRoster(
   }
 }
 
-async function upsertUser(
-  knex: Knex,
-  user: {
-    firstName: string;
-    lastName: string;
-    email: string;
-    googleID: string;
-  },
-): Promise<void> {
-  const existing = await knex('users')
-    .where({ googleID: user.googleID })
-    .first();
-  if (!existing) {
-    await knex('users').insert(user);
-  }
-}
-
 export async function seed(knex: Knex): Promise<void> {
   const startYear = 2024;
   const currentYear = new Date().getFullYear();
@@ -36,17 +19,4 @@ export async function seed(knex: Knex): Promise<void> {
     // eslint-disable-next-line no-await-in-loop
     await upsertRoster(knex, { id, year });
   }
-
-  await upsertUser(knex, {
-    firstName: 'John',
-    lastName: 'Doe',
-    email: 'john@gmail.com',
-    googleID: '123',
-  });
-  await upsertUser(knex, {
-    firstName: 'Jane',
-    lastName: 'Doe',
-    email: 'jane@gmail.com',
-    googleID: '124',
-  });
 }
