@@ -1,0 +1,76 @@
+name: Deploy Frontend to S3
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Git ref to deploy (commit SHA or tag)"
+        required: true
+        type: string
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: read
+
+jobs:
+  deploy-frontend:
+    name: Deploy Frontend
+    runs-on: ubuntu-latest
+    environment: production
+
+    env:
+      S3_BUCKET: people-manager-bucket-1
+      CLOUDFRONT_DISTRIBUTION_ID: EKQSELA6RXUSP
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.inputs.ref || github.ref }}
+
+      - name: Install Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: 21
+
+      - name: Install Tools
+        run: npm install -g pnpm eslint
+
+      - name: Install dependencies
+        run: |
+          cd packages/frontend
+          yarn install
+
+      - name: Style Check
+        run: |
+          cd packages/frontend
+          yarn style
+
+      - name: Lint
+        run: |
+          cd packages/frontend
+          yarn lint
+
+      - name: Build
+        run: |
+          cd packages/frontend
+          yarn build
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-west-2
+
+      - name: Upload to S3
+        run: aws s3 sync packages/frontend/build/ s3://$S3_BUCKET --delete
+
+      - name: Invalidate CloudFront cache
+        run: aws cloudfront create-invalidation --paths "/*" --distribution-id $CLOUDFRONT_DISTRIBUTION_ID
