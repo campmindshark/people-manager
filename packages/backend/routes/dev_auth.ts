@@ -1,11 +1,8 @@
 import express, { Request, Response, Router } from 'express';
-import Knex from 'knex';
 import User from '../models/user/user';
 import { getConfig } from '../config/config';
-import knexConfig from '../knexfile';
 
 const config = getConfig();
-const knex = Knex(knexConfig[config.Environment]);
 const router: Router = express.Router();
 
 const DEV_USERS: Record<
@@ -66,11 +63,11 @@ router.get('/login/:role', async (req: Request, res: Response) => {
     }
 
     if (devUser.isAdmin) {
-      const existingRole = await knex('user_roles')
+      const existingRole = await User.knex()('user_roles')
         .where({ userID: user.id, roleID: 1 })
         .first();
       if (!existingRole) {
-        await knex('user_roles').insert({ userID: user.id, roleID: 1 });
+        await User.knex()('user_roles').insert({ userID: user.id, roleID: 1 });
       }
     }
 
