@@ -76,6 +76,9 @@ test-backend:
 test-frontend:
 	cd packages/frontend && yarn test --all
 
+test-integration-docker:
+	yarn test:integration:docker
+
 test: test-backend test-frontend
 
 ci: lint style build test
