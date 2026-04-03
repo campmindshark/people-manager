@@ -1,19 +1,81 @@
-version: '3.9'
-
 services:
   postgres:
     image: postgres:14-alpine
     ports:
       - 5432:5432
     volumes:
-      - ~/apps/postgres:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
     user: postgres
     environment:
       - POSTGRES_PASSWORD=S3cret
       - POSTGRES_USER=citizix_user
       - POSTGRES_DB=citizix_db
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready"]
+      test: ["CMD-SHELL", "pg_isready -U citizix_user -d citizix_db"]
       interval: 10s
       timeout: 5s
       retries: 5
+
+  migrate:
+    image: node:20-alpine
+    working_dir: /app
+    volumes:
+      - .:/app
+      - node_modules:/app/node_modules
+      - backend_modules:/app/packages/backend/node_modules
+      - frontend_modules:/app/packages/frontend/node_modules
+    environment:
+      - POSTGRES_CONNECTION_URL=postgresql://citizix_user:S3cret@postgres:5432/citizix_db
+    command: sh -c "yarn install && yarn db-migrate && yarn db-seed"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  backend:
+    image: node:20-alpine
+    working_dir: /app
+    ports:
+      - 3001:3001
+    volumes:
+      - .:/app
+      - node_modules:/app/node_modules
+      - backend_modules:/app/packages/backend/node_modules
+      - frontend_modules:/app/packages/frontend/node_modules
+    environment:
+      - POSTGRES_CONNECTION_URL=postgresql://citizix_user:S3cret@postgres:5432/citizix_db
+      - NODE_ENV=development
+      - JWT_SECRET=local-dev-secret
+      - BACKEND_PORT=3001
+      - CORS_WHITELIST_CSV=http://localhost:3000
+      - GOOGLE_OAUTH_CLIENT_ID=${GOOGLE_OAUTH_CLIENT_ID:-placeholder}
+      - GOOGLE_OAUTH_CLIENT_SECRET=${GOOGLE_OAUTH_CLIENT_SECRET:-placeholder}
+      - DEV_AUTH_BYPASS=true
+    command: yarn backend-dev
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  frontend:
+    image: node:20-alpine
+    working_dir: /app
+    ports:
+      - 3000:3000
+    volumes:
+      - .:/app
+      - node_modules:/app/node_modules
+      - backend_modules:/app/packages/backend/node_modules
+      - frontend_modules:/app/packages/frontend/node_modules
+    environment:
+      - REACT_APP_BACKEND_URL=http://localhost:3001
+      - HOST=0.0.0.0
+      - BROWSER=none
+    command: yarn frontend-dev
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+volumes:
+  postgres_data:
+  node_modules:
+  backend_modules:
+  frontend_modules:

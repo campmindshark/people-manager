@@ -7,6 +7,15 @@ db-reset:
 	yarn db-migrate
 	yarn db-seed
 
+docker-dev:
+	docker compose up
+
+docker-dev-down:
+	docker compose down
+
+docker-dev-reset:
+	docker compose down -v
+
 docker-build:
 	docker build -f ./docker/Dockerfile -t people-manager-repo .
 
