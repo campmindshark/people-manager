@@ -11,7 +11,7 @@ Yarn workspaces monorepo for Camp Mindshark's member portal. Backend API (Expres
 - All changes go through a PR — never push directly to main
 - Use the PR template at `.github/pull_request_template.md`
 - Always use newlines at the end of files
-- Don't add Claude as a co-author
+- Don't add Claude or Cursor as a co-author
 
 ## Code Quality
 
