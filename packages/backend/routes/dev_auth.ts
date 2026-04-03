@@ -5,30 +5,9 @@ import { getConfig } from '../config/config';
 const config = getConfig();
 const router: Router = express.Router();
 
-const DEV_USERS: Record<
-  string,
-  {
-    googleID: string;
-    firstName: string;
-    lastName: string;
-    email: string;
-    isAdmin: boolean;
-  }
-> = {
-  admin: {
-    googleID: 'dev-admin',
-    firstName: 'Dev',
-    lastName: 'Admin',
-    email: 'dev-admin@localhost',
-    isAdmin: true,
-  },
-  standard: {
-    googleID: 'dev-user',
-    firstName: 'Dev',
-    lastName: 'User',
-    email: 'dev-user@localhost',
-    isAdmin: false,
-  },
+const DEV_GOOGLE_IDS: Record<string, string> = {
+  admin: 'dev-admin',
+  standard: 'dev-user',
 };
 
 router.get('/status', (_req: Request, res: Response) => {
@@ -42,33 +21,20 @@ router.get('/login/:role', async (req: Request, res: Response) => {
   }
 
   const { role } = req.params;
-  const devUser = DEV_USERS[role];
-  if (!devUser) {
+  const googleID = DEV_GOOGLE_IDS[role];
+  if (!googleID) {
     res.status(400).json({ error: 'Invalid role. Use "admin" or "standard".' });
     return;
   }
 
   try {
-    let user = await User.query().where('googleID', devUser.googleID).first();
+    const user = await User.query().where('googleID', googleID).first();
 
     if (!user) {
-      user = await User.query().insert({
-        googleID: devUser.googleID,
-        firstName: devUser.firstName,
-        lastName: devUser.lastName,
-        email: devUser.email,
-        phoneNumber: '555-0100',
-        location: 'Local Dev',
+      res.status(404).json({
+        error: `Dev user "${role}" not found. Run seeds first: yarn db-seed`,
       });
-    }
-
-    if (devUser.isAdmin) {
-      const existingRole = await User.knex()('user_roles')
-        .where({ userID: user.id, roleID: 1 })
-        .first();
-      if (!existingRole) {
-        await User.knex()('user_roles').insert({ userID: user.id, roleID: 1 });
-      }
+      return;
     }
 
     req.login(user, (err) => {
