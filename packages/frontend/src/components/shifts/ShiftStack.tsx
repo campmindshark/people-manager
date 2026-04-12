@@ -48,7 +48,13 @@ export default function ShiftStack(props: Props) {
   const generateShiftBlocks = () => {
     const shiftBlocks: JSX.Element[] = [];
 
-    const lastEndTime = new Date('08/24/2024 00:00:00');
+    if (shiftViewModels.length === 0) {
+      return shiftBlocks;
+    }
+
+    const firstShift = Shift.fromJson(shiftViewModels[0].shift);
+    const lastEndTime = new Date(firstShift.startTime);
+    lastEndTime.setHours(0, 0, 0, 0);
     for (let index = 0; index < shiftViewModels.length; index += 1) {
       const shift = Shift.fromJson(shiftViewModels[index].shift);
       const differenceBetweenStartTimes =
