@@ -5,6 +5,12 @@ import hasPermission from '../middleware/rbac';
 
 const router: Router = express.Router();
 const ActiveRosterSettingKey = 'active_roster_id';
+const EssentialMindSharkURLSettingKey = 'essential_mindshark_url';
+const DefaultEssentialMindSharkURL = 'https://rb.gy/zmxncc';
+
+interface FrontendLinksResponse {
+  essentialMindSharkURL: string;
+}
 
 async function ensureActiveRosterSetting(): Promise<AppSetting | undefined> {
   await AppSetting.query()
@@ -17,6 +23,18 @@ async function ensureActiveRosterSetting(): Promise<AppSetting | undefined> {
     .first();
 
   return setting;
+}
+
+async function ensureFrontendLinkSetting(
+  key: string,
+  defaultValue: string,
+): Promise<AppSetting | undefined> {
+  await AppSetting.query()
+    .insert({ key, value: defaultValue })
+    .onConflict('key')
+    .ignore();
+
+  return AppSetting.query().where({ key }).first();
 }
 
 router.get('/active-roster', async (_req: Request, res: Response) => {
@@ -70,6 +88,75 @@ router.put(
       return res
         .status(500)
         .json({ error: 'Failed to update active roster setting' });
+    }
+  },
+);
+
+router.get('/frontend-links', async (_req: Request, res: Response) => {
+  try {
+    const essentialMindSharkURLSetting = await ensureFrontendLinkSetting(
+      EssentialMindSharkURLSettingKey,
+      DefaultEssentialMindSharkURL,
+    );
+
+    if (!essentialMindSharkURLSetting) {
+      return res
+        .status(404)
+        .json({ error: 'Frontend link settings not found' });
+    }
+
+    const response: FrontendLinksResponse = {
+      essentialMindSharkURL: essentialMindSharkURLSetting.value,
+    };
+
+    return res.json(response);
+  } catch (error) {
+    console.error('Error fetching frontend link settings:', error);
+    return res.status(500).json({ error: 'Failed to fetch frontend links' });
+  }
+});
+
+router.put(
+  '/frontend-links',
+  hasPermission('settings:edit'),
+  async (req: Request, res: Response) => {
+    try {
+      const { essentialMindSharkURL } = req.body as FrontendLinksResponse;
+      const normalizedEssentialMindSharkURL = essentialMindSharkURL?.trim();
+
+      if (!normalizedEssentialMindSharkURL) {
+        return res.status(400).json({
+          error: 'A valid essentialMindSharkURL is required',
+        });
+      }
+
+      try {
+        const parsedURL = new URL(normalizedEssentialMindSharkURL);
+        if (!['http:', 'https:'].includes(parsedURL.protocol)) {
+          throw new Error('Unsupported URL protocol');
+        }
+      } catch {
+        return res.status(400).json({
+          error: 'A valid essentialMindSharkURL is required',
+        });
+      }
+
+      await AppSetting.query()
+        .insert({
+          key: EssentialMindSharkURLSettingKey,
+          value: normalizedEssentialMindSharkURL,
+        })
+        .onConflict('key')
+        .merge({ value: normalizedEssentialMindSharkURL });
+
+      const response: FrontendLinksResponse = {
+        essentialMindSharkURL: normalizedEssentialMindSharkURL,
+      };
+
+      return res.json(response);
+    } catch (error) {
+      console.error('Error updating frontend link settings:', error);
+      return res.status(500).json({ error: 'Failed to update frontend links' });
     }
   },
 );

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useRecoilValue } from 'recoil';
 import {
   Box,
@@ -18,12 +18,15 @@ import {
 import { DateTimePicker } from '@mui/x-date-pickers';
 import RosterParticipant from 'backend/models/roster_participant/roster_participant';
 import { CurrentUserSignupStatus } from '../state/store';
-import { ActiveRosterIDState } from '../state/roster';
+import { ActiveRosterIDState, CurrentRosterState } from '../state/roster';
 import { getFrontendConfig } from '../config/config';
 import BackendRosterClient from '../api/roster/roster';
+import BackendSettingsClient from '../api/settings/client';
 
 const frontendConfig = getFrontendConfig();
 const rosterClient = new BackendRosterClient(frontendConfig.BackendURL);
+const settingsClient = new BackendSettingsClient(frontendConfig.BackendURL);
+const DefaultEssentialMindSharkURL = 'https://rb.gy/zmxncc';
 
 interface Props {
   handleSuccess: () => void;
@@ -47,10 +50,6 @@ interface RosterParticipantFormData {
   agreesToParticipateInShifts: boolean;
   agreesToPayDues: boolean;
 }
-
-const YEARS_AT_CAMP_OPTIONS = [
-  2013, 2014, 2015, 2016, 2017, 2018, 2019, 2022, 2023, 2024,
-];
 
 function RosterSignupFormV2({ handleSuccess, rosterParticipant }: Props) {
   const [formData, setFormData] = useState<RosterParticipantFormData>({
@@ -78,8 +77,36 @@ function RosterSignupFormV2({ handleSuccess, rosterParticipant }: Props) {
     agreesToPayDues: rosterParticipant.agreesToPayDues || false,
   });
   const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [essentialMindSharkURL, setEssentialMindSharkURL] = useState(
+    DefaultEssentialMindSharkURL,
+  );
   const userSignupStatus = useRecoilValue(CurrentUserSignupStatus);
   const activeRosterID = useRecoilValue(ActiveRosterIDState);
+  const currentRoster = useRecoilValue(CurrentRosterState);
+
+  const yearsAtCampOptions = useMemo(() => {
+    const firstMindSharkYear = 2013;
+    const excludedYears = new Set([2020]);
+    const lastCampYear = currentRoster.year - 1;
+
+    if (lastCampYear < firstMindSharkYear) {
+      return [];
+    }
+
+    return Array.from(
+      { length: lastCampYear - firstMindSharkYear + 1 },
+      (_, index) => firstMindSharkYear + index,
+    ).filter((year) => !excludedYears.has(year));
+  }, [currentRoster.year]);
+
+  useEffect(() => {
+    settingsClient
+      .GetFrontendLinks()
+      .then((links) => setEssentialMindSharkURL(links.essentialMindSharkURL))
+      .catch((error) =>
+        console.error('Failed to load frontend link settings:', error),
+      );
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -190,9 +217,12 @@ function RosterSignupFormV2({ handleSuccess, rosterParticipant }: Props) {
               type="number"
               label="How many years have you attended the burn? *"
               required
-              value={formData.yearsAttended || ''}
+              value={formData.yearsAttended ?? ''}
               onChange={(e) =>
-                handleChange('yearsAttended', parseInt(e.target.value, 10))
+                handleChange(
+                  'yearsAttended',
+                  e.target.value === '' ? 0 : parseInt(e.target.value, 10) || 0,
+                )
               }
             />
           </Grid>
@@ -203,7 +233,7 @@ function RosterSignupFormV2({ handleSuccess, rosterParticipant }: Props) {
                 How many years have you camped with MindShark?
               </FormLabel>
               <FormGroup>
-                {YEARS_AT_CAMP_OPTIONS.map((year) => (
+                {yearsAtCampOptions.map((year) => (
                   <FormControlLabel
                     key={year}
                     control={
@@ -348,12 +378,12 @@ function RosterSignupFormV2({ handleSuccess, rosterParticipant }: Props) {
                 <>
                   I have read the essential MindShark. (
                   <a
-                    href="https://rb.gy/zmxncc"
+                    href={essentialMindSharkURL}
                     target="_blank"
                     rel="noopener noreferrer"
                     style={{ color: '#1976d2', textDecoration: 'underline' }}
                   >
-                    https://rb.gy/zmxncc
+                    {essentialMindSharkURL}
                   </a>
                   ) *
                 </>

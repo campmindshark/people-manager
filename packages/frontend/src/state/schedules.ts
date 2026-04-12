@@ -11,11 +11,8 @@ const CurrentRosterScheduleState = selector<Schedule[]>({
   key: 'currentRosterScheduleState',
   get: async ({ get }) => {
     const roster = get(CurrentRosterState);
-    console.log(
-      `we should eventually only load schedules for a specific roster ${roster.id}`,
-    );
-    const participants = await scheduleClient.GetAllSchedules();
-    return participants;
+    const schedules = await scheduleClient.GetAllSchedules();
+    return schedules.filter((schedule) => schedule.rosterID === roster.id);
   },
 });
 
