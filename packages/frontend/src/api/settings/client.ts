@@ -5,6 +5,10 @@ interface ActiveRosterResponse {
   activeRosterID: number;
 }
 
+export interface FrontendLinksResponse {
+  essentialMindSharkURL: string;
+}
+
 export default class BackendSettingsClient {
   baseApiURL: string;
 
@@ -27,5 +31,24 @@ export default class BackendSettingsClient {
       defaultRequestConfig,
     );
     return data.activeRosterID;
+  }
+
+  async GetFrontendLinks(): Promise<FrontendLinksResponse> {
+    const { data } = await axios.get<FrontendLinksResponse>(
+      `${this.baseApiURL}/api/settings/frontend-links`,
+      defaultRequestConfig,
+    );
+    return data;
+  }
+
+  async SetFrontendLinks(
+    frontendLinks: FrontendLinksResponse,
+  ): Promise<FrontendLinksResponse> {
+    const { data } = await axios.put<FrontendLinksResponse>(
+      `${this.baseApiURL}/api/settings/frontend-links`,
+      frontendLinks,
+      defaultRequestConfig,
+    );
+    return data;
   }
 }
