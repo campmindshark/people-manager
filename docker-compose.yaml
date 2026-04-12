@@ -26,6 +26,7 @@ services:
       - frontend_modules:/app/packages/frontend/node_modules
     environment:
       - POSTGRES_CONNECTION_URL=postgresql://citizix_user:S3cret@postgres:5432/citizix_db
+      - NODE_ENV=development
     command: sh -c "yarn install && yarn db-migrate && yarn db-seed"
     depends_on:
       postgres:

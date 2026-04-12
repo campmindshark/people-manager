@@ -15,4 +15,8 @@ async function upsertSetting(
 
 export async function seed(knex: Knex): Promise<void> {
   await upsertSetting(knex, { key: 'active_roster_id', value: '2' });
+  await upsertSetting(knex, {
+    key: 'essential_mindshark_url',
+    value: 'https://rb.gy/zmxncc',
+  });
 }

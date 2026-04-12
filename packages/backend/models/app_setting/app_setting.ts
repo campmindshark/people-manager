@@ -16,7 +16,7 @@ export default class AppSetting extends Model {
     properties: {
       id: { type: 'integer' },
       key: { type: 'string', minLength: 1, maxLength: 255 },
-      value: { type: 'string', minLength: 1, maxLength: 255 },
+      value: { type: 'string', minLength: 1, maxLength: 2048 },
     },
   };
 }

@@ -10,6 +10,7 @@ import {
   MenuItem,
   Alert,
   Button,
+  TextField,
   Table,
   TableBody,
   TableCell,
@@ -30,6 +31,7 @@ import { getFrontendConfig } from '../config/config';
 const frontendConfig = getFrontendConfig();
 const rosterClient = new BackendRosterClient(frontendConfig.BackendURL);
 const settingsClient = new BackendSettingsClient(frontendConfig.BackendURL);
+const DefaultEssentialMindSharkURL = 'https://rb.gy/zmxncc';
 
 const currentYear = new Date().getFullYear();
 
@@ -38,6 +40,9 @@ export default function ManageRosters() {
   const [activeRosterID, setActiveRosterID] =
     useRecoilState(ActiveRosterIDState);
   const [rosters, setRosters] = useState<Roster[]>([]);
+  const [essentialMindSharkURL, setEssentialMindSharkURL] = useState(
+    DefaultEssentialMindSharkURL,
+  );
   const [message, setMessage] = useState<{
     type: 'success' | 'error';
     text: string;
@@ -52,6 +57,12 @@ export default function ManageRosters() {
 
   useEffect(() => {
     rosterClient.GetAllRosters().then(setRosters).catch(console.error);
+    settingsClient
+      .GetFrontendLinks()
+      .then((links) => setEssentialMindSharkURL(links.essentialMindSharkURL))
+      .catch((error) =>
+        console.error('Failed to load frontend link settings:', error),
+      );
   }, []);
 
   const currentYearRosterExists = rosters.some(
@@ -89,6 +100,23 @@ export default function ManageRosters() {
       setMessage({
         type: 'error',
         text: `Failed to create roster: ${error}`,
+      });
+    }
+  };
+
+  const handleSaveFrontendLinks = async () => {
+    try {
+      await settingsClient.SetFrontendLinks({
+        essentialMindSharkURL,
+      });
+      setMessage({
+        type: 'success',
+        text: 'Frontend link settings updated successfully.',
+      });
+    } catch (error) {
+      setMessage({
+        type: 'error',
+        text: `Failed to update frontend links: ${error}`,
       });
     }
   };
@@ -169,6 +197,31 @@ export default function ManageRosters() {
                   </TableBody>
                 </Table>
               </TableContainer>
+            </Paper>
+          </Grid>
+          <Grid item xs={12}>
+            <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column' }}>
+              <h1>Frontend Links</h1>
+              <Typography sx={{ mb: 2 }}>
+                Update links used in frontend user-facing forms.
+              </Typography>
+              <TextField
+                label="Essential MindShark URL"
+                value={essentialMindSharkURL}
+                onChange={(event) =>
+                  setEssentialMindSharkURL(event.target.value)
+                }
+                fullWidth
+                sx={{ maxWidth: 800, mb: 2 }}
+              />
+              <Button
+                variant="contained"
+                onClick={handleSaveFrontendLinks}
+                disabled={!essentialMindSharkURL.trim()}
+                sx={{ alignSelf: 'flex-start' }}
+              >
+                Save Frontend Links
+              </Button>
             </Paper>
           </Grid>
         </Grid>
