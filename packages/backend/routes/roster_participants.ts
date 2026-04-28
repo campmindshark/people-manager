@@ -1,8 +1,11 @@
 import express, { Request, Response, Router } from 'express';
 import { DateTime } from 'luxon';
+import { ValidationError } from 'objection';
 import User from '../models/user/user';
+import Roster from '../models/roster/roster';
 import RosterParticipant from '../models/roster_participant/roster_participant';
 import hasPermission from '../middleware/rbac';
+import { assertYearsAtCampWithinRoster } from '../utils/campYears';
 
 const router: Router = express.Router();
 
@@ -44,9 +47,30 @@ router.post('/:id', async (req: Request, res: Response) => {
   const user = req.user as User;
   const proposedRosterParticipant: RosterParticipant = req.body;
 
+  const rosterID = parseInt(req.params.id, 10);
+  if (Number.isNaN(rosterID)) {
+    res.status(400).json({ error: 'Invalid roster ID' });
+    return;
+  }
+
+  const roster = await Roster.query().findById(rosterID);
+  if (!roster) {
+    res.status(404).json({ error: 'Roster not found' });
+    return;
+  }
+
+  const yearsValidation = assertYearsAtCampWithinRoster(
+    proposedRosterParticipant.yearsAtCamp,
+    roster.year,
+  );
+  if (!yearsValidation.valid) {
+    res.status(400).json({ error: yearsValidation.error });
+    return;
+  }
+
   const signupScope = {
     userID: user.id,
-    rosterID: req.params.id,
+    rosterID,
   };
 
   const checkCurrent = await RosterParticipant.query().where(signupScope);
@@ -66,35 +90,41 @@ router.post('/:id', async (req: Request, res: Response) => {
     .toUTC()
     .toJSDate();
 
-  if (checkCurrent.length > 0) {
-    delete req.body.id;
-    await RosterParticipant.query()
-      .where(signupScope)
-      .patch({
-        ...req.body,
-        estimatedArrivalDate: parsedArrivalDate,
-        estimatedDepartureDate: parsedDepartureDate,
-        yearsAtCamp: JSON.stringify(proposedRosterParticipant.yearsAtCamp),
-      });
+  try {
+    if (checkCurrent.length > 0) {
+      delete req.body.id;
+      await RosterParticipant.query()
+        .where(signupScope)
+        .patch({
+          ...req.body,
+          estimatedArrivalDate: parsedArrivalDate,
+          estimatedDepartureDate: parsedDepartureDate,
+        });
 
-    const rosterParticipant = await RosterParticipant.query().findById(
-      checkCurrent[0].id,
-    );
+      const rosterParticipant = await RosterParticipant.query().findById(
+        checkCurrent[0].id,
+      );
+
+      res.json(rosterParticipant);
+      return;
+    }
+
+    const rosterParticipant = await RosterParticipant.query().insert({
+      ...req.body,
+      estimatedArrivalDate: parsedArrivalDate,
+      estimatedDepartureDate: parsedDepartureDate,
+      userID: user.id,
+      rosterID,
+    });
 
     res.json(rosterParticipant);
-    return;
+  } catch (error) {
+    if (error instanceof ValidationError) {
+      res.status(400).json({ error: error.message, details: error.data });
+      return;
+    }
+    throw error;
   }
-
-  const rosterParticipant = await RosterParticipant.query().insert({
-    ...req.body,
-    estimatedArrivalDate: parsedArrivalDate,
-    estimatedDepartureDate: parsedDepartureDate,
-    yearsAtCamp: JSON.stringify(proposedRosterParticipant.yearsAtCamp),
-    userID: user.id,
-    rosterID: req.params.id,
-  });
-
-  res.json(rosterParticipant);
 });
 
 /* DELETE remove user from roster (admin only). */

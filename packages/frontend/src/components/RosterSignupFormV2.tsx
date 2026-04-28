@@ -17,6 +17,7 @@ import {
 } from '@mui/material';
 import { DateTimePicker } from '@mui/x-date-pickers';
 import RosterParticipant from 'backend/models/roster_participant/roster_participant';
+import { getCampYearsOptions } from 'backend/utils/campYears';
 import { CurrentUserSignupStatus } from '../state/store';
 import { ActiveRosterIDState, CurrentRosterState } from '../state/roster';
 import { getFrontendConfig } from '../config/config';
@@ -85,18 +86,7 @@ function RosterSignupFormV2({ handleSuccess, rosterParticipant }: Props) {
   const currentRoster = useRecoilValue(CurrentRosterState);
 
   const yearsAtCampOptions = useMemo(() => {
-    const firstMindSharkYear = 2013;
-    const excludedYears = new Set([2020]);
-    const lastCampYear = currentRoster.year - 1;
-
-    if (lastCampYear < firstMindSharkYear) {
-      return [];
-    }
-
-    return Array.from(
-      { length: lastCampYear - firstMindSharkYear + 1 },
-      (_, index) => firstMindSharkYear + index,
-    ).filter((year) => !excludedYears.has(year));
+    return getCampYearsOptions(currentRoster.year);
   }, [currentRoster.year]);
 
   useEffect(() => {
