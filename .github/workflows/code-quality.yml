@@ -1,63 +1,55 @@
 name: Code Quality and Styles
 
 on:
+  pull_request:
   push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   code-quality-and-style:
     strategy:
+      fail-fast: false
       matrix:
         project:
-          - packages/backend
-          - packages/frontend
+          - frontend
+          - backend
 
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Install Node.js
-        uses: actions/setup-node@v2
+        uses: actions/setup-node@v4
         with:
-          node-version: 21
+          node-version: 22
+          cache: 'yarn'
 
-      - name: Install Tools
-        run: |
-          echo "Installing tools..."
-          npm install -g pnpm eslint
+      # pnpm is needed because `lint`/`style` scripts use `pnpx` to pin the
+      # eslint/prettier version. eslint is intentionally NOT installed
+      # globally; `pnpx eslint@8.57.0` fetches the pinned version itself.
+      # Pinned to v9 because (a) `pnpx` was deprecated and removed from
+      # later versions, and (b) leaving it unpinned silently drifts on
+      # every CI run.
+      - name: Install pnpm
+        run: npm install -g pnpm@9
 
       - name: Install dependencies
-        run: |
-          echo "Installing dependencies..."
-          cd ${{ matrix.project }}
-          yarn install
+        run: yarn install --frozen-lockfile
 
       - name: Style Check
-        run: |
-          echo "Running style check..."
-          cd ${{ matrix.project }}
-          yarn style
+        run: yarn workspace ${{ matrix.project }} style
 
       - name: Lint
-        run: |
-          echo "Running lint..."
-          cd ${{ matrix.project }}
-          yarn lint
+        run: yarn workspace ${{ matrix.project }} lint
 
       - name: Build
-        run: |
-          echo "Running build..."
-          cd ${{ matrix.project }}
-          yarn build
-
-      #      - name: Test
-      #        run: |
-      #          cd ${{ matrix.project }}
-      #          yarn test --all
-
-      - name: Clean up
-        run: |
-          echo "Cleaning up..."
-          cd ${{ matrix.project }}
-          rm -f eslint-report.json
+        run: yarn workspace ${{ matrix.project }} build
