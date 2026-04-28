@@ -85,9 +85,10 @@ function RosterSignupFormV2({ handleSuccess, rosterParticipant }: Props) {
   const activeRosterID = useRecoilValue(ActiveRosterIDState);
   const currentRoster = useRecoilValue(CurrentRosterState);
 
-  const yearsAtCampOptions = useMemo(() => {
-    return getCampYearsOptions(currentRoster.year);
-  }, [currentRoster.year]);
+  const yearsAtCampOptions = useMemo(
+    () => getCampYearsOptions(currentRoster.year),
+    [currentRoster.year],
+  );
 
   useEffect(() => {
     settingsClient
