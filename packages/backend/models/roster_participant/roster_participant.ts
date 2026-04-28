@@ -1,6 +1,7 @@
 import { Model } from 'objection';
 import { RJSFSchema, UiSchema } from '@rjsf/utils';
 import User from '../user/user';
+import { FIRST_MINDSHARK_YEAR } from '../../utils/campYears';
 
 export default class RosterParticipant extends Model {
   id!: number;
@@ -42,6 +43,11 @@ export default class RosterParticipant extends Model {
   // Table name is the only required property.
   static tableName = 'roster_participants';
 
+  // Tells Objection these columns hold JSON; serialized on write, parsed on
+  // read. Required so jsonSchema can validate yearsAtCamp as an array (rather
+  // than after a manual JSON.stringify in the route).
+  static jsonAttributes = ['yearsAtCamp'];
+
   // Optional JSON schema. This is not the database schema! Nothing is generated
   // based on this. This is only used for validation. Whenever a model instance
   // is created it is checked against this schema. http://json-schema.org/.
@@ -56,6 +62,15 @@ export default class RosterParticipant extends Model {
 
     properties: {
       id: { type: 'integer' },
+      yearsAtCamp: {
+        type: 'array',
+        uniqueItems: true,
+        items: {
+          type: 'integer',
+          minimum: FIRST_MINDSHARK_YEAR,
+          not: { const: 2020 },
+        },
+      },
     },
   };
 
