@@ -99,7 +99,8 @@ packages/
 
 ## CI/CD
 
-- `code-quality.yml` — lint, style, build (tests currently commented out)
-- `docker-build-push.yml` — builds and pushes app image to Docker Hub on main
-- `docker-build-push-migration.yml` — builds and pushes migration image on main
-- `terraform.yml` — terraform plan + apply on main
+- `code-quality.yml` — lint, style, build on PRs and pushes to main (tests currently commented out)
+- `deploy.yml` — on push to main: builds and pushes app + migration images to Docker Hub, then runs `terraform apply`, then runs the ECS migration task if migrations changed (jobs are sequenced via `needs:` so Terraform never references an unpushed image tag)
+- `deploy-frontend.yml` — on tag `v*.*.*` (or `workflow_dispatch`): builds and uploads the frontend to S3 + invalidates CloudFront
+- `destroy.yml` — manual `workflow_dispatch`: tears down the Terraform-managed infrastructure
+- `run-migration-task.yml` — manual `workflow_dispatch`: runs the ECS migration task on demand

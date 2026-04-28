@@ -1,14 +1,22 @@
-FROM node:20-alpine as builder
+FROM node:20-alpine
 
-# Create app directory
 WORKDIR /usr/src/app
 
-RUN apk update && apk add bash curl
+RUN apk add --no-cache bash curl
 
 RUN mkdir -p /usr/local/certs/ca-certificates
-RUN curl -ks 'https://truststore.pki.rds.amazonaws.com/us-west-2/us-west-2-bundle.pem' -o '/usr/local/certs/ca-certificates/us-west-2-bundle.pem'
+RUN curl -fsSL 'https://truststore.pki.rds.amazonaws.com/us-west-2/us-west-2-bundle.pem' -o '/usr/local/certs/ca-certificates/us-west-2-bundle.pem'
 
-# Install app dependencies
-COPY . .
+# Copy only manifests first so the install layer is cached as long as
+# package.json and yarn.lock don't change. Source-only changes (the common
+# case) reuse the install layer below.
+COPY package.json yarn.lock ./
+COPY packages/backend/package.json packages/backend/
+COPY packages/frontend/package.json packages/frontend/
 
-RUN yarn install
+RUN yarn install --frozen-lockfile
+
+# Migrations are TypeScript and run via knex CLI, which needs ts-node +
+# typescript at runtime, so we keep all deps. We only need the backend's
+# source however; the frontend source is never executed here.
+COPY packages/backend ./packages/backend

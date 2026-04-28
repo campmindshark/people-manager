@@ -14,6 +14,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   deploy-frontend:
     name: Deploy Frontend
@@ -31,42 +35,26 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           ref: ${{ github.event.inputs.ref || github.ref }}
 
       - name: Install Node.js
-        uses: actions/setup-node@v2
+        uses: actions/setup-node@v4
         with:
-          node-version: 21
-
-      - name: Install Tools
-        run: npm install -g pnpm eslint
+          node-version: 22
+          cache: 'yarn'
 
       - name: Install dependencies
-        run: |
-          cd packages/frontend
-          yarn install
-
-      - name: Style Check
-        run: |
-          cd packages/frontend
-          yarn style
-
-      - name: Lint
-        run: |
-          cd packages/frontend
-          yarn lint
+        run: yarn install --frozen-lockfile
 
       - name: Build
-        run: |
-          cd packages/frontend
-          yarn build
+        run: yarn workspace frontend build
         env:
           NODE_ENV: production
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v2
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}

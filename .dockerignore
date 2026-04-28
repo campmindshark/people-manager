@@ -3,3 +3,13 @@ terraform
 .vscode
 .git
 .cache
+
+node_modules
+**/node_modules
+**/build
+**/dist
+
+*.log
+.env
+.env.*
+!.env.example
