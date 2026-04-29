@@ -18,6 +18,11 @@ import {
 import { DateTimePicker } from '@mui/x-date-pickers';
 import RosterParticipant from 'backend/models/roster_participant/roster_participant';
 import { getCampYearsOptions } from 'backend/utils/campYears';
+import {
+  formatBurnDateLabel,
+  getBurnDates,
+  getDateTimePickerBounds,
+} from 'backend/utils/burnDates';
 import { CurrentUserSignupStatus } from '../state/store';
 import { ActiveRosterIDState, CurrentRosterState } from '../state/roster';
 import { getFrontendConfig } from '../config/config';
@@ -89,6 +94,17 @@ function RosterSignupFormV2({ handleSuccess, rosterParticipant }: Props) {
     () => getCampYearsOptions(currentRoster.year),
     [currentRoster.year],
   );
+
+  const burnInfo = useMemo(() => {
+    const dates = getBurnDates(currentRoster.year);
+    const bounds = getDateTimePickerBounds(currentRoster.year);
+    return {
+      bounds,
+      gatesLabel: formatBurnDateLabel(dates.gatesOpen),
+      eaLabel: formatBurnDateLabel(dates.earlyArrivalStart),
+      templeLabel: formatBurnDateLabel(dates.templeBurn),
+    };
+  }, [currentRoster.year]);
 
   useEffect(() => {
     settingsClient
@@ -259,11 +275,19 @@ function RosterSignupFormV2({ handleSuccess, rosterParticipant }: Props) {
                 handleChange('estimatedArrivalDate', date)
               }
               timezone="America/Los_Angeles"
+              minDateTime={burnInfo.bounds.arrivalMin}
+              maxDateTime={burnInfo.bounds.arrivalMax}
               slotProps={{
                 textField: {
                   fullWidth: true,
                   required: true,
-                  helperText: 'Gates open Sunday, August 24th',
+                  helperText: (
+                    <>
+                      Gates open {burnInfo.gatesLabel}
+                      <br />
+                      EA begins {burnInfo.eaLabel}
+                    </>
+                  ),
                 },
               }}
             />
@@ -281,11 +305,15 @@ function RosterSignupFormV2({ handleSuccess, rosterParticipant }: Props) {
                 handleChange('estimatedDepartureDate', date)
               }
               timezone="America/Los_Angeles"
+              minDateTime={
+                formData.estimatedArrivalDate ?? burnInfo.bounds.arrivalMin
+              }
+              maxDateTime={burnInfo.bounds.departureMaxEnd}
               slotProps={{
                 textField: {
                   fullWidth: true,
                   required: true,
-                  helperText: 'Temple burns Sunday, August 31st',
+                  helperText: `Temple burns ${burnInfo.templeLabel}`,
                 },
               }}
             />
