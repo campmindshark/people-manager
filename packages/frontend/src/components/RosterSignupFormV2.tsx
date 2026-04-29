@@ -264,8 +264,8 @@ function RosterSignupFormV2({ handleSuccess, rosterParticipant }: Props) {
                           const newYears = e.target.checked
                             ? [...(formData.yearsAtCamp || []), year]
                             : (formData.yearsAtCamp || []).filter(
-                              (y) => y !== year,
-                            );
+                                (y) => y !== year,
+                              );
                           handleChange('yearsAtCamp', newYears);
                         }}
                       />
