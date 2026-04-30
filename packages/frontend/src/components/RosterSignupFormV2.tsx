@@ -16,9 +16,11 @@ import {
   Snackbar,
 } from '@mui/material';
 import { DateTimePicker } from '@mui/x-date-pickers';
+import { DateTime } from 'luxon';
 import RosterParticipant from 'backend/models/roster_participant/roster_participant';
 import { getCampYearsOptions } from 'backend/utils/campYears';
 import {
+  BM_TIMEZONE,
   formatBurnDateLabel,
   getBurnDates,
   getDateTimePickerBounds,
@@ -33,6 +35,12 @@ const frontendConfig = getFrontendConfig();
 const rosterClient = new BackendRosterClient(frontendConfig.BackendURL);
 const settingsClient = new BackendSettingsClient(frontendConfig.BackendURL);
 const DefaultEssentialMindSharkURL = 'https://rb.gy/zmxncc';
+
+const toDT = (d: Date | null): DateTime | null =>
+  d ? DateTime.fromJSDate(d).setZone(BM_TIMEZONE) : null;
+
+const fromDT = (dt: DateTime | null): Date | null =>
+  dt && dt.isValid ? dt.toJSDate() : null;
 
 interface Props {
   handleSuccess: () => void;
@@ -99,7 +107,13 @@ function RosterSignupFormV2({ handleSuccess, rosterParticipant }: Props) {
     const dates = getBurnDates(currentRoster.year);
     const bounds = getDateTimePickerBounds(currentRoster.year);
     return {
-      bounds,
+      bounds: {
+        arrivalMin: DateTime.fromJSDate(bounds.arrivalMin).setZone(BM_TIMEZONE),
+        arrivalMax: DateTime.fromJSDate(bounds.arrivalMax).setZone(BM_TIMEZONE),
+        departureMaxEnd: DateTime.fromJSDate(bounds.departureMaxEnd).setZone(
+          BM_TIMEZONE,
+        ),
+      },
       gatesLabel: formatBurnDateLabel(dates.gatesOpen),
       eaLabel: formatBurnDateLabel(dates.earlyArrivalStart),
       templeLabel: formatBurnDateLabel(dates.templeBurn),
@@ -266,15 +280,11 @@ function RosterSignupFormV2({ handleSuccess, rosterParticipant }: Props) {
           <Grid item xs={12} sm={6}>
             <DateTimePicker
               label="When do you plan to arrive? *"
-              value={
-                formData.estimatedArrivalDate
-                  ? new Date(formData.estimatedArrivalDate)
-                  : null
+              value={toDT(formData.estimatedArrivalDate)}
+              onChange={(dt: DateTime | null) =>
+                handleChange('estimatedArrivalDate', fromDT(dt))
               }
-              onChange={(date: Date | null) =>
-                handleChange('estimatedArrivalDate', date)
-              }
-              timezone="America/Los_Angeles"
+              timezone={BM_TIMEZONE}
               minDateTime={burnInfo.bounds.arrivalMin}
               maxDateTime={burnInfo.bounds.arrivalMax}
               slotProps={{
@@ -296,17 +306,14 @@ function RosterSignupFormV2({ handleSuccess, rosterParticipant }: Props) {
           <Grid item xs={12} sm={6}>
             <DateTimePicker
               label="When do you plan to depart? *"
-              value={
-                formData.estimatedDepartureDate
-                  ? new Date(formData.estimatedDepartureDate)
-                  : null
+              value={toDT(formData.estimatedDepartureDate)}
+              onChange={(dt: DateTime | null) =>
+                handleChange('estimatedDepartureDate', fromDT(dt))
               }
-              onChange={(date: Date | null) =>
-                handleChange('estimatedDepartureDate', date)
-              }
-              timezone="America/Los_Angeles"
+              timezone={BM_TIMEZONE}
               minDateTime={
-                formData.estimatedArrivalDate ?? burnInfo.bounds.arrivalMin
+                toDT(formData.estimatedArrivalDate) ??
+                burnInfo.bounds.arrivalMin
               }
               maxDateTime={burnInfo.bounds.departureMaxEnd}
               slotProps={{

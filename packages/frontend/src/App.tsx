@@ -3,7 +3,7 @@ import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { LocalizationProvider } from '@mui/x-date-pickers';
-import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 import './App.css';
 import Admin from './pages/Admin';
 import AdminUserManagement from './pages/AdminUserManagement';
@@ -129,7 +129,7 @@ const router = createBrowserRouter([
 export default function App() {
   return (
     <ThemeProvider theme={mdTheme}>
-      <LocalizationProvider dateAdapter={AdapterDateFns}>
+      <LocalizationProvider dateAdapter={AdapterLuxon}>
         <CssBaseline />
         <RouterProvider router={router} fallbackElement={<p>Loading...</p>} />
       </LocalizationProvider>
