@@ -43,14 +43,22 @@ export default function ShiftDetailDialog(props: Props) {
   const appUser = useRecoilValue(UserState);
 
   const handleShiftSignup = useCallback(async () => {
-    const _ = await shiftClient.SignUpForShift(shiftViewModel.shift.id);
+    if (shiftViewModel.chorePlanStatus) {
+      await shiftClient.EditChoreSignup([shiftViewModel.shift.id], []);
+    } else {
+      await shiftClient.SignUpForShift(shiftViewModel.shift.id);
+    }
     setTimeout(() => {
       refreshSchedules();
     }, 200);
   }, [shiftViewModel, refreshSchedules]);
 
   const handleShiftUnregister = useCallback(async () => {
-    const _ = await shiftClient.UnregisterFromShift(shiftViewModel.shift.id);
+    if (shiftViewModel.chorePlanStatus) {
+      await shiftClient.EditChoreSignup([], [shiftViewModel.shift.id]);
+    } else {
+      await shiftClient.UnregisterFromShift(shiftViewModel.shift.id);
+    }
     setTimeout(() => {
       refreshSchedules();
     }, 200);
@@ -94,6 +102,15 @@ export default function ShiftDetailDialog(props: Props) {
       shiftViewModel,
       appUser.id,
     );
+    if (!shiftViewModel.signupOpen) {
+      return (
+        <Typography>
+          {shiftViewModel.signupRestrictionReason ??
+            'Signup for this chore plan is not open yet.'}
+        </Typography>
+      );
+    }
+
     if (isSignedUpForThisShift) {
       return (
         <Button autoFocus variant="contained" onClick={handleShiftUnregister}>
