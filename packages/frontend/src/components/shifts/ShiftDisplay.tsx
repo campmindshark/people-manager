@@ -400,7 +400,7 @@ export function SignupSlots({
                     key={`${shift.key}|admin-slot-${index}`}
                     title={
                       assignmentDisabled
-                        ? adminAssignmentDisabledReason ?? ''
+                        ? (adminAssignmentDisabledReason ?? '')
                         : ''
                     }
                   >
@@ -505,7 +505,7 @@ export function SignupSlots({
             <Tooltip
               describeChild
               key={`${shift.key}|slot-${index}`}
-              title={slotDisabled ? selectionDisabledReason ?? '' : ''}
+              title={slotDisabled ? (selectionDisabledReason ?? '') : ''}
             >
               <span className="signup-sheet-slot-tooltip">
                 <button

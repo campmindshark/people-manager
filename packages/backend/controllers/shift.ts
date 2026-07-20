@@ -79,8 +79,7 @@ interface ChorePlanSignupRow {
 }
 
 interface ChorePlanShiftSignupRow
-  extends ShiftTimeRange,
-    ChorePlanRequirementColumns {
+  extends ShiftTimeRange, ChorePlanRequirementColumns {
   id: number;
   requiredParticipants: number;
   chorePlanID: number;
@@ -1764,7 +1763,7 @@ export default class ShiftController {
           participants,
           signupOpen: planSignupOpen && groupGateOpen,
           chorePlanStatus: schedule.chorePlanID
-            ? statusByPlanID.get(Number(schedule.chorePlanID)) ?? null
+            ? (statusByPlanID.get(Number(schedule.chorePlanID)) ?? null)
             : null,
           signupRestrictionReason,
           signupConflictShiftIDs,
