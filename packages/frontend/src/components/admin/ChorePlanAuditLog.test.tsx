@@ -40,6 +40,12 @@ test('renders actor and audit description', () => {
 
   expect(screen.getByText('Opened chore signups.')).toBeInTheDocument();
   expect(screen.getByText(/Leslie Knope/)).toBeInTheDocument();
+  expect(
+    screen.getByRole('region', { name: 'Change history entries' }),
+  ).toHaveStyle({
+    maxHeight: '400px',
+    overflowY: 'auto',
+  });
 });
 
 test('describes an admin shift unassignment', () => {

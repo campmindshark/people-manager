@@ -174,7 +174,14 @@ export default function ChorePlanAuditLog({
         Administrative changes to this roster&apos;s chore schedules, newest
         first.
       </Typography>
-      {content}
+      <Box
+        role="region"
+        aria-label="Change history entries"
+        tabIndex={entries.length > 0 ? 0 : undefined}
+        sx={{ maxHeight: 400, overflowY: 'auto', pr: 1 }}
+      >
+        {content}
+      </Box>
     </Paper>
   );
 }
