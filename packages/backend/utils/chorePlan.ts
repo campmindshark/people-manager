@@ -9,7 +9,7 @@ import { BM_TIMEZONE, getBurnDates } from './burnDates';
 
 const SCORE_TABS: Record<ChorePlanKind, string> = {
   chore: 'Chore template (One day)',
-  event: 'Event template (One day)',
+  event: 'Event scores table (Week)',
   dinner: 'Dinner scores table (Week)',
 };
 
@@ -30,7 +30,12 @@ interface ScoreSheetData {
   dinners: ChoreScoreRow[];
 }
 
-interface AllocatedSlot extends ChoreScoreRow {
+interface PlanningScoreRow extends ChoreScoreRow {
+  calendarDay?: number;
+}
+
+interface AllocatedSlot extends PlanningScoreRow {
+  calendarDay: number;
   day: number;
   groupKey: string;
   slotOrder: number;
@@ -165,8 +170,12 @@ export function scoreRowsFromCSV(csv: string): ChoreScoreRow[] {
 
 async function fetchText(url: string): Promise<string> {
   const response = await fetch(url, {
+    cache: 'no-store',
     redirect: 'follow',
-    headers: { 'User-Agent': 'people-manager-chore-planner' },
+    headers: {
+      'Cache-Control': 'no-cache',
+      'User-Agent': 'people-manager-chore-planner',
+    },
   });
   if (!response.ok) {
     throw new Error(
@@ -181,10 +190,11 @@ export async function fetchScoreSheet(
 ): Promise<ScoreSheetData> {
   const sheetID = parseGoogleSheetID(sourceUrl);
   const pageURL = `https://docs.google.com/spreadsheets/d/${sheetID}/edit`;
+  const cacheBuster = Date.now();
   const csvURL = (tab: string) =>
     `https://docs.google.com/spreadsheets/d/${sheetID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(
       tab,
-    )}`;
+    )}&cacheBuster=${cacheBuster}`;
 
   const [page, choreCSV, eventCSV, dinnerCSV] = await Promise.all([
     fetchText(pageURL),
@@ -209,6 +219,14 @@ export async function fetchScoreSheet(
   const chores = parseTab(SCORE_TABS.chore, choreCSV);
   const events = parseTab(SCORE_TABS.event, eventCSV);
   const dinners = parseTab(SCORE_TABS.dinner, dinnerCSV);
+  if (
+    events.some((row) => row.day !== undefined) &&
+    events.some((row) => !row.day)
+  ) {
+    throw new Error(
+      `“${SCORE_TABS.event}” needs a recognizable Day value on every row.`,
+    );
+  }
   if (dinners.some((row) => !row.day)) {
     throw new Error(
       `“${SCORE_TABS.dinner}” needs a recognizable Day value on every row.`,
@@ -232,13 +250,25 @@ export function allocateChoreSlots(
   kind: ChorePlanKind,
   days = 7,
 ): { selected: AllocatedSlot[]; shortage: number } {
-  const templates = new Map<string, ChoreScoreRow[]>();
-  rows.forEach((row) => {
+  const fullWeekEvent =
+    kind === 'event' &&
+    rows.length > 0 &&
+    rows.every((row) => row.day !== undefined);
+  let planningRows: PlanningScoreRow[] = rows;
+  if (fullWeekEvent) {
+    // The parser is a function declaration and is safely hoisted.
+    // eslint-disable-next-line @typescript-eslint/no-use-before-define
+    planningRows = normalizeEventWeekRows(rows);
+  }
+  const templates = new Map<string, PlanningScoreRow[]>();
+  planningRows.forEach((row) => {
     let key = row.shift;
     if (kind === 'dinner') {
       key = `${row.day ?? 0}|${row.timePeriod ?? ''}|${row.shift}`;
     } else if (kind === 'event') {
-      key = `${row.periodOrder ?? 0}|${row.timePeriod ?? ''}|${row.shift}`;
+      key = `${fullWeekEvent ? `${row.day ?? 0}|` : ''}${
+        row.periodOrder ?? 0
+      }|${row.timePeriod ?? ''}|${row.shift}`;
     }
     const group = templates.get(key) ?? [];
     group.push(row);
@@ -248,10 +278,19 @@ export function allocateChoreSlots(
   const groups: AllocationGroup[] = [];
   const addGroup = (
     templateKey: string,
-    templateRows: ChoreScoreRow[],
+    templateRows: PlanningScoreRow[],
     day: number,
+    calendarDay = day,
   ) => {
-    const groupKey = kind === 'dinner' ? templateKey : `${day}|${templateKey}`;
+    let groupKey = `${day}|${templateKey}`;
+    if (kind === 'dinner') {
+      groupKey = templateKey;
+    } else if (kind === 'event') {
+      const first = templateRows[0];
+      groupKey = `${day}|${first?.periodOrder ?? 0}|${
+        first?.timePeriod ?? ''
+      }|${first?.shift ?? ''}`;
+    }
     groups.push({
       day,
       sourceOrder: templateRows[0]?.sourceOrder ?? 0,
@@ -259,20 +298,34 @@ export function allocateChoreSlots(
       slots: templateRows.map((row, slotOrder) => ({
         ...row,
         day,
+        calendarDay: row.calendarDay ?? calendarDay,
         slotOrder,
         groupKey,
       })),
     });
   };
 
-  if (kind === 'dinner') {
+  if (kind === 'dinner' || fullWeekEvent) {
     templates.forEach((templateRows, templateKey) => {
-      addGroup(templateKey, templateRows, templateRows[0]?.day ?? 0);
+      const first = templateRows[0];
+      addGroup(templateKey, templateRows, first?.day ?? 0, first?.calendarDay);
     });
   } else {
+    let eventDayOffsets = new Map<number, number>();
+    if (kind === 'event') {
+      // The parser is a function declaration and is safely hoisted.
+      // eslint-disable-next-line @typescript-eslint/no-use-before-define
+      eventDayOffsets = eventPeriodDayOffsets(rows);
+    }
     for (let day = 1; day <= days; day += 1) {
       templates.forEach((templateRows, templateKey) => {
-        addGroup(templateKey, templateRows, day);
+        const periodOrder = templateRows[0]?.periodOrder ?? 0;
+        addGroup(
+          templateKey,
+          templateRows,
+          day,
+          day + (eventDayOffsets.get(periodOrder) ?? 0),
+        );
       });
     }
   }
@@ -346,10 +399,153 @@ function hour24(clock: ParsedClock): number {
   return (clock.hour % 12) + (clock.marker === 'PM' ? 12 : 0);
 }
 
+function timePeriodStart(value: string): ParsedClock | null {
+  const rangeMatch = value.trim().match(/^(.+?)\s*-\s*(.+)$/);
+  return parseClock(rangeMatch?.[1] ?? value);
+}
+
+// Legacy one-day event rows represent one displayed day in period order. When
+// the clock wraps, later periods belong to the next calendar day without moving
+// to the next row.
+function eventPeriodDayOffsets(rows: ChoreScoreRow[]): Map<number, number> {
+  const periodStarts = new Map<number, number>();
+
+  rows.forEach((row) => {
+    if (
+      !Number.isInteger(row.periodOrder) ||
+      row.periodOrder === undefined ||
+      row.periodOrder < 1
+    ) {
+      throw new Error(
+        'Event score rows need a positive Period order label value.',
+      );
+    }
+    const startClock = timePeriodStart(row.timePeriod ?? '');
+    if (!startClock) {
+      throw new Error(
+        `Could not understand the time period “${row.timePeriod ?? ''}”.`,
+      );
+    }
+    const startMinutes = hour24(startClock) * 60 + startClock.minute;
+    const existingStart = periodStarts.get(row.periodOrder);
+    if (existingStart !== undefined && existingStart !== startMinutes) {
+      throw new Error(
+        `Event period ${row.periodOrder} has conflicting start times.`,
+      );
+    }
+    periodStarts.set(row.periodOrder, startMinutes);
+  });
+
+  const offsets = new Map<number, number>();
+  let dayOffset = 0;
+  let previousStart: number | undefined;
+  [...periodStarts.entries()]
+    .sort(([firstOrder], [secondOrder]) => firstOrder - secondOrder)
+    .forEach(([periodOrder, startMinutes]) => {
+      if (previousStart !== undefined && startMinutes < previousStart) {
+        dayOffset += 1;
+      }
+      offsets.set(periodOrder, dayOffset);
+      previousStart = startMinutes;
+    });
+  return offsets;
+}
+
+interface EventWeekPeriod {
+  calendarDay: number;
+  displayDay: number;
+  displayStart: number;
+}
+
+function normalizeEventWeekRows(rows: ChoreScoreRow[]): PlanningScoreRow[] {
+  const periodValues = new Map<number, { day: number; startMinutes: number }>();
+
+  rows.forEach((row) => {
+    if (
+      !Number.isInteger(row.periodOrder) ||
+      row.periodOrder === undefined ||
+      row.periodOrder < 1
+    ) {
+      throw new Error(
+        'Event score rows need a positive Period order label value.',
+      );
+    }
+    if (
+      !Number.isInteger(row.day) ||
+      row.day === undefined ||
+      row.day < 1 ||
+      row.day > 7
+    ) {
+      throw new Error('Event score rows need a recognizable Day value.');
+    }
+    const startClock = timePeriodStart(row.timePeriod ?? '');
+    if (!startClock) {
+      throw new Error(
+        `Could not understand the time period “${row.timePeriod ?? ''}”.`,
+      );
+    }
+    const startMinutes = hour24(startClock) * 60 + startClock.minute;
+    const existing = periodValues.get(row.periodOrder);
+    if (
+      existing &&
+      (existing.day !== row.day || existing.startMinutes !== startMinutes)
+    ) {
+      throw new Error(
+        `Event period ${row.periodOrder} has conflicting day or time values.`,
+      );
+    }
+    periodValues.set(row.periodOrder, { day: row.day, startMinutes });
+  });
+
+  const periods = new Map<number, EventWeekPeriod>();
+  let calendarWeekOffset = 0;
+  let previousDay: number | undefined;
+  [...periodValues.entries()]
+    .sort(([firstOrder], [secondOrder]) => firstOrder - secondOrder)
+    .forEach(([periodOrder, { day, startMinutes }]) => {
+      if (previousDay !== undefined && day < previousDay) {
+        calendarWeekOffset += 7;
+      }
+      const overnight = startMinutes < 6 * 60;
+      periods.set(periodOrder, {
+        calendarDay: day + calendarWeekOffset,
+        displayDay: overnight ? ((day + 5) % 7) + 1 : day,
+        displayStart: startMinutes + (overnight ? 24 * 60 : 0),
+      });
+      previousDay = day;
+    });
+
+  const displayOrderByStart = new Map(
+    [...new Set([...periods.values()].map(({ displayStart }) => displayStart))]
+      .sort((first, second) => first - second)
+      .map((displayStart, index) => [displayStart, index + 1]),
+  );
+
+  return rows.map((row) => {
+    const period = periods.get(row.periodOrder ?? 0);
+    if (!period) {
+      throw new Error(
+        `Event period ${row.periodOrder ?? 0} could not be normalized.`,
+      );
+    }
+    const displayOrder = displayOrderByStart.get(period.displayStart);
+    if (displayOrder === undefined) {
+      throw new Error(
+        `Event period ${row.periodOrder ?? 0} could not be ordered.`,
+      );
+    }
+    return {
+      ...row,
+      calendarDay: period.calendarDay,
+      day: period.displayDay,
+      periodOrder: displayOrder,
+    };
+  });
+}
+
 function shiftTimes(
   year: number,
   day: number,
-  kind: ChorePlanKind,
   timePeriod: string,
 ): { startTime: string; endTime: string } {
   const gatesOpen = DateTime.fromJSDate(getBurnDates(year).gatesOpen).setZone(
@@ -364,17 +560,13 @@ function shiftTimes(
     if (!startClock || !endClock) {
       throw new Error(`Could not understand the time period “${timePeriod}”.`);
     }
-    const afterMidnightOffset =
-      kind === 'event' && startClock.marker === 'AM' && hour24(startClock) < 8
-        ? 1
-        : 0;
-    const start = baseDay.plus({ days: afterMidnightOffset }).set({
+    const start = baseDay.set({
       hour: hour24(startClock),
       minute: startClock.minute,
       second: 0,
       millisecond: 0,
     });
-    let end = baseDay.plus({ days: afterMidnightOffset }).set({
+    let end = baseDay.set({
       hour: hour24(endClock),
       minute: endClock.minute,
       second: 0,
@@ -424,7 +616,8 @@ function buildShiftPreviews(
     if (!timePeriod) {
       throw new Error(`“${first.shift}” needs a Time or Time Period value.`);
     }
-    const times = shiftTimes(year, first.day, kind, timePeriod);
+    const periodOrder = first.periodOrder ?? 0;
+    const times = shiftTimes(year, first.calendarDay, timePeriod);
     const start = DateTime.fromISO(times.startTime).setZone(BM_TIMEZONE);
     return {
       key,
@@ -432,9 +625,11 @@ function buildShiftPreviews(
       kind,
       scheduleName: first.shift,
       day: first.day,
-      dayLabel: start.toFormat('cccc, LLL d'),
+      dayLabel: start
+        .minus({ days: first.calendarDay - first.day })
+        .toFormat('cccc, LLL d'),
       timePeriod,
-      periodOrder: first.periodOrder ?? 0,
+      periodOrder,
       ...times,
       requiredParticipants: group.length,
       totalScore: group.reduce((total, slot) => total + slot.score, 0),
