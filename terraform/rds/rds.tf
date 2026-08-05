@@ -24,9 +24,9 @@ resource "aws_security_group" "rds" {
   }
 }
 resource "aws_db_instance" "people_manager_postgres" {
-  identifier             = "${var.project_name}-db"
-  instance_class         = "db.t3.micro"
-  allocated_storage      = 5
+  identifier                 = "${var.project_name}-db"
+  instance_class             = "db.t3.micro"
+  allocated_storage          = 5
   engine                     = "postgres"
   engine_version             = "15"
   auto_minor_version_upgrade = true
