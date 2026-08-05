@@ -33,7 +33,10 @@ export default function AllParticipantUserSignupStateTable() {
             <TableCell>Public Profile</TableCell>
             <TableCell>Private Profile</TableCell>
             <TableCell>Paid Dues</TableCell>
-            <TableCell>Shift Count</TableCell>
+            <TableCell>Chore</TableCell>
+            <TableCell>Event</TableCell>
+            <TableCell>Dinner</TableCell>
+            <TableCell>Requirement exception</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
@@ -49,7 +52,16 @@ export default function AllParticipantUserSignupStateTable() {
                 {generateIcon(status.hasCompletedPrivateProfile)}
               </TableCell>
               <TableCell>{generateIcon(status.hasPaidDues)}</TableCell>
-              <TableCell>{status.shiftCount}</TableCell>
+              <TableCell>
+                {status.choreShiftCount}/{status.requirements.chore}
+              </TableCell>
+              <TableCell>
+                {status.eventShiftCount}/{status.requirements.event}
+              </TableCell>
+              <TableCell>
+                {status.dinnerShiftCount}/{status.requirements.dinner}
+              </TableCell>
+              <TableCell>{status.requirementExceptionReason ?? '—'}</TableCell>
             </TableRow>
           ))}
         </TableBody>

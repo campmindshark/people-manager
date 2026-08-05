@@ -137,6 +137,15 @@ export default class User extends Model {
     return `${this.firstName} ${this.lastName}`;
   }
 
+  shiftSignupName(): string {
+    const firstName = this.firstName.trim();
+    const lastInitial = this.lastName.trim().slice(0, 1);
+    const realName = `${firstName}${lastInitial ? ` ${lastInitial}.` : ''}`;
+    const playaName = this.playaName?.trim();
+
+    return playaName ? `${playaName} (${realName})` : realName;
+  }
+
   hasCompletedProfile(): boolean {
     return (
       this.firstName !== '' &&

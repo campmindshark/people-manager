@@ -15,6 +15,8 @@ import AuthenticatedPage from './components/AuthenticatedPage';
 import Roster from './pages/Roster';
 import Shifts from './pages/Shifts';
 import ManageRosters from './pages/ManageRosters';
+import AdminChorePlanner from './pages/AdminChorePlanner';
+import FinalAssignments from './pages/FinalAssignments';
 
 const mdTheme = createTheme({
   palette: {
@@ -89,6 +91,16 @@ const router = createBrowserRouter([
     },
   },
   {
+    path: '/admin/chore-planner',
+    Component() {
+      return (
+        <AuthenticatedPage>
+          <AdminChorePlanner />
+        </AuthenticatedPage>
+      );
+    },
+  },
+  {
     path: '/login',
     Component() {
       return <Login />;
@@ -120,6 +132,16 @@ const router = createBrowserRouter([
       return (
         <AuthenticatedPage>
           <Shifts />
+        </AuthenticatedPage>
+      );
+    },
+  },
+  {
+    path: '/assignments',
+    Component() {
+      return (
+        <AuthenticatedPage>
+          <FinalAssignments />
         </AuthenticatedPage>
       );
     },

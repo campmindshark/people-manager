@@ -1,11 +1,51 @@
 import express, { Request, Response, NextFunction, Router } from 'express';
 import Shift from '../models/shift/shift';
 import User from '../models/user/user';
-import ShiftController from '../controllers/shift';
+import ShiftController, {
+  ShiftParticipantAssignment,
+} from '../controllers/shift';
 import hasPermission from '../middleware/rbac';
 import userIsVerified from '../middleware/verified_user';
+import ShiftSignupError from '../utils/shiftSignupError';
 
 const router: Router = express.Router();
+
+function sendShiftAssignmentError(error: unknown, res: Response): void {
+  if (error instanceof ShiftSignupError) {
+    res.status(error.status).json({ error: error.message });
+    return;
+  }
+  console.error('Failed to update shift assignments:', error);
+  res.status(500).json({ error: 'Failed to update shift assignments.' });
+}
+
+function parseParticipantAssignment(
+  value: unknown,
+): ShiftParticipantAssignment | null {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+  const { shiftID, userID } = value as {
+    shiftID?: unknown;
+    userID?: unknown;
+  };
+  if (
+    !Number.isInteger(shiftID) ||
+    Number(shiftID) < 1 ||
+    !Number.isInteger(userID) ||
+    Number(userID) < 1
+  ) {
+    return null;
+  }
+  return { shiftID: Number(shiftID), userID: Number(userID) };
+}
+
+function parseForce(value: unknown): boolean | null {
+  if (value === undefined) {
+    return false;
+  }
+  return typeof value === 'boolean' ? value : null;
+}
 
 /* GET Shift(s). */
 router.get(
@@ -72,9 +112,244 @@ router.post(
   },
 );
 
+/* Move one selected participant to another shift. */
+router.post(
+  '/reassign',
+  hasPermission('shifts:swap'),
+  async (req: Request, res: Response) => {
+    const {
+      source,
+      destinationShiftID,
+      force: requestedForce,
+    } = req.body as {
+      source?: unknown;
+      destinationShiftID?: unknown;
+      force?: unknown;
+    };
+    const parsedSource = parseParticipantAssignment(source);
+    const force = parseForce(requestedForce);
+    if (
+      !parsedSource ||
+      !Number.isInteger(destinationShiftID) ||
+      Number(destinationShiftID) < 1 ||
+      force === null
+    ) {
+      res.status(400).json({
+        error:
+          'source, destinationShiftID, and an optional boolean force flag are required.',
+      });
+      return;
+    }
+
+    try {
+      const user = req.user as User;
+      const result = await ShiftController.ReassignShiftParticipants(
+        [
+          {
+            userID: parsedSource.userID,
+            sourceShiftID: parsedSource.shiftID,
+            destinationShiftID: Number(destinationShiftID),
+          },
+        ],
+        user.id,
+        force,
+      );
+      res.json(result);
+    } catch (error) {
+      sendShiftAssignmentError(error, res);
+    }
+  },
+);
+
+/* Remove one selected participant from a generated chore-plan shift. */
+router.post(
+  '/unassign',
+  hasPermission('shifts:swap'),
+  async (req: Request, res: Response) => {
+    const { assignment } = req.body as { assignment?: unknown };
+    const parsedAssignment = parseParticipantAssignment(assignment);
+    if (!parsedAssignment) {
+      res.status(400).json({
+        error: 'assignment with valid shiftID and userID values is required.',
+      });
+      return;
+    }
+
+    try {
+      const user = req.user as User;
+      const result = await ShiftController.UnassignShiftParticipant(
+        parsedAssignment,
+        user.id,
+      );
+      res.json(result);
+    } catch (error) {
+      sendShiftAssignmentError(error, res);
+    }
+  },
+);
+
+/* Add one roster participant to an open generated chore-plan shift. */
+router.post(
+  '/assign',
+  hasPermission('shifts:swap'),
+  async (req: Request, res: Response) => {
+    const { assignment } = req.body as { assignment?: unknown };
+    const parsedAssignment = parseParticipantAssignment(assignment);
+    if (!parsedAssignment) {
+      res.status(400).json({
+        error: 'assignment with valid shiftID and userID values is required.',
+      });
+      return;
+    }
+
+    try {
+      const user = req.user as User;
+      const result = await ShiftController.AssignShiftParticipant(
+        parsedAssignment,
+        user.id,
+      );
+      res.json(result);
+    } catch (error) {
+      sendShiftAssignmentError(error, res);
+    }
+  },
+);
+
+/* Swap two selected participants between their current shifts. */
+router.post(
+  '/swap',
+  hasPermission('shifts:swap'),
+  async (req: Request, res: Response) => {
+    const { assignments, force: requestedForce } = req.body as {
+      assignments?: unknown;
+      force?: unknown;
+    };
+    const force = parseForce(requestedForce);
+    if (!Array.isArray(assignments) || assignments.length !== 2) {
+      res.status(400).json({ error: 'Select exactly two people to swap.' });
+      return;
+    }
+    const parsedAssignments = assignments.map(parseParticipantAssignment);
+    if (parsedAssignments.some((assignment) => !assignment) || force === null) {
+      res.status(400).json({
+        error:
+          'Each assignment needs valid shiftID and userID values and force must be boolean.',
+      });
+      return;
+    }
+
+    try {
+      const user = req.user as User;
+      const [first, second] = parsedAssignments as [
+        ShiftParticipantAssignment,
+        ShiftParticipantAssignment,
+      ];
+      const result = await ShiftController.ReassignShiftParticipants(
+        [
+          {
+            userID: first.userID,
+            sourceShiftID: first.shiftID,
+            destinationShiftID: second.shiftID,
+          },
+          {
+            userID: second.userID,
+            sourceShiftID: second.shiftID,
+            destinationShiftID: first.shiftID,
+          },
+        ],
+        user.id,
+        force,
+      );
+      res.json(result);
+    } catch (error) {
+      sendShiftAssignmentError(error, res);
+    }
+  },
+);
+
+/* Atomically replace one chore-plan shift for the current user. */
+router.post(
+  '/change',
+  userIsVerified(),
+  async (req: Request, res: Response) => {
+    const user = req.user as User;
+    const { currentShiftID, replacementShiftID } = req.body as {
+      currentShiftID?: unknown;
+      replacementShiftID?: unknown;
+    };
+
+    try {
+      const result = await ShiftController.ChangeParticipantChorePlanShift(
+        Number(currentShiftID),
+        Number(replacementShiftID),
+        user.id,
+      );
+      res.json(result);
+    } catch (error) {
+      sendShiftAssignmentError(error, res);
+    }
+  },
+);
+
+/* Atomically add and remove chore-plan signups for the current user. */
+router.patch(
+  '/chore-signup',
+  userIsVerified(),
+  async (req: Request, res: Response) => {
+    const user = req.user as User;
+    const { addShiftIDs, removeShiftIDs } = req.body as {
+      addShiftIDs?: unknown;
+      removeShiftIDs?: unknown;
+    };
+    if (!Array.isArray(addShiftIDs) || !Array.isArray(removeShiftIDs)) {
+      res.status(400).json({
+        error: 'addShiftIDs and removeShiftIDs must be arrays.',
+      });
+      return;
+    }
+
+    try {
+      const result = await ShiftController.EditParticipantChorePlanSignups(
+        addShiftIDs.map(Number),
+        removeShiftIDs.map(Number),
+        user.id,
+      );
+      res.json(result);
+    } catch (error) {
+      sendShiftAssignmentError(error, res);
+    }
+  },
+);
+
+/* Confirm selected chore-plan shifts for the current user. */
+router.post(
+  '/signup',
+  userIsVerified(),
+  async (req: Request, res: Response) => {
+    const user = req.user as User;
+    const { shiftIDs } = req.body as { shiftIDs?: unknown };
+    if (!Array.isArray(shiftIDs)) {
+      res.status(400).json({ error: 'shiftIDs must be an array.' });
+      return;
+    }
+
+    try {
+      const result =
+        await ShiftController.RegisterParticipantForChorePlanShifts(
+          shiftIDs.map(Number),
+          user.id,
+        );
+      res.json(result);
+    } catch (error) {
+      sendShiftAssignmentError(error, res);
+    }
+  },
+);
+
 /* Sign up for a shift with the current user. */
-router.get(
+router.post(
   '/:id/signup',
+  userIsVerified(),
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
@@ -88,22 +363,22 @@ router.get(
 
     console.log(`Signing up user ${user.id} for shift ${id}`);
 
-    const success = await ShiftController.RegisterParticipantForShift(
-      parseInt(id, 10),
-      user.id,
-    );
-
-    if (!success) {
-      res.status(500).json({ error: 'Failed to register user for shift' });
-      return;
+    try {
+      const result = await ShiftController.RegisterParticipantForShift(
+        parseInt(id, 10),
+        user.id,
+      );
+      res.json(result);
+    } catch (error) {
+      sendShiftAssignmentError(error, res);
     }
-    res.json({ success: true });
   },
 );
 
-/* Unregister the current user from a specific shift. */
-router.get(
-  '/:id/unregister',
+/* Unregister the current user from a legacy, non-chore-plan shift. */
+router.delete(
+  '/:id/signup',
+  userIsVerified(),
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
@@ -116,17 +391,15 @@ router.get(
 
     console.log(`Unregister user ${user.id} from shift ${id}`);
 
-    const success = await ShiftController.UnregisterParticipantFromShift(
-      parseInt(id, 10),
-      user.id,
-    );
-
-    if (!success) {
-      res.status(500).json({ error: 'Failed to unregister user from shift' });
-      return;
+    try {
+      await ShiftController.UnregisterParticipantFromShift(
+        parseInt(id, 10),
+        user.id,
+      );
+      res.json({ success: true });
+    } catch (error) {
+      sendShiftAssignmentError(error, res);
     }
-
-    res.json({ success: true });
   },
 );
 

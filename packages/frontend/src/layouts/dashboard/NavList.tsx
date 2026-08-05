@@ -11,12 +11,13 @@ import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import HomeIcon from '@mui/icons-material/Home';
 import CelebrationIcon from '@mui/icons-material/Celebration';
 import SettingsIcon from '@mui/icons-material/Settings';
+import PlaylistAddCheckIcon from '@mui/icons-material/PlaylistAddCheck';
+import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import List from '@mui/material/List';
 import Divider from '@mui/material/Divider';
 import { Link } from 'react-router-dom';
 import { useRecoilValue } from 'recoil';
 import PageState, { MyRolesState } from '../../state/store';
-import { UserCanSignupForShifts } from '../../state/users';
 
 interface MenuItemLinkData {
   text: string;
@@ -39,6 +40,13 @@ const mainLinks: MenuItemLinkData[] = [
     index: 'shifts',
     icon: <CelebrationIcon />,
     path: '/shifts',
+    needsRole: [],
+  },
+  {
+    text: 'Assignments',
+    index: 'final-assignments',
+    icon: <CalendarMonthIcon />,
+    path: '/assignments',
     needsRole: [],
   },
   {
@@ -80,6 +88,13 @@ const utilityLinks: MenuItemLinkData[] = [
     needsRole: ['admin'],
   },
   {
+    text: 'Chore Planner',
+    index: 'admin-chore-planner',
+    icon: <PlaylistAddCheckIcon />,
+    path: '/admin/chore-planner',
+    needsRole: ['admin'],
+  },
+  {
     text: 'Profile Edit',
     index: 'profile-edit',
     icon: <SettingsIcon />,
@@ -91,13 +106,8 @@ const utilityLinks: MenuItemLinkData[] = [
 export default function NavList() {
   const pageState = useRecoilValue(PageState);
   const myRoles = useRecoilValue(MyRolesState);
-  const canSignupForShifts = useRecoilValue(UserCanSignupForShifts);
 
   const isUserAllowed = (link: MenuItemLinkData) => {
-    if (link.index === 'shifts' && !canSignupForShifts) {
-      return false;
-    }
-
     if (link.needsRole.length === 0) {
       return true;
     }

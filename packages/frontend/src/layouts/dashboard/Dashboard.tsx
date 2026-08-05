@@ -22,7 +22,7 @@ export default function Dashboard({ children }: DashboardProps) {
   };
 
   return (
-    <Box sx={{ display: 'flex' }}>
+    <Box sx={{ display: 'flex', minWidth: 0, width: '100%' }}>
       <TopBar open={open} toggleDrawer={toggleDrawer} />
       <Drawer variant="permanent" open={open}>
         <Toolbar
@@ -49,6 +49,7 @@ export default function Dashboard({ children }: DashboardProps) {
               : theme.palette.grey[900],
           flexGrow: 1,
           height: '100vh',
+          minWidth: 0,
           overflow: 'auto',
         }}
       >
