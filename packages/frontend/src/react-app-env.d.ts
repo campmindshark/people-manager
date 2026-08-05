@@ -57,10 +57,15 @@ interface PromptMomentNotification {
     | 'unknown_reason';
   isSkippedMoment: () => boolean;
   getSkippedReason: () =>
-    'auto_cancel' | 'user_cancel' | 'tap_outside' | 'issuing_failed';
+    | 'auto_cancel'
+    | 'user_cancel'
+    | 'tap_outside'
+    | 'issuing_failed';
   isDismissedMoment: () => boolean;
   getDismissedReason: () =>
-    'credential_returned' | 'cancel_called' | 'flow_restarted';
+    | 'credential_returned'
+    | 'cancel_called'
+    | 'flow_restarted';
   getMomentType: () => 'display' | 'skipped' | 'dismissed';
 }
 interface Window {

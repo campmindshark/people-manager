@@ -129,7 +129,12 @@ function PaymentDetailsDialog({
 }
 
 type SortField =
-  'name' | 'email' | 'paid' | 'amount' | 'paymentMethod' | 'paymentDate';
+  | 'name'
+  | 'email'
+  | 'paid'
+  | 'amount'
+  | 'paymentMethod'
+  | 'paymentDate';
 type SortDirection = 'asc' | 'desc';
 
 export default function DuesManagementTable() {

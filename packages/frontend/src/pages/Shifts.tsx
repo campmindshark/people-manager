@@ -8,11 +8,11 @@ import {
   Typography,
 } from '@mui/material';
 import { useSetRecoilState, useRecoilValue } from 'recoil';
-import ShiftDisplay from 'src/components/shifts/ShiftDisplay';
 import ChoreSignupControls, {
   ChoreSignupButton,
   useChoreSignupControls,
-} from '../components/shifts/ChoreSignupControls';
+} from 'src/components/shifts/ChoreSignupControls';
+import ShiftDisplay from 'src/components/shifts/ShiftDisplay';
 import Dashboard from '../layouts/dashboard/Dashboard';
 import { CurrentRosterState } from '../state/roster';
 import PageState, { CurrentUserIsVerified, MyRolesState } from '../state/store';
