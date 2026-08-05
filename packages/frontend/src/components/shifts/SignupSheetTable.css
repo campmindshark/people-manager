@@ -1,4 +1,6 @@
 .signup-sheet-table-shell {
+  max-width: 100%;
+  min-width: 0;
   overflow-x: auto;
   color: var(--signup-sheet-text);
 }
