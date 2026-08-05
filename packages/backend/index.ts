@@ -33,7 +33,6 @@ import groupRouter from './routes/groups';
 import duesRouter from './routes/dues';
 import devAuthRouter from './routes/dev_auth';
 import settingsRouter from './routes/settings';
-import chorePlansRouter from './routes/chore_plans';
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -78,7 +77,7 @@ console.log('CORS Whitelist:', config.CORSWhitelist);
 app.use(
   cors({
     origin: config.CORSWhitelist,
-    methods: 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
+    methods: 'GET,POST,PUT,DELETE,OPTIONS',
     credentials: true,
     optionsSuccessStatus: 200,
   }),
@@ -210,7 +209,6 @@ app.use(
 app.use('/api/groups', checkAuthenticated, groupRouter);
 app.use('/api/dues', checkAuthenticated, duesRouter);
 app.use('/api/settings', checkAuthenticated, settingsRouter);
-app.use('/api/chore-plans', checkAuthenticated, chorePlansRouter);
 
 app.use('/api/health', (req: Request, res: Response) => {
   res.status(200).send('healthy');

@@ -1,4 +1,5 @@
-import Knex, { Knex as KnexInstance } from 'knex';
+import Knex from 'knex';
+import { DateTime } from 'luxon';
 import knexConfig from '../knexfile';
 import { getConfig } from '../config/config';
 import Group from '../models/group/group';
@@ -6,15 +7,6 @@ import GroupViewModel from '../view_models/group';
 import User from '../models/user/user';
 
 const knex = Knex(knexConfig[getConfig().Environment]);
-
-export interface ShiftSignupAccess {
-  hasGroup: boolean;
-  signupOpen: boolean;
-}
-
-interface ShiftSignupAccessRow {
-  signupOpen: boolean;
-}
 
 export default class GroupController {
   public static async GetGroupViewModels(
@@ -54,42 +46,30 @@ export default class GroupController {
   }
 
   public static async UserCanSignupForShifts(
-    user: User | number,
+    user: User,
     rosterID: number,
-    database: KnexInstance = knex,
   ): Promise<boolean> {
-    const access = await GroupController.GetShiftSignupAccessForUser(
-      typeof user === 'number' ? user : user.id,
-      rosterID,
-      database,
+    const groups = await GroupController.GetAllGroupsForUser(user);
+
+    if (groups.length === 0) {
+      return false;
+    }
+
+    groups.filter((group) => group.rosterID === rosterID);
+
+    groups.sort(
+      (a, b) =>
+        a.shiftSignupOpenDate.getTime() - b.shiftSignupOpenDate.getTime(),
     );
-    return access.signupOpen;
-  }
 
-  public static async GetShiftSignupAccessForUser(
-    userID: number,
-    rosterID: number,
-    database: KnexInstance = knex,
-  ): Promise<ShiftSignupAccess> {
-    // This legacy column stores UTC wall-clock values without timezone metadata.
-    const group: ShiftSignupAccessRow | undefined = await database(
-      'group_members',
-    )
-      .join('groups', 'group_members.groupID', '=', 'groups.id')
-      .select(
-        database.raw("?? <= timezone('UTC', CURRENT_TIMESTAMP) AS ??", [
-          'groups.shiftSignupOpenDate',
-          'signupOpen',
-        ]),
-      )
-      .where('group_members.userID', userID)
-      .andWhere('groups.rosterID', rosterID)
-      .orderBy('groups.shiftSignupOpenDate', 'asc')
-      .first();
+    if (
+      DateTime.fromJSDate(groups[0].shiftSignupOpenDate).setZone('utc', {
+        keepLocalTime: true,
+      }) > DateTime.utc()
+    ) {
+      return false;
+    }
 
-    return {
-      hasGroup: Boolean(group),
-      signupOpen: group?.signupOpen === true,
-    };
+    return true;
   }
 }

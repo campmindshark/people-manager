@@ -4,16 +4,6 @@ import { DateTime } from 'luxon';
 
 const timezone = 'America/Los_Angeles';
 
-const syncIDSequence = async (
-  knex: Knex,
-  tableName: 'schedules' | 'shifts',
-) => {
-  await knex.raw(
-    'SELECT setval(pg_get_serial_sequence(?, ?), MAX(??)) FROM ??',
-    [tableName, 'id', 'id', tableName],
-  );
-};
-
 // getBMTime expects a string in the format "MMMM dd, yyyy hh:mm". ex. (August 24, 2024 10:00)
 const getBMTime = (time: string) =>
   DateTime.fromFormat(time, 'MMMM dd, yyyy hh:mm').setZone(timezone).toJSDate();
@@ -44,10 +34,10 @@ const generateShiftsAtIntervalOverRange = (
 };
 
 export async function seed(knex: Knex): Promise<void> {
-  // Delete dependent rows before their parents to satisfy foreign keys.
-  await knex('shift_participants').del();
-  await knex('shifts').del();
+  // Deletes ALL existing entries
   await knex('schedules').del();
+  await knex('shifts').del();
+  await knex('shift_participants').del();
 
   // Inserts seed entries
   await knex('schedules').insert([
@@ -59,7 +49,6 @@ export async function seed(knex: Knex): Promise<void> {
     },
     { id: 2, rosterID: 1, name: 'Ice Bitch', description: 'Keep us cool.' },
   ]);
-  await syncIDSequence(knex, 'schedules');
 
   // Add 90 minute shifts for all hours.
   const wenchShifts = generateShiftsAtIntervalOverRange(
@@ -122,5 +111,4 @@ export async function seed(knex: Knex): Promise<void> {
   ];
   console.log(iceShifts);
   await knex('shifts').insert(iceShifts);
-  await syncIDSequence(knex, 'shifts');
 }

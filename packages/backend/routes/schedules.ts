@@ -1,6 +1,5 @@
 import express, { Request, Response, NextFunction, Router } from 'express';
 import Schedule from '../models/schedule/schedule';
-import User from '../models/user/user';
 import ShiftController from '../controllers/shift';
 import hasPermission from '../middleware/rbac';
 import userIsVerified from '../middleware/verified_user';
@@ -26,10 +25,8 @@ router.get(
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async (req: Request, res: Response) => {
     const { id } = req.params;
-    const user = req.user as User;
     const shifts = await ShiftController.GetShiftViewModelsByScheduleID(
       parseInt(id, 10),
-      user.id,
     );
     res.json(shifts);
   },

@@ -12,8 +12,6 @@ export default class Shift extends Model {
 
   requiredParticipants!: number;
 
-  plannerKey?: string;
-
   constructor(
     id: number,
     scheduleID: number,

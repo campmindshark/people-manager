@@ -4,9 +4,9 @@ import hasPermission from '../middleware/rbac';
 import userIsVerified from '../middleware/verified_user';
 import User from '../models/user/user';
 import RosterParticipantViewModel from '../view_models/roster_participant';
+import RosterParticipant from '../models/roster_participant/roster_participant';
 import AnalysisController from '../controllers/analysis';
 import RosterController from '../controllers/roster';
-import RosterParticipantController from '../controllers/roster_participant';
 
 const router: Router = express.Router();
 
@@ -36,13 +36,25 @@ router.get(
 
 /* POST drop-out this user from the specific roster. */
 router.post('/:id/drop-out', async (req: Request, res: Response) => {
-  const rosterID = parseInt(req.params.id, 10);
+  const rosterID = req.params.id;
 
   const tmpUser = req.user as User;
   const user = User.fromJson(tmpUser);
 
-  if (Number.isNaN(rosterID)) {
-    res.status(400).json({ error: 'Invalid roster ID' });
+  if (!rosterID) {
+    res.json({ error: 'Roster ID not defined' });
+    return;
+  }
+
+  const participant = await RosterParticipant.query()
+    .where({
+      userID: user.id,
+      rosterID,
+    })
+    .first();
+
+  if (!participant) {
+    res.json({ error: 'User not found in roster' });
     return;
   }
 
@@ -52,15 +64,13 @@ router.post('/:id/drop-out', async (req: Request, res: Response) => {
     } - ${user.displayName()} from roster ${rosterID}`,
   );
 
-  const result = await RosterParticipantController.RemoveFromRoster(rosterID, [
-    user.id,
-  ]);
+  const success = await RosterParticipant.query().deleteById(participant.id);
 
-  if (result.deletedCount === 0) {
-    res.status(404).json({ error: 'User not found in roster' });
+  if (!success) {
+    res.status(500).json({ error: 'Failed to drop out user from roster' });
     return;
   }
-  res.json({ success: true, ...result });
+  res.json({ success: true });
 });
 
 /* Get Participants. */
