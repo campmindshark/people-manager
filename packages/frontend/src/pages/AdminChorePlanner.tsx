@@ -168,6 +168,19 @@ function scoreTone(score: number): 'high' | 'medium' | 'low' {
   return 'low';
 }
 
+export function plannedShiftSummary(
+  shifts: Pick<ChorePlanShiftPreview, 'requiredParticipants'>[],
+): string {
+  const shiftCount = shifts.length;
+  const spotCount = shifts.reduce(
+    (total, shift) => total + shift.requiredParticipants,
+    0,
+  );
+  return `${spotCount} signup ${
+    spotCount === 1 ? 'spot' : 'spots'
+  } across ${shiftCount} dated ${shiftCount === 1 ? 'shift' : 'shifts'}`;
+}
+
 function PositionChips({ shift }: { shift: ChorePlanShiftPreview }) {
   return (
     <div className="signup-sheet-positions">
@@ -614,8 +627,8 @@ export default function AdminChorePlanner() {
                       {selectedRoster?.year} signup sheet preview
                     </Typography>
                     <Typography color="text.secondary">
-                      {preview.sheetTitle} · {preview.shifts.length} dated
-                      shifts
+                      {preview.sheetTitle} ·{' '}
+                      {plannedShiftSummary(preview.shifts)}
                     </Typography>
                   </Box>
                   <Button
@@ -658,7 +671,7 @@ export default function AdminChorePlanner() {
                               {CATEGORY_LABELS[kind]}
                             </Typography>
                             <Chip
-                              label={`${shifts.length} shifts`}
+                              label={plannedShiftSummary(shifts)}
                               size="small"
                             />
                           </Stack>

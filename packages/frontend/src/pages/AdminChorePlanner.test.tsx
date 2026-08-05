@@ -4,7 +4,7 @@ import {
   ChorePlanStatus,
   ChorePlanSummary,
 } from 'backend/view_models/chore_plan';
-import { PlanSummary } from './AdminChorePlanner';
+import { plannedShiftSummary, PlanSummary } from './AdminChorePlanner';
 
 function plan(status: ChorePlanStatus): ChorePlanSummary {
   const opened = status !== 'draft';
@@ -86,4 +86,17 @@ test('shows retained lifecycle history and allows a closed plan to reopen', () =
   ).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: /open chore signups/i }));
   expect(handleToggle).toHaveBeenCalledTimes(1);
+});
+
+test('distinguishes dated shifts from their available signup spots', () => {
+  const shifts = Array.from({ length: 18 }, (_, index) => ({
+    requiredParticipants: index < 14 ? 3 : 2,
+  }));
+
+  expect(plannedShiftSummary(shifts)).toBe(
+    '50 signup spots across 18 dated shifts',
+  );
+  expect(plannedShiftSummary([{ requiredParticipants: 1 }])).toBe(
+    '1 signup spot across 1 dated shift',
+  );
 });
