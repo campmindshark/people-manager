@@ -503,6 +503,47 @@ async function runIntegrationTest() {
 
     assert(assignmentCount() === 1, 'Expected the seeded chore assignment');
 
+    const assignedShiftStart = new Date(
+      queryDatabaseNumber(`
+        SELECT EXTRACT(EPOCH FROM shifts."startTime") * 1000
+        FROM shift_participants
+        JOIN shifts ON shift_participants."shiftID" = shifts.id
+        JOIN schedules ON shifts."scheduleID" = schedules.id
+        WHERE shift_participants."userID" = ${userID}
+          AND schedules."rosterID" = 1
+        LIMIT 1
+      `),
+    ).toISOString();
+    const assignedShiftEnd = new Date(
+      queryDatabaseNumber(`
+        SELECT EXTRACT(EPOCH FROM shifts."endTime") * 1000
+        FROM shift_participants
+        JOIN shifts ON shift_participants."shiftID" = shifts.id
+        JOIN schedules ON shifts."scheduleID" = schedules.id
+        WHERE shift_participants."userID" = ${userID}
+          AND schedules."rosterID" = 1
+        LIMIT 1
+      `),
+    ).toISOString();
+    const exactAttendanceResponse = await saveParticipant({
+      ...participantPayload,
+      estimatedArrivalDate: assignedShiftStart,
+      estimatedDepartureDate: assignedShiftEnd,
+    });
+    assert(
+      exactAttendanceResponse.ok,
+      'Could not save an exact absolute attendance window',
+    );
+    const exactAttendanceResult = await exactAttendanceResponse.json();
+    assert(
+      exactAttendanceResult.removedAssignmentCount === 0,
+      'An absolute attendance window must not be shifted before reconciliation',
+    );
+    assert(
+      assignmentCount() === 1,
+      'An assignment inside the absolute attendance window must be retained',
+    );
+
     const closePlanResponse = await fetch(
       'http://localhost:3001/api/chore-plans/1/close-signups',
       { method: 'POST', headers: authenticatedHeaders },
@@ -541,6 +582,11 @@ async function runIntegrationTest() {
       estimatedDepartureDate: '2024-12-02T00:00:00.000Z',
     });
     assert(attendanceUpdateResponse.ok, 'Could not update attendance dates');
+    const attendanceUpdateResult = await attendanceUpdateResponse.json();
+    assert(
+      attendanceUpdateResult.removedAssignmentCount === 1,
+      'Attendance updates must report removed assignments',
+    );
     assert(
       assignmentCount() === 0,
       'Attendance changes must remove assignments outside the new window',

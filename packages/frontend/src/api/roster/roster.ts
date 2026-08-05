@@ -8,6 +8,10 @@ import BasicResponse from 'backend/models/common/basic_response';
 import SignupStatus from 'backend/view_models/signup_status';
 import defaultRequestConfig from '../common/requestConfig';
 
+export interface RosterSignupResult extends RosterParticipant {
+  removedAssignmentCount: number;
+}
+
 export interface RosterClient {
   GetAllRosters(): Promise<Roster[]>;
   GetRosterByID(rosterID: number): Promise<Roster>;
@@ -18,7 +22,7 @@ export interface RosterClient {
   Signup(
     rosterID: number,
     rosterParticipant: RosterParticipant,
-  ): Promise<RosterParticipant>;
+  ): Promise<RosterSignupResult>;
   DropOut(rosterID: number): Promise<BasicResponse>;
   RemoveUserFromRoster(
     rosterID: number,
@@ -110,11 +114,11 @@ export default class BackendRosterClient implements RosterClient {
   async Signup(
     rosterID: number,
     rosterParticipant: RosterParticipant,
-  ): Promise<RosterParticipant> {
+  ): Promise<RosterSignupResult> {
     console.log(
       `Signing up for roster ${rosterID} with this data ${rosterParticipant}`,
     );
-    const { data } = await axios.post<RosterParticipant>(
+    const { data } = await axios.post<RosterSignupResult>(
       `${this.baseApiURL}/api/roster_participants/${rosterID}`,
       rosterParticipant,
       defaultRequestConfig,

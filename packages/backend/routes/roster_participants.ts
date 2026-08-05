@@ -74,20 +74,14 @@ router.post('/:id', async (req: Request, res: Response) => {
     rosterID,
   };
 
-  // Convert the dates to UTC while preserving the local time
-  const parsedArrivalDate = DateTime.fromJSDate(
-    new Date(proposedRosterParticipant.estimatedArrivalDate),
-  )
-    .setZone('America/Los_Angeles', { keepLocalTime: true })
-    .toUTC()
-    .toJSDate();
-
-  const parsedDepartureDate = DateTime.fromJSDate(
-    new Date(proposedRosterParticipant.estimatedDepartureDate),
-  )
-    .setZone('America/Los_Angeles', { keepLocalTime: true })
-    .toUTC()
-    .toJSDate();
+  const parsedArrivalDate = DateTime.fromISO(
+    String(proposedRosterParticipant.estimatedArrivalDate),
+    { setZone: true },
+  ).toJSDate();
+  const parsedDepartureDate = DateTime.fromISO(
+    String(proposedRosterParticipant.estimatedDepartureDate),
+    { setZone: true },
+  ).toJSDate();
 
   if (
     !Number.isFinite(parsedArrivalDate.getTime()) ||
@@ -107,8 +101,8 @@ router.post('/:id', async (req: Request, res: Response) => {
       rosterID: _rosterId,
       ...participantFields
     } = req.body;
-    const rosterParticipant = await RosterParticipant.knex().transaction(
-      async (transaction) => {
+    const { rosterParticipant, removedAssignmentCount } =
+      await RosterParticipant.knex().transaction(async (transaction) => {
         await transaction('users').where('id', user.id).forUpdate().first();
         const current = await RosterParticipant.query(transaction)
           .where(signupScope)
@@ -130,21 +124,24 @@ router.post('/:id', async (req: Request, res: Response) => {
               rosterID,
             });
 
-        await RosterParticipantController.ReconcileAttendanceWindow(
-          transaction,
-          rosterID,
-          user.id,
-          {
-            startTime: parsedArrivalDate,
-            endTime: parsedDepartureDate,
-          },
-        );
+        const removedCount =
+          await RosterParticipantController.ReconcileAttendanceWindow(
+            transaction,
+            rosterID,
+            user.id,
+            {
+              startTime: parsedArrivalDate,
+              endTime: parsedDepartureDate,
+            },
+          );
 
-        return savedParticipant;
-      },
-    );
+        return {
+          rosterParticipant: savedParticipant,
+          removedAssignmentCount: removedCount,
+        };
+      });
 
-    res.json(rosterParticipant);
+    res.json({ ...rosterParticipant, removedAssignmentCount });
   } catch (error) {
     if (error instanceof ValidationError) {
       res.status(400).json({ error: error.message, details: error.data });
