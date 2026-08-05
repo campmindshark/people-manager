@@ -17,6 +17,7 @@ import { validateRequirements } from '../utils/chorePlanRequirements';
 
 interface ErrorResponse {
   error: string;
+  diagnosticCode?: string;
 }
 
 const allowManageChorePlans = (): RequestHandler => (req, _res, next) => {
@@ -346,6 +347,118 @@ test('chore-plan routes sanitize and log unexpected failures once', async (conte
             assert.equal(JSON.stringify(response.body).includes(secret), false);
             assert.equal(loggedArguments.length, 1);
             assert.equal(loggedArguments[0][0], failure.fallback);
+          } finally {
+            console.error = originalConsoleError;
+          }
+        }),
+      ),
+    Promise.resolve(),
+  );
+});
+
+test('unexpected failures expose only allowlisted diagnostic codes', async (context) => {
+  const failures = [
+    {
+      name: 'allowlisted PostgreSQL string truncation',
+      code: '22001',
+      wrapped: false,
+      expectedDiagnosticCode: '22001',
+    },
+    {
+      name: 'allowlisted PostgreSQL not-null violation',
+      code: '23502',
+      wrapped: false,
+      expectedDiagnosticCode: '23502',
+    },
+    {
+      name: 'allowlisted PostgreSQL foreign-key violation',
+      code: '23503',
+      wrapped: false,
+      expectedDiagnosticCode: '23503',
+    },
+    {
+      name: 'allowlisted direct PostgreSQL unique violation',
+      code: '23505',
+      wrapped: false,
+      expectedDiagnosticCode: '23505',
+    },
+    {
+      name: 'allowlisted wrapped PostgreSQL unique violation',
+      code: '23505',
+      wrapped: true,
+      expectedDiagnosticCode: '23505',
+    },
+    {
+      name: 'allowlisted PostgreSQL check violation',
+      code: '23514',
+      wrapped: false,
+      expectedDiagnosticCode: '23514',
+    },
+    {
+      name: 'allowlisted PostgreSQL serialization failure',
+      code: '40001',
+      wrapped: false,
+      expectedDiagnosticCode: '40001',
+    },
+    {
+      name: 'allowlisted PostgreSQL deadlock',
+      code: '40P01',
+      wrapped: false,
+      expectedDiagnosticCode: '40P01',
+    },
+    {
+      name: 'non-allowlisted PostgreSQL error',
+      code: '42P01',
+      wrapped: false,
+      expectedDiagnosticCode: undefined,
+    },
+  ];
+
+  await failures.reduce(
+    (previousTest, failure) =>
+      previousTest.then(() =>
+        context.test(failure.name, async () => {
+          const secretSQL = 'insert into chore_plans values (secret)';
+          const nativeError = Object.assign(new Error(secretSQL), {
+            code: failure.code,
+            detail: 'Sensitive database detail',
+            query: secretSQL,
+          });
+          const databaseError = failure.wrapped
+            ? Object.assign(new Error(secretSQL), { nativeError })
+            : nativeError;
+          const originalConsoleError = console.error;
+          console.error = () => undefined;
+
+          try {
+            const response = await request(
+              {
+                chorePlanController: {
+                  Preview: async () => {
+                    throw databaseError;
+                  },
+                },
+              },
+              '/generate',
+              'POST',
+              validPlanInput,
+            );
+
+            assert.equal(response.status, 500);
+            assert.deepEqual(response.body, {
+              error: 'Could not generate the plan.',
+              ...(failure.expectedDiagnosticCode
+                ? { diagnosticCode: failure.expectedDiagnosticCode }
+                : {}),
+            });
+            assert.equal(
+              JSON.stringify(response.body).includes(secretSQL),
+              false,
+            );
+            assert.equal(
+              JSON.stringify(response.body).includes(nativeError.detail),
+              false,
+            );
           } finally {
             console.error = originalConsoleError;
           }

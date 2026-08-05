@@ -1,10 +1,15 @@
 import React from 'react';
+import axios from 'axios';
 import { fireEvent, render, screen } from '@testing-library/react';
 import {
   ChorePlanStatus,
   ChorePlanSummary,
 } from 'backend/view_models/chore_plan';
-import { plannedShiftSummary, PlanSummary } from './AdminChorePlanner';
+import {
+  plannedShiftSummary,
+  PlanSummary,
+  requestErrorMessage,
+} from './AdminChorePlanner';
 
 function plan(status: ChorePlanStatus): ChorePlanSummary {
   const opened = status !== 'draft';
@@ -98,5 +103,24 @@ test('distinguishes dated shifts from their available signup spots', () => {
   );
   expect(plannedShiftSummary([{ requiredParticipants: 1 }])).toBe(
     '1 signup spot across 1 dated shift',
+  );
+});
+
+test('shows a diagnostic code without including raw database details', () => {
+  const error = {
+    isAxiosError: true,
+    message: 'Request failed with status code 500',
+    response: {
+      data: {
+        error: 'Could not generate the plan.',
+        diagnosticCode: '23505',
+        query: 'insert into chore_plans values (secret)',
+      },
+    },
+  };
+
+  expect(axios.isAxiosError(error)).toBe(true);
+  expect(requestErrorMessage(error)).toBe(
+    'Could not generate the plan. Diagnostic code: 23505.',
   );
 });

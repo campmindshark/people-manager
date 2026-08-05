@@ -7,6 +7,16 @@ import ChorePlanError from '../utils/chorePlanError';
 import { ChorePlanRequirements } from '../view_models/chore_plan';
 import { validateRequirements } from '../utils/chorePlanRequirements';
 
+const ADMIN_DIAGNOSTIC_CODE_ALLOWLIST = new Set([
+  '22001',
+  '23502',
+  '23503',
+  '23505',
+  '23514',
+  '40001',
+  '40P01',
+]);
+
 type ChorePlanRouteController = Pick<
   typeof ChorePlanController,
   | 'GetAuditLog'
@@ -63,6 +73,26 @@ function parseID(value: string, label: string): number {
   return id;
 }
 
+function getAdminDiagnosticCode(error: unknown): string | undefined {
+  if (typeof error !== 'object' || error === null) {
+    return undefined;
+  }
+
+  const { code, nativeError } = error as {
+    code?: unknown;
+    nativeError?: unknown;
+  };
+  const nativeCode =
+    typeof nativeError === 'object' && nativeError !== null
+      ? (nativeError as { code?: unknown }).code
+      : undefined;
+  return [code, nativeCode].find(
+    (candidate): candidate is string =>
+      typeof candidate === 'string' &&
+      ADMIN_DIAGNOSTIC_CODE_ALLOWLIST.has(candidate),
+  );
+}
+
 function sendChorePlanError(error: unknown, res: Response, fallback: string) {
   if (error instanceof ChorePlanError) {
     res.status(error.status).json({ error: error.message });
@@ -70,7 +100,11 @@ function sendChorePlanError(error: unknown, res: Response, fallback: string) {
   }
 
   console.error(fallback, error);
-  res.status(500).json({ error: fallback });
+  const diagnosticCode = getAdminDiagnosticCode(error);
+  res.status(500).json({
+    error: fallback,
+    ...(diagnosticCode ? { diagnosticCode } : {}),
+  });
 }
 
 export function createChorePlanRouter(
