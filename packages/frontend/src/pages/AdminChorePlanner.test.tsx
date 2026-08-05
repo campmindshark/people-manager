@@ -79,10 +79,10 @@ test('shows retained lifecycle history and allows a closed plan to reopen', () =
     screen.getByText('Chore signups are closed for 2026.'),
   ).toBeInTheDocument();
   expect(
-    screen.getByText(/Last opened .* by Alex Admin\./),
+    screen.getByText('Last opened Jul 18, 2026, 5:00 AM by Alex Admin.'),
   ).toBeInTheDocument();
   expect(
-    screen.getByText(/Last closed .* by Casey Closer\./),
+    screen.getByText('Last closed Jul 19, 2026, 5:00 AM by Casey Closer.'),
   ).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: /open chore signups/i }));
   expect(handleToggle).toHaveBeenCalledTimes(1);

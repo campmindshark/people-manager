@@ -9,8 +9,10 @@ import {
 } from '@mui/material';
 import ChorePlanAuditEntry from 'backend/view_models/chore_plan_audit';
 import { ChorePlanRequirements } from 'backend/view_models/chore_plan';
+import { BM_TIMEZONE } from 'backend/utils/burnDates';
 
 const DATE_FORMATTER = new Intl.DateTimeFormat('en-US', {
+  timeZone: BM_TIMEZONE,
   year: 'numeric',
   month: 'short',
   day: 'numeric',

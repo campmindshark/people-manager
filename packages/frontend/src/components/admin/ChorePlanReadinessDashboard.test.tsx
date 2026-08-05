@@ -133,6 +133,9 @@ test('shows headcount, category completion, capacity, feasibility, and exception
   expect(screen.getByText('Underfilled shifts')).toBeInTheDocument();
   expect(screen.getByText('Full shifts')).toBeInTheDocument();
   expect(
+    screen.getByText('Kitchen cleanup · Tue, Aug 25, 9:00 AM'),
+  ).toBeInTheDocument();
+  expect(
     screen.getByText(
       'Every remaining shift falls outside the attendance window.',
     ),

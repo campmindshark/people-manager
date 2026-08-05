@@ -27,6 +27,7 @@ import {
   ChorePlanReadiness,
   ChorePlanReadinessShift,
 } from 'backend/view_models/chore_plan';
+import { BM_TIMEZONE } from 'backend/utils/burnDates';
 
 const CATEGORY_LABELS: Record<ChorePlanKind, string> = {
   chore: 'Chores',
@@ -34,14 +35,17 @@ const CATEGORY_LABELS: Record<ChorePlanKind, string> = {
   dinner: 'Dinners',
 };
 
+const SHIFT_TIME_FORMATTER = new Intl.DateTimeFormat('en-US', {
+  timeZone: BM_TIMEZONE,
+  weekday: 'short',
+  month: 'short',
+  day: 'numeric',
+  hour: 'numeric',
+  minute: '2-digit',
+});
+
 function formatShiftTime(startTime: string): string {
-  return new Intl.DateTimeFormat('en-US', {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  }).format(new Date(startTime));
+  return SHIFT_TIME_FORMATTER.format(new Date(startTime));
 }
 
 function ShiftGroup({

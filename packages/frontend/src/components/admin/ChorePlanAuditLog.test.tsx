@@ -39,7 +39,9 @@ test('renders actor and audit description', () => {
   render(<ChorePlanAuditLog entries={[auditEntry()]} loading={false} />);
 
   expect(screen.getByText('Opened chore signups.')).toBeInTheDocument();
-  expect(screen.getByText(/Leslie Knope/)).toBeInTheDocument();
+  expect(
+    screen.getByText('Leslie Knope · Jul 19, 2026, 9:30 AM'),
+  ).toBeInTheDocument();
   expect(
     screen.getByRole('region', { name: 'Change history entries' }),
   ).toHaveStyle({

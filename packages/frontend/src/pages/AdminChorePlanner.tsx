@@ -41,6 +41,7 @@ import ChorePlanPreview, {
   DEFAULT_CHORE_PLAN_REQUIREMENTS,
 } from 'backend/view_models/chore_plan';
 import ChorePlanAuditEntry from 'backend/view_models/chore_plan_audit';
+import { BM_TIMEZONE } from 'backend/utils/burnDates';
 import { useRecoilRefresher_UNSTABLE, useSetRecoilState } from 'recoil';
 import Dashboard from '../layouts/dashboard/Dashboard';
 import PageState from '../state/store';
@@ -56,6 +57,11 @@ import ChorePlanAuditLog from '../components/admin/ChorePlanAuditLog';
 const DEFAULT_SCORE_SHEET =
   'https://docs.google.com/spreadsheets/d/12QBFgX_jb9vdli-txNK4M2nkMt7TZ_FCHtX_gbEG9BM/edit';
 const AUTO_PREVIEW_DELAY_MS = 250;
+const LIFECYCLE_DATE_FORMATTER = new Intl.DateTimeFormat('en-US', {
+  timeZone: BM_TIMEZONE,
+  dateStyle: 'medium',
+  timeStyle: 'short',
+});
 
 const CATEGORY_LABELS: Record<ChorePlanKind, string> = {
   chore: 'Daily chores',
@@ -82,10 +88,7 @@ function lifecycleEvent(
   timestamp: string,
   actor: ChorePlanActorSummary | null,
 ): string {
-  const date = new Intl.DateTimeFormat('en-US', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(new Date(timestamp));
+  const date = LIFECYCLE_DATE_FORMATTER.format(new Date(timestamp));
   return `${label} ${date} by ${actor?.name ?? 'an unknown administrator'}.`;
 }
 
