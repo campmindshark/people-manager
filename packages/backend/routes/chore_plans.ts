@@ -1,4 +1,4 @@
-import express, { Request, Response, Router } from 'express';
+import express, { Request, RequestHandler, Response, Router } from 'express';
 import ChorePlanController from '../controllers/chore_plan';
 import ChorePlanReadinessController from '../controllers/chore_plan_readiness';
 import hasPermission from '../middleware/rbac';
@@ -7,7 +7,28 @@ import ChorePlanError from '../utils/chorePlanError';
 import { ChorePlanRequirements } from '../view_models/chore_plan';
 import { validateRequirements } from '../utils/chorePlanRequirements';
 
-const router: Router = express.Router();
+type ChorePlanRouteController = Pick<
+  typeof ChorePlanController,
+  | 'GetAuditLog'
+  | 'GetByRosterID'
+  | 'Preview'
+  | 'Apply'
+  | 'SetParticipantRequirements'
+  | 'ResetParticipantRequirements'
+  | 'OpenSignups'
+  | 'CloseSignups'
+>;
+
+type ChorePlanReadinessRouteController = Pick<
+  typeof ChorePlanReadinessController,
+  'GetByRosterID'
+>;
+
+export interface ChorePlanRouteDependencies {
+  chorePlanController?: Partial<ChorePlanRouteController>;
+  chorePlanReadinessController?: Partial<ChorePlanReadinessRouteController>;
+  permissionMiddleware?: (permission: string) => RequestHandler;
+}
 
 function parseInput(req: Request): {
   rosterID: number;
@@ -20,13 +41,16 @@ function parseInput(req: Request): {
   const sheetUrl = String(req.body.sheetUrl ?? '').trim();
   const requirements = validateRequirements(req.body.requirements);
   if (!Number.isInteger(rosterID) || rosterID < 1) {
-    throw new Error('Choose a valid roster.');
+    throw new ChorePlanError('Choose a valid roster.', 400);
   }
   if (!Number.isInteger(camperCount) || camperCount < 1 || camperCount > 200) {
-    throw new Error('Camper count must be a whole number from 1 to 200.');
+    throw new ChorePlanError(
+      'Camper count must be a whole number from 1 to 200.',
+      400,
+    );
   }
   if (!sheetUrl) {
-    throw new Error('Enter a Google Sheets link.');
+    throw new ChorePlanError('Enter a Google Sheets link.', 400);
   }
   return { rosterID, camperCount, sheetUrl, requirements };
 }
@@ -40,203 +64,209 @@ function parseID(value: string, label: string): number {
 }
 
 function sendChorePlanError(error: unknown, res: Response, fallback: string) {
-  const message = error instanceof Error ? error.message : fallback;
-  res
-    .status(error instanceof ChorePlanError ? error.status : 400)
-    .json({ error: message });
+  if (error instanceof ChorePlanError) {
+    res.status(error.status).json({ error: error.message });
+    return;
+  }
+
+  console.error(fallback, error);
+  res.status(500).json({ error: fallback });
 }
 
-router.get(
-  '/:rosterID/audit-log',
-  hasPermission('chorePlans:manage'),
-  async (req: Request, res: Response) => {
-    const rosterID = Number(req.params.rosterID);
-    if (!Number.isInteger(rosterID) || rosterID < 1) {
-      res.status(400).json({ error: 'Choose a valid roster.' });
-      return;
-    }
-    res.json({ entries: await ChorePlanController.GetAuditLog(rosterID) });
-  },
-);
+export function createChorePlanRouter(
+  dependencies: ChorePlanRouteDependencies = {},
+): Router {
+  const router: Router = express.Router();
+  const chorePlanController: ChorePlanRouteController = {
+    GetAuditLog: ChorePlanController.GetAuditLog,
+    GetByRosterID: ChorePlanController.GetByRosterID,
+    Preview: ChorePlanController.Preview,
+    Apply: ChorePlanController.Apply,
+    SetParticipantRequirements: ChorePlanController.SetParticipantRequirements,
+    ResetParticipantRequirements:
+      ChorePlanController.ResetParticipantRequirements,
+    OpenSignups: ChorePlanController.OpenSignups,
+    CloseSignups: ChorePlanController.CloseSignups,
+    ...dependencies.chorePlanController,
+  };
+  const chorePlanReadinessController: ChorePlanReadinessRouteController = {
+    GetByRosterID: ChorePlanReadinessController.GetByRosterID,
+    ...dependencies.chorePlanReadinessController,
+  };
+  const permissionMiddleware =
+    dependencies.permissionMiddleware ?? hasPermission;
 
-router.get(
-  '/:rosterID',
-  hasPermission('chorePlans:manage'),
-  async (req: Request, res: Response) => {
-    const rosterID = Number(req.params.rosterID);
-    if (!Number.isInteger(rosterID) || rosterID < 1) {
-      res.status(400).json({ error: 'Choose a valid roster.' });
-      return;
-    }
-    res.json({ plan: await ChorePlanController.GetByRosterID(rosterID) });
-  },
-);
-
-router.get(
-  '/:rosterID/readiness',
-  hasPermission('chorePlans:manage'),
-  async (req: Request, res: Response) => {
-    try {
+  router.get(
+    '/:rosterID/audit-log',
+    permissionMiddleware('chorePlans:manage'),
+    async (req: Request, res: Response) => {
       const rosterID = Number(req.params.rosterID);
       if (!Number.isInteger(rosterID) || rosterID < 1) {
-        throw new ChorePlanError('Choose a valid roster.', 400);
+        res.status(400).json({ error: 'Choose a valid roster.' });
+        return;
       }
-      res.json(await ChorePlanReadinessController.GetByRosterID(rosterID));
-    } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : 'Could not review chore-plan readiness.';
-      res
-        .status(error instanceof ChorePlanError ? error.status : 500)
-        .json({ error: message });
-    }
-  },
-);
+      res.json({ entries: await chorePlanController.GetAuditLog(rosterID) });
+    },
+  );
 
-router.post(
-  '/preview',
-  hasPermission('chorePlans:manage'),
-  async (req: Request, res: Response) => {
-    try {
-      const { rosterID, camperCount, sheetUrl, requirements } = parseInput(req);
-      const preview = await ChorePlanController.Preview(
-        rosterID,
-        camperCount,
-        sheetUrl,
-        requirements,
-      );
-      res.json(preview);
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Could not preview the plan.';
-      res.status(400).json({ error: message });
-    }
-  },
-);
+  router.get(
+    '/:rosterID',
+    permissionMiddleware('chorePlans:manage'),
+    async (req: Request, res: Response) => {
+      const rosterID = Number(req.params.rosterID);
+      if (!Number.isInteger(rosterID) || rosterID < 1) {
+        res.status(400).json({ error: 'Choose a valid roster.' });
+        return;
+      }
+      res.json({ plan: await chorePlanController.GetByRosterID(rosterID) });
+    },
+  );
 
-router.put(
-  '/:rosterID/participants/:userID/requirements',
-  hasPermission('chorePlans:manage'),
-  async (req: Request, res: Response) => {
-    try {
-      const rosterID = parseID(req.params.rosterID, 'roster');
-      const userID = parseID(req.params.userID, 'participant');
-      const requirements = validateRequirements(req.body.requirements);
-      const reason = String(req.body.reason ?? '');
-      const actor = req.user as User;
-      res.json(
-        await ChorePlanController.SetParticipantRequirements(
+  router.get(
+    '/:rosterID/readiness',
+    permissionMiddleware('chorePlans:manage'),
+    async (req: Request, res: Response) => {
+      try {
+        const rosterID = parseID(req.params.rosterID, 'roster');
+        res.json(await chorePlanReadinessController.GetByRosterID(rosterID));
+      } catch (error) {
+        sendChorePlanError(
+          error,
+          res,
+          'Could not review chore-plan readiness.',
+        );
+      }
+    },
+  );
+
+  router.post(
+    '/preview',
+    permissionMiddleware('chorePlans:manage'),
+    async (req: Request, res: Response) => {
+      try {
+        const { rosterID, camperCount, sheetUrl, requirements } =
+          parseInput(req);
+        const preview = await chorePlanController.Preview(
           rosterID,
-          userID,
+          camperCount,
+          sheetUrl,
           requirements,
-          reason,
-          actor.id,
-        ),
-      );
-    } catch (error) {
-      sendChorePlanError(
-        error,
-        res,
-        'Could not update participant requirements.',
-      );
-    }
-  },
-);
+        );
+        res.json(preview);
+      } catch (error) {
+        sendChorePlanError(error, res, 'Could not preview the plan.');
+      }
+    },
+  );
 
-router.delete(
-  '/:rosterID/participants/:userID/requirements',
-  hasPermission('chorePlans:manage'),
-  async (req: Request, res: Response) => {
-    try {
-      const rosterID = parseID(req.params.rosterID, 'roster');
-      const userID = parseID(req.params.userID, 'participant');
-      const actor = req.user as User;
-      res.json(
-        await ChorePlanController.ResetParticipantRequirements(
+  router.put(
+    '/:rosterID/participants/:userID/requirements',
+    permissionMiddleware('chorePlans:manage'),
+    async (req: Request, res: Response) => {
+      try {
+        const rosterID = parseID(req.params.rosterID, 'roster');
+        const userID = parseID(req.params.userID, 'participant');
+        const requirements = validateRequirements(req.body.requirements);
+        const reason = String(req.body.reason ?? '');
+        const actor = req.user as User;
+        res.json(
+          await chorePlanController.SetParticipantRequirements(
+            rosterID,
+            userID,
+            requirements,
+            reason,
+            actor.id,
+          ),
+        );
+      } catch (error) {
+        sendChorePlanError(
+          error,
+          res,
+          'Could not update participant requirements.',
+        );
+      }
+    },
+  );
+
+  router.delete(
+    '/:rosterID/participants/:userID/requirements',
+    permissionMiddleware('chorePlans:manage'),
+    async (req: Request, res: Response) => {
+      try {
+        const rosterID = parseID(req.params.rosterID, 'roster');
+        const userID = parseID(req.params.userID, 'participant');
+        const actor = req.user as User;
+        res.json(
+          await chorePlanController.ResetParticipantRequirements(
+            rosterID,
+            userID,
+            actor.id,
+          ),
+        );
+      } catch (error) {
+        sendChorePlanError(
+          error,
+          res,
+          'Could not reset participant requirements.',
+        );
+      }
+    },
+  );
+
+  router.post(
+    '/:rosterID/open-signups',
+    permissionMiddleware('chorePlans:manage'),
+    async (req: Request, res: Response) => {
+      try {
+        const rosterID = parseID(req.params.rosterID, 'roster');
+        const user = req.user as User;
+        res.json({
+          plan: await chorePlanController.OpenSignups(rosterID, user.id),
+        });
+      } catch (error) {
+        sendChorePlanError(error, res, 'Could not open signups.');
+      }
+    },
+  );
+
+  router.post(
+    '/:rosterID/close-signups',
+    permissionMiddleware('chorePlans:manage'),
+    async (req: Request, res: Response) => {
+      try {
+        const rosterID = parseID(req.params.rosterID, 'roster');
+        const user = req.user as User;
+        res.json({
+          plan: await chorePlanController.CloseSignups(rosterID, user.id),
+        });
+      } catch (error) {
+        sendChorePlanError(error, res, 'Could not close signups.');
+      }
+    },
+  );
+
+  router.post(
+    '/generate',
+    permissionMiddleware('chorePlans:manage'),
+    async (req: Request, res: Response) => {
+      try {
+        const { rosterID, camperCount, sheetUrl, requirements } =
+          parseInput(req);
+        const preview = await chorePlanController.Preview(
           rosterID,
-          userID,
-          actor.id,
-        ),
-      );
-    } catch (error) {
-      sendChorePlanError(
-        error,
-        res,
-        'Could not reset participant requirements.',
-      );
-    }
-  },
-);
-
-router.post(
-  '/:rosterID/open-signups',
-  hasPermission('chorePlans:manage'),
-  async (req: Request, res: Response) => {
-    try {
-      const rosterID = Number(req.params.rosterID);
-      if (!Number.isInteger(rosterID) || rosterID < 1) {
-        throw new ChorePlanError('Choose a valid roster.', 400);
+          camperCount,
+          sheetUrl,
+          requirements,
+        );
+        const user = req.user as User;
+        res.json(await chorePlanController.Apply(preview, user.id));
+      } catch (error) {
+        sendChorePlanError(error, res, 'Could not generate the plan.');
       }
-      const user = req.user as User;
-      res.json({
-        plan: await ChorePlanController.OpenSignups(rosterID, user.id),
-      });
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Could not open signups.';
-      res
-        .status(error instanceof ChorePlanError ? error.status : 400)
-        .json({ error: message });
-    }
-  },
-);
+    },
+  );
 
-router.post(
-  '/:rosterID/close-signups',
-  hasPermission('chorePlans:manage'),
-  async (req: Request, res: Response) => {
-    try {
-      const rosterID = Number(req.params.rosterID);
-      if (!Number.isInteger(rosterID) || rosterID < 1) {
-        throw new ChorePlanError('Choose a valid roster.', 400);
-      }
-      const user = req.user as User;
-      res.json({
-        plan: await ChorePlanController.CloseSignups(rosterID, user.id),
-      });
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Could not close signups.';
-      res
-        .status(error instanceof ChorePlanError ? error.status : 400)
-        .json({ error: message });
-    }
-  },
-);
+  return router;
+}
 
-router.post(
-  '/generate',
-  hasPermission('chorePlans:manage'),
-  async (req: Request, res: Response) => {
-    try {
-      const { rosterID, camperCount, sheetUrl, requirements } = parseInput(req);
-      const preview = await ChorePlanController.Preview(
-        rosterID,
-        camperCount,
-        sheetUrl,
-        requirements,
-      );
-      const user = req.user as User;
-      res.json(await ChorePlanController.Apply(preview, user.id));
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Could not generate the plan.';
-      res
-        .status(error instanceof ChorePlanError ? error.status : 400)
-        .json({ error: message });
-    }
-  },
-);
-
-export default router;
+export default createChorePlanRouter();

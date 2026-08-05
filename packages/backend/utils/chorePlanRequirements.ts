@@ -4,6 +4,7 @@ import {
   ChorePlanRequirements,
   MAX_CHORE_PLAN_REQUIREMENT,
 } from '../view_models/chore_plan';
+import ChorePlanError from './chorePlanError';
 
 export interface ChorePlanRequirementColumns {
   choreRequirement: number;
@@ -61,7 +62,10 @@ export function validateRequirements(
   maximums?: ChorePlanRequirements,
 ): ChorePlanRequirements {
   if (!value || typeof value !== 'object') {
-    throw new Error('Enter chore, event, and dinner requirements.');
+    throw new ChorePlanError(
+      'Enter chore, event, and dinner requirements.',
+      400,
+    );
   }
 
   const input = value as Record<string, unknown>;
@@ -77,10 +81,11 @@ export function validateRequirements(
       requirement < 0 ||
       requirement > maximum
     ) {
-      throw new Error(
+      throw new ChorePlanError(
         `${kind[0].toUpperCase()}${kind.slice(
           1,
         )} requirements must be a whole number from 0 to ${maximum}.`,
+        400,
       );
     }
   });

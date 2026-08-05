@@ -219,7 +219,7 @@ export default class ChorePlanController {
   ): Promise<ChorePlanPreview> {
     const roster = await Roster.query().findById(rosterID);
     if (!roster) {
-      throw new Error('Roster not found.');
+      throw new ChorePlanError('Roster not found.', 404);
     }
     const [sheet, existingPlan] = await Promise.all([
       fetchScoreSheet(sheetUrl),

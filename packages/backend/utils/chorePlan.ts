@@ -6,6 +6,7 @@ import ChorePlanPreview, {
   ChoreScoreRow,
 } from '../view_models/chore_plan';
 import { BM_TIMEZONE, getBurnDates } from './burnDates';
+import ChorePlanError from './chorePlanError';
 
 const SCORE_TABS: Record<ChorePlanKind, string> = {
   chore: 'Chore template (One day)',
@@ -74,7 +75,7 @@ export function parseGoogleSheetID(value: string): string {
     /^https:\/\/docs\.google\.com\/spreadsheets\/d\/([a-zA-Z0-9_-]+)(?:\/|$)/,
   );
   if (!match) {
-    throw new Error('Enter a valid Google Sheets link.');
+    throw new ChorePlanError('Enter a valid Google Sheets link.', 400);
   }
   return match[1];
 }
@@ -133,7 +134,10 @@ export function scoreRowsFromCSV(csv: string): ChoreScoreRow[] {
   const periodOrderColumn = column('period order label');
 
   if (shiftColumn < 0 || positionColumn < 0 || scoreColumn < 0) {
-    throw new Error('The tab needs Shift, Position, and Score columns.');
+    throw new ChorePlanError(
+      'The tab needs Shift, Position, and Score columns.',
+      422,
+    );
   }
 
   return body
@@ -178,8 +182,9 @@ async function fetchText(url: string): Promise<string> {
     },
   });
   if (!response.ok) {
-    throw new Error(
+    throw new ChorePlanError(
       'Google could not share this sheet. Set it to anyone-with-link view access.',
+      422,
     );
   }
   return response.text();
@@ -207,12 +212,17 @@ export async function fetchScoreSheet(
     try {
       const rows = scoreRowsFromCSV(csv);
       if (!rows.length) {
-        throw new Error('The tab needs at least one complete row.');
+        throw new ChorePlanError(
+          'The tab needs at least one complete row.',
+          422,
+        );
       }
       return rows;
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Invalid tab.';
-      throw new Error(`“${tab}”: ${message}`);
+      if (error instanceof ChorePlanError) {
+        throw new ChorePlanError(`“${tab}”: ${error.message}`, error.status);
+      }
+      throw error;
     }
   };
 
@@ -223,13 +233,15 @@ export async function fetchScoreSheet(
     events.some((row) => row.day !== undefined) &&
     events.some((row) => !row.day)
   ) {
-    throw new Error(
+    throw new ChorePlanError(
       `“${SCORE_TABS.event}” needs a recognizable Day value on every row.`,
+      422,
     );
   }
   if (dinners.some((row) => !row.day)) {
-    throw new Error(
+    throw new ChorePlanError(
       `“${SCORE_TABS.dinner}” needs a recognizable Day value on every row.`,
+      422,
     );
   }
 
@@ -416,21 +428,24 @@ function eventPeriodDayOffsets(rows: ChoreScoreRow[]): Map<number, number> {
       row.periodOrder === undefined ||
       row.periodOrder < 1
     ) {
-      throw new Error(
+      throw new ChorePlanError(
         'Event score rows need a positive Period order label value.',
+        422,
       );
     }
     const startClock = timePeriodStart(row.timePeriod ?? '');
     if (!startClock) {
-      throw new Error(
+      throw new ChorePlanError(
         `Could not understand the time period “${row.timePeriod ?? ''}”.`,
+        422,
       );
     }
     const startMinutes = hour24(startClock) * 60 + startClock.minute;
     const existingStart = periodStarts.get(row.periodOrder);
     if (existingStart !== undefined && existingStart !== startMinutes) {
-      throw new Error(
+      throw new ChorePlanError(
         `Event period ${row.periodOrder} has conflicting start times.`,
+        422,
       );
     }
     periodStarts.set(row.periodOrder, startMinutes);
@@ -466,8 +481,9 @@ function normalizeEventWeekRows(rows: ChoreScoreRow[]): PlanningScoreRow[] {
       row.periodOrder === undefined ||
       row.periodOrder < 1
     ) {
-      throw new Error(
+      throw new ChorePlanError(
         'Event score rows need a positive Period order label value.',
+        422,
       );
     }
     if (
@@ -476,12 +492,16 @@ function normalizeEventWeekRows(rows: ChoreScoreRow[]): PlanningScoreRow[] {
       row.day < 1 ||
       row.day > 7
     ) {
-      throw new Error('Event score rows need a recognizable Day value.');
+      throw new ChorePlanError(
+        'Event score rows need a recognizable Day value.',
+        422,
+      );
     }
     const startClock = timePeriodStart(row.timePeriod ?? '');
     if (!startClock) {
-      throw new Error(
+      throw new ChorePlanError(
         `Could not understand the time period “${row.timePeriod ?? ''}”.`,
+        422,
       );
     }
     const startMinutes = hour24(startClock) * 60 + startClock.minute;
@@ -490,8 +510,9 @@ function normalizeEventWeekRows(rows: ChoreScoreRow[]): PlanningScoreRow[] {
       existing &&
       (existing.day !== row.day || existing.startMinutes !== startMinutes)
     ) {
-      throw new Error(
+      throw new ChorePlanError(
         `Event period ${row.periodOrder} has conflicting day or time values.`,
+        422,
       );
     }
     periodValues.set(row.periodOrder, { day: row.day, startMinutes });
@@ -558,7 +579,10 @@ function shiftTimes(
     const startClock = parseClock(rangeMatch[1]);
     const endClock = parseClock(rangeMatch[2]);
     if (!startClock || !endClock) {
-      throw new Error(`Could not understand the time period “${timePeriod}”.`);
+      throw new ChorePlanError(
+        `Could not understand the time period “${timePeriod}”.`,
+        422,
+      );
     }
     const start = baseDay.set({
       hour: hour24(startClock),
@@ -583,7 +607,10 @@ function shiftTimes(
 
   const clock = parseClock(timePeriod);
   if (!clock) {
-    throw new Error(`Could not understand the time “${timePeriod}”.`);
+    throw new ChorePlanError(
+      `Could not understand the time “${timePeriod}”.`,
+      422,
+    );
   }
   const start = baseDay.set({
     hour: hour24(clock),
@@ -614,7 +641,10 @@ function buildShiftPreviews(
     const first = group[0];
     const timePeriod = first.timePeriod ?? '';
     if (!timePeriod) {
-      throw new Error(`“${first.shift}” needs a Time or Time Period value.`);
+      throw new ChorePlanError(
+        `“${first.shift}” needs a Time or Time Period value.`,
+        422,
+      );
     }
     const periodOrder = first.periodOrder ?? 0;
     const times = shiftTimes(year, first.calendarDay, timePeriod);
