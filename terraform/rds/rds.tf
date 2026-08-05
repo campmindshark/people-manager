@@ -27,14 +27,15 @@ resource "aws_db_instance" "people_manager_postgres" {
   identifier             = "${var.project_name}-db"
   instance_class         = "db.t3.micro"
   allocated_storage      = 5
-  engine                 = "postgres"
-  engine_version         = "15.12"
-  skip_final_snapshot    = true
-  publicly_accessible    = true
-  vpc_security_group_ids = [aws_security_group.rds.id]
-  username               = "postgres"
-  password               = random_password.db_password.result
-  ca_cert_identifier     = data.aws_rds_certificate.cert.id
+  engine                     = "postgres"
+  engine_version             = "15"
+  auto_minor_version_upgrade = true
+  skip_final_snapshot        = true
+  publicly_accessible        = true
+  vpc_security_group_ids     = [aws_security_group.rds.id]
+  username                   = "postgres"
+  password                   = random_password.db_password.result
+  ca_cert_identifier         = data.aws_rds_certificate.cert.id
 }
 
 output "db_arn" {
