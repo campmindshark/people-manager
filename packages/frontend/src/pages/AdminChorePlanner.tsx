@@ -73,12 +73,15 @@ const frontendConfig = getFrontendConfig();
 const rosterClient = new BackendRosterClient(frontendConfig.BackendURL);
 const chorePlanClient = new BackendChorePlanClient(frontendConfig.BackendURL);
 
-function requestErrorMessage(error: unknown): string {
+export function requestErrorMessage(error: unknown): string {
   if (axios.isAxiosError(error)) {
-    return (
-      (error.response?.data as { error?: string } | undefined)?.error ??
-      error.message
-    );
+    const response = error.response?.data as
+      { error?: unknown; diagnosticCode?: unknown } | undefined;
+    const message =
+      typeof response?.error === 'string' ? response.error : error.message;
+    return typeof response?.diagnosticCode === 'string'
+      ? `${message} Diagnostic code: ${response.diagnosticCode}.`
+      : message;
   }
   return error instanceof Error ? error.message : 'Something went wrong.';
 }
