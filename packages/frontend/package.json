@@ -43,9 +43,9 @@
     "test": "react-app-rewired test",
     "eject": "react-scripts eject",
     "lint": "pnpx eslint@8.57.0 \"**/*.{ts,tsx}\"",
-    "lint-fix": "prettier --check '**/*.{js,jsx,ts,tsx}' --config prettierrc.json --write",
-    "style": "pnpx prettier --check '**/*.{js,jsx,ts,tsx}' --config prettierrc.json",
-    "style-fix": "pnpx prettier --write --check '**/*.{js,jsx,ts,tsx}' --config prettierrc.json"
+    "lint-fix": "pnpx prettier@3.9.6 --check '**/*.{js,jsx,ts,tsx}' --config prettierrc.json --write",
+    "style": "pnpx prettier@3.9.6 --check '**/*.{js,jsx,ts,tsx}' --config prettierrc.json",
+    "style-fix": "pnpx prettier@3.9.6 --write --check '**/*.{js,jsx,ts,tsx}' --config prettierrc.json"
   },
   "eslintConfig": {
     "extends": [
@@ -84,7 +84,7 @@
     "eslint-plugin-prettier": "^5.0.1",
     "eslint-plugin-react": "^7.30.1",
     "eslint-plugin-react-hooks": "^4.6.0",
-    "prettier": "^3.0.3",
+    "prettier": "3.9.6",
     "react-scripts": "5.0.1"
   }
 }

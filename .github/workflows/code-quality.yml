@@ -33,9 +33,9 @@ jobs:
           node-version: 22
           cache: 'yarn'
 
-      # pnpm is needed because `lint`/`style` scripts use `pnpx` to pin the
-      # eslint/prettier version. eslint is intentionally NOT installed
-      # globally; `pnpx eslint@8.57.0` fetches the pinned version itself.
+      # pnpm is needed because `lint`/`style` scripts use `pnpx` to fetch the
+      # pinned ESLint 8.57.0 and Prettier 3.9.6 versions. Neither tool is
+      # intentionally installed globally.
       # Pinned to v9 because (a) `pnpx` was deprecated and removed from
       # later versions, and (b) leaving it unpinned silently drifts on
       # every CI run.
