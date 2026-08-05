@@ -8,8 +8,7 @@ export default interface RosterParticipantViewModel {
   signupDate: Date;
 }
 
-export interface RosterParticipantViewModelWithPrivateFields
-  extends RosterParticipantViewModel {
+export interface RosterParticipantViewModelWithPrivateFields extends RosterParticipantViewModel {
   privateProfile: PrivateProfile;
 }
 
