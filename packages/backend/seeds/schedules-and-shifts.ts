@@ -34,10 +34,10 @@ const generateShiftsAtIntervalOverRange = (
 };
 
 export async function seed(knex: Knex): Promise<void> {
-  // Deletes ALL existing entries
-  await knex('schedules').del();
-  await knex('shifts').del();
+  // Delete dependents before their parents so this seed remains safe to rerun.
   await knex('shift_participants').del();
+  await knex('shifts').del();
+  await knex('schedules').del();
 
   // Inserts seed entries
   await knex('schedules').insert([
