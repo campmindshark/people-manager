@@ -2,6 +2,7 @@ import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import Roster from 'backend/models/roster/roster';
+import { ChorePlanLifecycleState } from 'backend/view_models/chore_plan_lifecycle';
 import {
   ChorePlanApplyResponse,
   ChorePlanDraftSummary,
@@ -92,10 +93,33 @@ function applyResponse(
   };
 }
 
+function lifecycleState(
+  sourceDraft: ChorePlanDraftSummary,
+  overrides: Partial<ChorePlanLifecycleState> = {},
+): ChorePlanLifecycleState {
+  return {
+    id: sourceDraft.id,
+    rosterID: sourceDraft.rosterID,
+    status: 'draft',
+    planningYear: sourceDraft.planningYear,
+    camperCount: sourceDraft.camperCount,
+    requirements: sourceDraft.requirements,
+    shiftCount: sourceDraft.shiftCount,
+    slotCount: sourceDraft.slotCount,
+    openedAt: null,
+    openedByUserID: null,
+    closedAt: null,
+    closedByUserID: null,
+    updatedAt: sourceDraft.updatedAt,
+    ...overrides,
+  };
+}
+
 function clients(
   previewResult: ChorePlanPreview,
   currentDraft: ChorePlanDraftSummary | null,
   applyResult?: ChorePlanApplyResponse,
+  lifecyclePlan: ChorePlanLifecycleState | null = null,
 ) {
   const planClient: ChorePlannerClient = {
     Preview: jest.fn().mockResolvedValue(previewResult),
@@ -109,6 +133,10 @@ function clients(
             draft(previewResult, { draftRevision: '1' }),
           ),
       ),
+    GetLifecycle: jest.fn().mockResolvedValue({ plan: lifecyclePlan }),
+    Open: jest.fn(),
+    Close: jest.fn(),
+    Reopen: jest.fn(),
   };
   const rosterClient: ChorePlannerRosterClient = {
     GetAllRosters: jest.fn().mockResolvedValue([roster]),
@@ -118,12 +146,124 @@ function clients(
 
 async function enterCamperCount(value: string) {
   const input = await screen.findByRole('spinbutton', {
-    name: /camper count/i,
+    name: /prospective campers/i,
   });
   userEvent.clear(input);
   userEvent.type(input, value);
   return input;
 }
+
+test('shows the original planner lifecycle summary and opens signups after review', async () => {
+  const generated = preview();
+  const savedDraft = draft(generated, { draftRevision: '1' });
+  const draftPlan = lifecycleState(savedDraft);
+  const openedPlan = lifecycleState(savedDraft, {
+    status: 'open',
+    openedAt: '2026-08-06T16:00:00.000Z',
+    openedByUserID: 9,
+    updatedAt: '2026-08-06T16:00:00.000Z',
+  });
+  const { planClient, rosterClient } = clients(
+    generated,
+    savedDraft,
+    undefined,
+    draftPlan,
+  );
+  (planClient.Open as jest.Mock).mockResolvedValue(openedPlan);
+
+  render(
+    <ChorePlanBuilder planClient={planClient} rosterClient={rosterClient} />,
+  );
+
+  expect(
+    await screen.findByText(/chore signups are in draft for 2026/i),
+  ).toBeVisible();
+  expect(
+    screen.getByText(/this plan covers 1 campers with 1 signup spots/i),
+  ).toBeVisible();
+
+  userEvent.click(
+    screen.getByRole('button', {
+      name: /review and open chore signups/i,
+    }),
+  );
+  expect(
+    screen.getByRole('dialog', {
+      name: /review and open chore signups/i,
+    }),
+  ).toBeVisible();
+  userEvent.click(
+    screen.getByRole('button', {
+      name: /^open signups$/i,
+    }),
+  );
+
+  await waitFor(() => expect(planClient.Open).toHaveBeenCalledWith(1));
+  expect(
+    await screen.findByText(/chore signups are open for 2026/i),
+  ).toBeVisible();
+  await waitFor(() =>
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument(),
+  );
+  expect(
+    screen.getByRole('button', {
+      name: /review and close chore signups/i,
+    }),
+  ).toBeVisible();
+});
+
+test('requires an audited reason when reopening closed signups', async () => {
+  const generated = preview();
+  const savedDraft = draft(generated);
+  const closedPlan = lifecycleState(savedDraft, {
+    status: 'closed',
+    openedAt: '2026-08-06T16:00:00.000Z',
+    openedByUserID: 9,
+    closedAt: '2026-08-06T17:00:00.000Z',
+    closedByUserID: 10,
+    updatedAt: '2026-08-06T17:00:00.000Z',
+  });
+  const reopenedPlan = lifecycleState(savedDraft, {
+    status: 'open',
+    openedAt: '2026-08-06T18:00:00.000Z',
+    openedByUserID: 11,
+    updatedAt: '2026-08-06T18:00:00.000Z',
+  });
+  const { planClient, rosterClient } = clients(
+    generated,
+    null,
+    undefined,
+    closedPlan,
+  );
+  (planClient.Reopen as jest.Mock).mockResolvedValue(reopenedPlan);
+
+  render(
+    <ChorePlanBuilder planClient={planClient} rosterClient={rosterClient} />,
+  );
+
+  userEvent.click(
+    await screen.findByRole('button', {
+      name: /review and open chore signups/i,
+    }),
+  );
+  const reopenButton = screen.getByRole('button', {
+    name: /^reopen signups$/i,
+  });
+  expect(reopenButton).toBeDisabled();
+  userEvent.type(
+    screen.getByRole('textbox', { name: /reopening reason/i }),
+    ' Scheduling correction ',
+  );
+  expect(reopenButton).toBeEnabled();
+  userEvent.click(reopenButton);
+
+  await waitFor(() =>
+    expect(planClient.Reopen).toHaveBeenCalledWith(1, 'Scheduling correction'),
+  );
+  expect(
+    await screen.findByText(/chore signups are now open for 2026/i),
+  ).toBeVisible();
+});
 
 test('previews and applies a new draft through the narrow request contracts', async () => {
   const generated = preview();
@@ -138,7 +278,7 @@ test('previews and applies a new draft through the narrow request contracts', as
   );
 
   await enterCamperCount('1');
-  userEvent.click(screen.getByRole('button', { name: /preview plan/i }));
+  userEvent.click(screen.getByRole('button', { name: /preview signup plan/i }));
 
   await waitFor(() =>
     expect(planClient.Preview).toHaveBeenCalledWith({
@@ -149,11 +289,10 @@ test('previews and applies a new draft through the narrow request contracts', as
   );
   expect(planClient.GetDraft).toHaveBeenCalledWith(1);
   expect(await screen.findByText('AM Chum Wench')).toBeVisible();
-  expect(
-    screen.getByRole('table', { name: /category summary/i }),
-  ).toBeVisible();
+  expect(screen.getAllByText('Daily chores')).toHaveLength(2);
+  expect(screen.getByText('First')).toBeVisible();
 
-  userEvent.click(screen.getByRole('button', { name: /apply new draft/i }));
+  userEvent.click(screen.getByRole('button', { name: /create signup plan/i }));
   await waitFor(() =>
     expect(planClient.Apply).toHaveBeenCalledWith({
       rosterID: 1,
@@ -163,7 +302,9 @@ test('previews and applies a new draft through the narrow request contracts', as
       expectedDraftRevision: null,
     }),
   );
-  expect(await screen.findByText(/created draft revision 1/i)).toBeVisible();
+  expect(
+    await screen.findByText(/created signup plan draft revision 1/i),
+  ).toBeVisible();
 });
 
 test('requires explicit confirmation before replacing an observed draft', async () => {
@@ -180,14 +321,12 @@ test('requires explicit confirmation before replacing an observed draft', async 
   );
 
   await enterCamperCount('1');
-  userEvent.click(screen.getByRole('button', { name: /preview plan/i }));
+  userEvent.click(screen.getByRole('button', { name: /preview signup plan/i }));
   expect(
     await screen.findByText(/will replace saved draft revision 4/i),
   ).toBeVisible();
 
-  userEvent.click(
-    screen.getByRole('button', { name: /replace existing draft/i }),
-  );
+  userEvent.click(screen.getByRole('button', { name: /apply plan updates/i }));
   expect(
     screen.getByRole('dialog', { name: /replace existing draft/i }),
   ).toBeVisible();
@@ -200,7 +339,7 @@ test('requires explicit confirmation before replacing an observed draft', async 
     ),
   );
   expect(
-    await screen.findByText(/replaced the draft with revision 5/i),
+    await screen.findByText(/applied signup plan updates in draft revision 5/i),
   ).toBeVisible();
 });
 
@@ -220,16 +359,16 @@ test('reapplies an identical draft without a replacement dialog', async () => {
   );
 
   await enterCamperCount('1');
-  userEvent.click(screen.getByRole('button', { name: /preview plan/i }));
-  const reapplyButton = await screen.findByRole('button', {
-    name: /reapply unchanged draft/i,
+  userEvent.click(screen.getByRole('button', { name: /preview signup plan/i }));
+  const applyUpdatesButton = await screen.findByRole('button', {
+    name: /apply plan updates/i,
   });
-  userEvent.click(reapplyButton);
+  userEvent.click(applyUpdatesButton);
 
   await waitFor(() => expect(planClient.Apply).toHaveBeenCalledTimes(1));
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   expect(
-    await screen.findByText(/already matches this preview/i),
+    await screen.findByText(/saved signup plan already matches this preview/i),
   ).toBeVisible();
 });
 
@@ -247,15 +386,47 @@ test('shows exact shortages and prevents apply', async () => {
   );
 
   await enterCamperCount('1');
-  userEvent.click(screen.getByRole('button', { name: /preview plan/i }));
+  userEvent.click(screen.getByRole('button', { name: /preview signup plan/i }));
 
   expect(
     await screen.findByText(/1 event position, 1 dinner position/i),
   ).toBeVisible();
   expect(
-    screen.getByRole('button', { name: /apply new draft/i }),
+    screen.getByRole('button', { name: /create signup plan/i }),
   ).toBeDisabled();
   expect(planClient.Apply).not.toHaveBeenCalled();
+});
+
+test('uses the original score bands for preview positions', async () => {
+  const generated = preview();
+  generated.shifts[0].slots = [
+    {
+      definitionKey: 'chore-am-chum-wench-first',
+      positionLabel: 'First',
+      score: 75,
+    },
+    {
+      definitionKey: 'chore-am-chum-wench-second',
+      positionLabel: 'Second',
+      score: 25,
+    },
+    {
+      definitionKey: 'chore-am-chum-wench-third',
+      positionLabel: 'Third',
+      score: 24,
+    },
+  ];
+  const { planClient, rosterClient } = clients(generated, null);
+  render(
+    <ChorePlanBuilder planClient={planClient} rosterClient={rosterClient} />,
+  );
+
+  await enterCamperCount('1');
+  userEvent.click(screen.getByRole('button', { name: /preview signup plan/i }));
+
+  expect(await screen.findByText('First')).toHaveClass('high');
+  expect(screen.getByText('Second')).toHaveClass('medium');
+  expect(screen.getByText('Third')).toHaveClass('low');
 });
 
 test('blocks invalid form values before previewing', async () => {
@@ -266,9 +437,11 @@ test('blocks invalid form values before previewing', async () => {
   );
 
   await enterCamperCount('201');
-  userEvent.click(screen.getByRole('button', { name: /preview plan/i }));
+  userEvent.click(screen.getByRole('button', { name: /preview signup plan/i }));
 
-  expect(await screen.findByText(/enter 1–200 campers/i)).toBeVisible();
+  expect(
+    await screen.findByText(/enter 1–200 prospective campers/i),
+  ).toBeVisible();
   expect(planClient.Preview).not.toHaveBeenCalled();
   expect(planClient.GetDraft).not.toHaveBeenCalled();
 });
@@ -289,10 +462,10 @@ test('explains stale catalog and draft conflicts and requires a new preview', as
   );
 
   await enterCamperCount('1');
-  userEvent.click(screen.getByRole('button', { name: /preview plan/i }));
+  userEvent.click(screen.getByRole('button', { name: /preview signup plan/i }));
   userEvent.click(
     await screen.findByRole('button', {
-      name: /reapply unchanged draft/i,
+      name: /apply plan updates/i,
     }),
   );
 
@@ -300,7 +473,7 @@ test('explains stale catalog and draft conflicts and requires a new preview', as
     await screen.findByText(/chore scores changed after this preview/i),
   ).toBeVisible();
   expect(
-    screen.queryByText('Preview', { selector: 'h5' }),
+    screen.queryByText(/signup sheet preview/i, { selector: 'h5' }),
   ).not.toBeInTheDocument();
   consoleError.mockRestore();
 });
@@ -321,10 +494,10 @@ test('distinguishes a stale saved draft from a score conflict', async () => {
   );
 
   await enterCamperCount('1');
-  userEvent.click(screen.getByRole('button', { name: /preview plan/i }));
+  userEvent.click(screen.getByRole('button', { name: /preview signup plan/i }));
   userEvent.click(
     await screen.findByRole('button', {
-      name: /reapply unchanged draft/i,
+      name: /apply plan updates/i,
     }),
   );
 
