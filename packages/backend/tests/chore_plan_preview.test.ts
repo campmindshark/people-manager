@@ -10,6 +10,7 @@ import ChorePlanPreviewError from '../utils/chorePlanPreviewError';
 import {
   parseChorePlanApplyRequest,
   parseChorePlanPreviewRequest,
+  parseChorePlanRosterID,
 } from '../utils/chorePlanPreviewInput';
 import { ChoreCatalogDefinitionView } from '../view_models/chore_catalog';
 import { ChorePlanPreviewRequest } from '../view_models/chore_plan_preview';
@@ -115,6 +116,11 @@ test('preview input accepts only bounded roster, camper, and requirement values'
 });
 
 test('apply input accepts only preview inputs and both observed revisions', () => {
+  assert.equal(parseChorePlanRosterID('7'), 7);
+  assert.throws(
+    () => parseChorePlanRosterID('7.5'),
+    (error) => isPreviewError(error, 400, /valid roster/i),
+  );
   assert.deepEqual(
     parseChorePlanApplyRequest({
       ...DEFAULT_REQUEST,

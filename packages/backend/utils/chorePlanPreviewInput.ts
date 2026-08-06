@@ -15,6 +15,14 @@ function parsePositiveID(value: unknown): number {
   return Number(value);
 }
 
+export function parseChorePlanRosterID(value: unknown): number {
+  return parsePositiveID(
+    typeof value === 'string' && /^[1-9][0-9]*$/.test(value)
+      ? Number(value)
+      : value,
+  );
+}
+
 function parseCamperCount(value: unknown): number {
   if (
     !Number.isInteger(value) ||

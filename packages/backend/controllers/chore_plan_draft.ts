@@ -8,6 +8,7 @@ import { ChoreCatalogDefinitionView } from '../view_models/chore_catalog';
 import {
   ChorePlanApplyRequest,
   ChorePlanApplyResponse,
+  ChorePlanDraftResponse,
   ChorePlanDraftSummary,
   ChorePlanPreview,
   ChorePlanRequirements,
@@ -210,6 +211,30 @@ export default class ChorePlanDraftController {
 
   private getDatabase(): Knex {
     return this.database ?? Roster.knex();
+  }
+
+  async getByRosterID(rosterID: number): Promise<ChorePlanDraftResponse> {
+    return this.getDatabase().transaction(async (transaction) => {
+      await transaction.raw(
+        'SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY',
+      );
+      const roster = await transaction('rosters')
+        .select('id')
+        .where({ id: rosterID })
+        .first();
+      if (!roster) {
+        throw new ChorePlanPreviewError('Roster not found.', 404);
+      }
+
+      const plan = (await transaction<ChorePlanRow>('chore_plans')
+        .where({ rosterID })
+        .first()) as ChorePlanRow | undefined;
+      if (!plan) {
+        return { draft: null };
+      }
+      const counts = await loadDraftCounts(transaction, plan.id);
+      return { draft: draftSummary(plan, counts) };
+    });
   }
 
   async apply(

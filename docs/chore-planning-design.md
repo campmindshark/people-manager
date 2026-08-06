@@ -166,6 +166,14 @@ mutate a persisted plan or its audit meaning. Generated draft schedules and
 shifts are excluded from the ordinary schedule, shift, and signup APIs; a later
 slice introduces their dedicated read contract.
 
+The administrative planner loads only the current draft summary needed for
+optimistic concurrency; it does not expose participant mutations or lifecycle
+controls. Preview displays exact category shortages and generated shifts. A
+shortage disables apply. If the observed draft inputs, planning year, or
+catalog revision differ from the preview, the UI requires explicit replacement
+confirmation and sends the observed draft revision. A `409` clears the stale
+preview and requires the administrator to preview again.
+
 ## Requirements and overrides
 
 Requirements are non-negative whole counts for the three categories: chore,

@@ -10,6 +10,7 @@ import { parseChoreCatalogScoreUpdate } from '../utils/choreCatalogInput';
 import {
   parseChorePlanApplyRequest,
   parseChorePlanPreviewRequest,
+  parseChorePlanRosterID,
 } from '../utils/chorePlanPreviewInput';
 import ChorePlanPreviewError from '../utils/chorePlanPreviewError';
 
@@ -43,6 +44,23 @@ router.post(
       );
     } catch (error) {
       sendError(error, res, 'preview the chore plan');
+    }
+  },
+);
+
+router.get(
+  '/draft/:rosterID',
+  userIsVerified(),
+  hasPermission('chorePlans:apply'),
+  async (req: Request, res: Response) => {
+    try {
+      res.json(
+        await draftController.getByRosterID(
+          parseChorePlanRosterID(req.params.rosterID),
+        ),
+      );
+    } catch (error) {
+      sendError(error, res, 'load the chore plan draft');
     }
   },
 );
