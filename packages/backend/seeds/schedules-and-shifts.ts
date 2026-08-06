@@ -111,4 +111,23 @@ export async function seed(knex: Knex): Promise<void> {
   ];
   console.log(iceShifts);
   await knex('shifts').insert(iceShifts);
+
+  // These fixtures use stable explicit IDs. Keep PostgreSQL's sequences ahead
+  // of them so application-created schedules and shifts receive new IDs.
+  await knex.raw(`
+    SELECT setval(
+      pg_get_serial_sequence('schedules', 'id'),
+      COALESCE(MAX("id"), 1),
+      MAX("id") IS NOT NULL
+    )
+    FROM "schedules"
+  `);
+  await knex.raw(`
+    SELECT setval(
+      pg_get_serial_sequence('shifts', 'id'),
+      COALESCE(MAX("id"), 1),
+      MAX("id") IS NOT NULL
+    )
+    FROM "shifts"
+  `);
 }

@@ -147,16 +147,24 @@ exact selected/target/shortage summaries, position scores, and computed time
 instants.
 
 Apply does not trust client-supplied shift fields. Its request includes the plan
-inputs and expected catalog revision; the backend locks the plan and catalog,
-rejects a stale revision with `409 Conflict`, and recomputes the preview before
-writing. Schedule and shift stable keys make repeated application of the same
-input idempotent. The whole apply operation is transactional, so an error leaves
-no partial plan.
+inputs, expected catalog revision, and the draft revision observed by the
+caller (`null` when no draft was observed). The backend locks the catalog and
+plan, rejects a stale catalog or mismatched draft revision with `409 Conflict`,
+and recomputes the preview before writing. An identical retry is a successful
+no-op even when it repeats the original `null` draft revision after the first
+request committed. Replacing different draft contents requires the exact
+current draft revision and increments it once. Schedule and shift stable keys
+preserve matching rows across replacements. The whole apply operation,
+including its audit entry, is transactional, so an error leaves no partial
+plan.
 
 Every persisted draft stores the catalog revision and a snapshot of each used
-definition's stable key, fixed fields, and score. Later score edits affect only
-future previews and applies. They do not mutate a persisted plan or its audit
-meaning.
+definition's stable key, fixed fields, and score. It also stores the planning
+year, inputs, generated-shift display metadata, and a deterministic generation
+hash. Later score edits affect only future previews and applies. They do not
+mutate a persisted plan or its audit meaning. Generated draft schedules and
+shifts are excluded from the ordinary schedule, shift, and signup APIs; a later
+slice introduces their dedicated read contract.
 
 ## Requirements and overrides
 

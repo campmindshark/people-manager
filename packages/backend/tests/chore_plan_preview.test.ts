@@ -7,7 +7,10 @@ import { CHORE_CATALOG_V1 } from '../migrations/data/chore_catalog_v1';
 import RoleConfigCollection from '../roles/role';
 import buildChorePlanPreview from '../utils/chorePlanPreview';
 import ChorePlanPreviewError from '../utils/chorePlanPreviewError';
-import { parseChorePlanPreviewRequest } from '../utils/chorePlanPreviewInput';
+import {
+  parseChorePlanApplyRequest,
+  parseChorePlanPreviewRequest,
+} from '../utils/chorePlanPreviewInput';
 import { ChoreCatalogDefinitionView } from '../view_models/chore_catalog';
 import { ChorePlanPreviewRequest } from '../view_models/chore_plan_preview';
 
@@ -106,6 +109,57 @@ test('preview input accepts only bounded roster, camper, and requirement values'
       parseChorePlanPreviewRequest({
         ...DEFAULT_REQUEST,
         expectedRevision: '1',
+      }),
+    (error) => isPreviewError(error, 400, /accepts only/i),
+  );
+});
+
+test('apply input accepts only preview inputs and both observed revisions', () => {
+  assert.deepEqual(
+    parseChorePlanApplyRequest({
+      ...DEFAULT_REQUEST,
+      expectedCatalogRevision: '7',
+      expectedDraftRevision: null,
+    }),
+    {
+      ...DEFAULT_REQUEST,
+      expectedCatalogRevision: '7',
+      expectedDraftRevision: null,
+    },
+  );
+  assert.equal(
+    parseChorePlanApplyRequest({
+      ...DEFAULT_REQUEST,
+      expectedCatalogRevision: '7',
+      expectedDraftRevision: '3',
+    }).expectedDraftRevision,
+    '3',
+  );
+  assert.throws(
+    () =>
+      parseChorePlanApplyRequest({
+        ...DEFAULT_REQUEST,
+        expectedCatalogRevision: 7,
+        expectedDraftRevision: null,
+      }),
+    (error) => isPreviewError(error, 400, /catalog revision/i),
+  );
+  assert.throws(
+    () =>
+      parseChorePlanApplyRequest({
+        ...DEFAULT_REQUEST,
+        expectedCatalogRevision: '7',
+        expectedDraftRevision: '0',
+      }),
+    (error) => isPreviewError(error, 400, /draft revision/i),
+  );
+  assert.throws(
+    () =>
+      parseChorePlanApplyRequest({
+        ...DEFAULT_REQUEST,
+        expectedCatalogRevision: '7',
+        expectedDraftRevision: null,
+        shifts: [],
       }),
     (error) => isPreviewError(error, 400, /accepts only/i),
   );
@@ -273,6 +327,14 @@ test('admin role has a preview permission separate from catalog editing', () => 
   );
   assert.equal(
     RoleConfigCollection.hasPermission([], 'chorePlans:preview'),
+    false,
+  );
+  assert.equal(
+    RoleConfigCollection.hasPermission([1], 'chorePlans:apply'),
+    true,
+  );
+  assert.equal(
+    RoleConfigCollection.hasPermission([], 'chorePlans:apply'),
     false,
   );
 });

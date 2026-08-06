@@ -8,6 +8,11 @@ export interface ChorePlanPreviewRequest {
   requirements: ChorePlanRequirements;
 }
 
+export interface ChorePlanApplyRequest extends ChorePlanPreviewRequest {
+  expectedCatalogRevision: string;
+  expectedDraftRevision: string | null;
+}
+
 export interface ChorePlanPreviewCategory {
   target: number;
   selected: number;
@@ -45,6 +50,28 @@ export interface ChorePlanPreview {
   catalogRevision: string;
   categories: Record<ChoreCatalogKind, ChorePlanPreviewCategory>;
   shifts: ChorePlanShiftPreview[];
+}
+
+export interface ChorePlanDraftSummary {
+  id: number;
+  rosterID: number;
+  status: 'draft';
+  draftRevision: string;
+  catalogRevision: string;
+  planningYear: number;
+  camperCount: number;
+  requirements: ChorePlanRequirements;
+  scheduleCount: number;
+  shiftCount: number;
+  slotCount: number;
+  updatedAt: string;
+}
+
+export interface ChorePlanApplyResponse {
+  changed: boolean;
+  replaced: boolean;
+  draft: ChorePlanDraftSummary;
+  preview: ChorePlanPreview;
 }
 
 export interface ChorePlanPreviewBuildInput extends ChorePlanPreviewRequest {

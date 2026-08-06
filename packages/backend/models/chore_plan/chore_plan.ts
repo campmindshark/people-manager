@@ -10,6 +10,22 @@ export default class ChorePlan extends Model {
 
   status!: ChorePlanStatus;
 
+  planningYear!: number;
+
+  camperCount!: number;
+
+  choreRequirement!: number;
+
+  eventRequirement!: number;
+
+  dinnerRequirement!: number;
+
+  catalogRevision!: string;
+
+  draftRevision!: string;
+
+  generationHash!: string;
+
   openedAt!: Date | null;
 
   openedByUserID!: number | null;
@@ -26,11 +42,29 @@ export default class ChorePlan extends Model {
 
   static jsonSchema = {
     type: 'object',
-    required: ['rosterID'],
+    required: [
+      'rosterID',
+      'planningYear',
+      'camperCount',
+      'choreRequirement',
+      'eventRequirement',
+      'dinnerRequirement',
+      'catalogRevision',
+      'draftRevision',
+      'generationHash',
+    ],
     properties: {
       id: { type: 'integer' },
       rosterID: { type: 'integer' },
       status: { enum: ['draft', 'open', 'closed'] },
+      planningYear: { type: 'integer', minimum: 2000, maximum: 2200 },
+      camperCount: { type: 'integer', minimum: 1, maximum: 200 },
+      choreRequirement: { type: 'integer', minimum: 0, maximum: 20 },
+      eventRequirement: { type: 'integer', minimum: 0, maximum: 20 },
+      dinnerRequirement: { type: 'integer', minimum: 0, maximum: 20 },
+      catalogRevision: { type: 'string', pattern: '^[1-9][0-9]*$' },
+      draftRevision: { type: 'string', pattern: '^[1-9][0-9]*$' },
+      generationHash: { type: 'string', pattern: '^[0-9a-f]{64}$' },
       openedByUserID: { type: ['integer', 'null'] },
       closedByUserID: { type: ['integer', 'null'] },
     },

@@ -29,7 +29,8 @@
         "settings:edit",
         "choreCatalog:read",
         "choreCatalog:editScores",
-        "chorePlans:preview"
+        "chorePlans:preview",
+        "chorePlans:apply"
       ]
     }
   ]
