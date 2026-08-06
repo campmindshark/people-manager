@@ -1,25 +1,26 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import Alert from '@mui/material/Alert';
-import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
-import Checkbox from '@mui/material/Checkbox';
-import Chip from '@mui/material/Chip';
-import CircularProgress from '@mui/material/CircularProgress';
-import FormControl from '@mui/material/FormControl';
-import FormControlLabel from '@mui/material/FormControlLabel';
-import InputLabel from '@mui/material/InputLabel';
-import MenuItem from '@mui/material/MenuItem';
-import Select, { SelectChangeEvent } from '@mui/material/Select';
-import Stack from '@mui/material/Stack';
-import Table from '@mui/material/Table';
-import TableBody from '@mui/material/TableBody';
-import TableCell from '@mui/material/TableCell';
-import TableContainer from '@mui/material/TableContainer';
-import TableHead from '@mui/material/TableHead';
-import TableRow from '@mui/material/TableRow';
-import TextField from '@mui/material/TextField';
-import Typography from '@mui/material/Typography';
-import Roster from 'backend/models/roster/roster';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import {
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
+  Alert,
+  Button,
+  Checkbox,
+  Chip,
+  CircularProgress,
+  FormControl,
+  FormControlLabel,
+  InputLabel,
+  MenuItem,
+  Paper,
+  Select,
+  SelectChangeEvent,
+  Stack,
+  TextField,
+  Typography,
+} from '@mui/material';
+import { ChoreCatalogKind } from 'backend/view_models/chore_catalog';
 import {
   ChorePlanAdminAssignmentMutation,
   ChorePlanAdminAssignmentMutationResponse,
@@ -29,10 +30,8 @@ import {
   ChorePlanForceAssignmentRequest,
 } from 'backend/view_models/chore_plan_assignments';
 import BackendChorePlanClient from '../../api/chore_plans/client';
-import BackendRosterClient from '../../api/roster/roster';
 import { getFrontendConfig } from '../../config/config';
-
-type AssignmentOperation = ChorePlanAdminAssignmentMutation['operation'];
+import SignupSheetTable, { SignupSheetShift } from '../shifts/SignupSheetTable';
 
 export interface ChorePlanAdminAssignmentClient {
   GetAdminAssignments: (
@@ -48,38 +47,30 @@ export interface ChorePlanAdminAssignmentClient {
   ) => Promise<ChorePlanAdminAssignmentMutationResponse>;
 }
 
-export interface ChorePlanAdminAssignmentRosterClient {
-  GetAllRosters: () => Promise<Roster[]>;
-}
-
 interface ChorePlanAssignmentManagerProps {
+  rosterID: number;
+  canForceAssignments?: boolean;
   planClient?: ChorePlanAdminAssignmentClient;
-  rosterClient?: ChorePlanAdminAssignmentRosterClient;
 }
 
-interface FormState {
-  operation: AssignmentOperation;
-  firstUserID: string;
-  firstShiftID: string;
-  destinationShiftID: string;
-  secondUserID: string;
-  secondShiftID: string;
-  forced: boolean;
-  reason: string;
+interface AdminParticipantSelection {
+  userID: number;
+  shiftID: number;
+  participantName: string;
+  shiftDescription: string;
+}
+
+interface AdminSignupSheetShift extends SignupSheetShift {
+  shift: ChorePlanAdminAssignmentShift;
 }
 
 const frontendConfig = getFrontendConfig();
 const defaultPlanClient = new BackendChorePlanClient(frontendConfig.BackendURL);
-const defaultRosterClient = new BackendRosterClient(frontendConfig.BackendURL);
-const initialForm: FormState = {
-  operation: 'assign',
-  firstUserID: '',
-  firstShiftID: '',
-  destinationShiftID: '',
-  secondUserID: '',
-  secondShiftID: '',
-  forced: false,
-  reason: '',
+const KINDS: ChoreCatalogKind[] = ['chore', 'event', 'dinner'];
+const CATEGORY_LABELS: Record<ChoreCatalogKind, string> = {
+  chore: 'Daily chores',
+  event: 'Event crew',
+  dinner: 'Dinner crew',
 };
 
 function participantName(
@@ -92,8 +83,8 @@ function participantName(
   return legalName || `User ${participant.userID}`;
 }
 
-function shiftName(shift: ChorePlanAdminAssignmentShift): string {
-  return `${shift.displayDayLabel} — ${shift.scheduleName} — ${shift.timePeriodLabel}`;
+function shiftDescription(shift: ChorePlanAdminAssignmentShift): string {
+  return `${shift.scheduleName}, day ${shift.displayDayNumber}, ${shift.timePeriodLabel}`;
 }
 
 function errorMessage(error: unknown): string {
@@ -114,118 +105,236 @@ function errorMessage(error: unknown): string {
   return 'Could not update chore assignments. Please try again.';
 }
 
+function signupSheetShift(
+  shift: ChorePlanAdminAssignmentShift,
+): AdminSignupSheetShift {
+  return {
+    key: shift.stableKey,
+    scheduleName: shift.scheduleName,
+    day: shift.displayDayNumber,
+    timePeriod: shift.timePeriodLabel,
+    periodOrder: shift.periodOrder ?? 0,
+    shift,
+  };
+}
+
+function participantNeeds(
+  participant: ChorePlanAdminAssignmentParticipant,
+  view: ChorePlanAdminAssignmentViewResponse,
+): { label: string; total: number } {
+  const { plan } = view;
+  if (!plan) {
+    return { label: '', total: 0 };
+  }
+  const shiftsByID = new Map(view.shifts.map((shift) => [shift.id, shift]));
+  const assigned: Record<ChoreCatalogKind, number> = {
+    chore: 0,
+    event: 0,
+    dinner: 0,
+  };
+  participant.assignedShiftIDs.forEach((shiftID) => {
+    const shift = shiftsByID.get(shiftID);
+    if (shift) {
+      assigned[shift.kind] += 1;
+    }
+  });
+  const missing = KINDS.map((kind) => ({
+    count: Math.max(0, plan.requirements[kind] - assigned[kind]),
+    kind,
+  })).filter(({ count }) => count > 0);
+  return {
+    label: missing
+      .map(
+        ({ count, kind }) => `${count} ${kind} shift${count === 1 ? '' : 's'}`,
+      )
+      .join(' · '),
+    total: missing.reduce((total, { count }) => total + count, 0),
+  };
+}
+
 function successMessage(
   result: ChorePlanAdminAssignmentMutationResponse,
-  operation: AssignmentOperation,
+  changedMessage: string,
 ): string {
   if (!result.changed) {
     return 'Assignments were already unchanged.';
   }
   if (result.forced && result.bypassedRules.length > 0) {
-    return `Forced ${operation}; bypassed ${result.bypassedRules.join(', ')}.`;
+    return `${changedMessage} Bypassed: ${result.bypassedRules.join(', ')}.`;
   }
-  return `${operation.charAt(0).toUpperCase()}${operation.slice(1)} completed.`;
+  return changedMessage;
 }
 
-function positiveID(value: string): number | null {
-  return /^[1-9][0-9]*$/.test(value) ? Number(value) : null;
-}
+function AdminSignupSlots({
+  shift,
+  participantsByID,
+  selectedParticipants,
+  destinationShiftID,
+  assignee,
+  mutationsAllowed,
+  submitting,
+  onAssign,
+  onToggleParticipant,
+  onToggleDestination,
+}: {
+  shift: ChorePlanAdminAssignmentShift;
+  participantsByID: Map<number, ChorePlanAdminAssignmentParticipant>;
+  selectedParticipants: AdminParticipantSelection[];
+  destinationShiftID: number | null;
+  assignee: ChorePlanAdminAssignmentParticipant | null;
+  mutationsAllowed: boolean;
+  submitting: boolean;
+  onAssign: (shift: ChorePlanAdminAssignmentShift) => void;
+  onToggleParticipant: (selection: AdminParticipantSelection) => void;
+  onToggleDestination: (shiftID: number) => void;
+}) {
+  const slotCount = Math.max(
+    1,
+    shift.requiredParticipants,
+    shift.assignedUserIDs.length,
+  );
+  const selectedSourceShiftID =
+    selectedParticipants.length === 1 ? selectedParticipants[0].shiftID : null;
+  const showDestinationSelector =
+    mutationsAllowed && !assignee && selectedParticipants.length === 1;
 
-function buildMutation(
-  form: FormState,
-): ChorePlanAdminAssignmentMutation | null {
-  const firstUserID = positiveID(form.firstUserID);
-  const firstShiftID = positiveID(form.firstShiftID);
-  if (firstUserID === null || firstShiftID === null) {
-    return null;
-  }
-  if (form.operation === 'assign' || form.operation === 'unassign') {
-    return {
-      operation: form.operation,
-      userID: firstUserID,
-      shiftID: firstShiftID,
-    };
-  }
-  if (form.operation === 'move') {
-    const toShiftID = positiveID(form.destinationShiftID);
-    return toShiftID === null
-      ? null
-      : {
-          operation: 'move',
-          userID: firstUserID,
-          fromShiftID: firstShiftID,
-          toShiftID,
-        };
-  }
-  const secondUserID = positiveID(form.secondUserID);
-  const secondShiftID = positiveID(form.secondShiftID);
-  return secondUserID === null || secondShiftID === null
-    ? null
-    : {
-        operation: 'swap',
-        firstUserID,
-        firstShiftID,
-        secondUserID,
-        secondShiftID,
-      };
+  return (
+    <div className="signup-sheet-admin-shift-controls">
+      <span className="signup-sheet-slots">
+        {Array.from({ length: slotCount }, (_, index) => {
+          const userID = shift.assignedUserIDs[index];
+          if (userID === undefined) {
+            const firstOpenSlot = index === shift.assignedUserIDs.length;
+            if (assignee && firstOpenSlot && mutationsAllowed) {
+              const name = participantName(assignee);
+              const alreadyAssigned = shift.assignedUserIDs.includes(
+                assignee.userID,
+              );
+              return (
+                <button
+                  aria-label={`Add ${name} to ${shiftDescription(shift)}`}
+                  className="signup-sheet-slot signup-sheet-slot-button open"
+                  disabled={submitting || alreadyAssigned}
+                  key={`${shift.stableKey}|admin-slot-${index}`}
+                  onClick={() => onAssign(shift)}
+                  type="button"
+                >
+                  Add {name}
+                </button>
+              );
+            }
+            return (
+              <span
+                className="signup-sheet-slot open"
+                key={`${shift.stableKey}|admin-slot-${index}`}
+              >
+                Open spot
+              </span>
+            );
+          }
+
+          const participant = participantsByID.get(userID);
+          const name = participant
+            ? participantName(participant)
+            : `User ${userID}`;
+          const selected = selectedParticipants.some(
+            (selection) =>
+              selection.shiftID === shift.id && selection.userID === userID,
+          );
+          return mutationsAllowed ? (
+            <button
+              aria-label={`${selected ? 'Deselect' : 'Select'} ${name} in ${shiftDescription(shift)} for admin shift editing`}
+              aria-pressed={selected}
+              className={`signup-sheet-slot signup-sheet-slot-button filled signup-sheet-admin-person-selector ${
+                selected ? 'selected' : ''
+              }`}
+              disabled={submitting}
+              key={`${shift.stableKey}|admin-slot-${index}`}
+              onClick={() =>
+                onToggleParticipant({
+                  shiftID: shift.id,
+                  userID,
+                  participantName: name,
+                  shiftDescription: shiftDescription(shift),
+                })
+              }
+              type="button"
+            >
+              {name}
+            </button>
+          ) : (
+            <span
+              className="signup-sheet-slot filled other-user"
+              key={`${shift.stableKey}|admin-slot-${index}`}
+            >
+              {name}
+            </span>
+          );
+        })}
+      </span>
+      {showDestinationSelector && (
+        <button
+          aria-label={`${
+            destinationShiftID === shift.id ? 'Deselect' : 'Select'
+          } ${shiftDescription(shift)} as move destination`}
+          aria-pressed={destinationShiftID === shift.id}
+          className={`signup-sheet-admin-destination-selector ${
+            destinationShiftID === shift.id ? 'selected' : ''
+          }`}
+          disabled={submitting || selectedSourceShiftID === shift.id}
+          onClick={() => onToggleDestination(shift.id)}
+          type="button"
+        >
+          {destinationShiftID === shift.id
+            ? 'Destination selected'
+            : 'Move here'}
+        </button>
+      )}
+    </div>
+  );
 }
 
 export default function ChorePlanAssignmentManager({
+  rosterID,
+  canForceAssignments = false,
   planClient = defaultPlanClient,
-  rosterClient = defaultRosterClient,
 }: ChorePlanAssignmentManagerProps) {
-  const [rosters, setRosters] = useState<Roster[]>([]);
-  const [rosterID, setRosterID] = useState('');
   const [view, setView] = useState<ChorePlanAdminAssignmentViewResponse | null>(
     null,
   );
-  const [form, setForm] = useState<FormState>(initialForm);
   const [loading, setLoading] = useState(true);
-  const [mutating, setMutating] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [selectedAssigneeID, setSelectedAssigneeID] = useState<number | null>(
+    null,
+  );
+  const [selectedParticipants, setSelectedParticipants] = useState<
+    AdminParticipantSelection[]
+  >([]);
+  const [destinationShiftID, setDestinationShiftID] = useState<number | null>(
+    null,
+  );
+  const [force, setForce] = useState(false);
+  const [forceReason, setForceReason] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  useEffect(() => {
-    let active = true;
-    rosterClient
-      .GetAllRosters()
-      .then((response) => {
-        if (!active) {
-          return;
-        }
-        const sorted = [...response].sort(
-          (first, second) => second.year - first.year || second.id - first.id,
-        );
-        setRosters(sorted);
-        setRosterID(sorted[0] ? String(sorted[0].id) : '');
-        if (sorted.length === 0) {
-          setError('Create a roster before managing chore assignments.');
-          setLoading(false);
-        }
-      })
-      .catch(() => {
-        if (active) {
-          setError('Could not load rosters. Please try again.');
-          setLoading(false);
-        }
-      });
-    return () => {
-      active = false;
-    };
-  }, [rosterClient]);
+  const loadView = useCallback(
+    () => planClient.GetAdminAssignments(rosterID),
+    [planClient, rosterID],
+  );
 
   useEffect(() => {
-    const parsedRosterID = positiveID(rosterID);
-    if (parsedRosterID === null) {
-      return undefined;
-    }
     let active = true;
     setLoading(true);
+    setView(null);
     setError(null);
     setSuccess(null);
-    setForm(initialForm);
-    planClient
-      .GetAdminAssignments(parsedRosterID)
+    setSelectedAssigneeID(null);
+    setSelectedParticipants([]);
+    setDestinationShiftID(null);
+    setForce(false);
+    setForceReason('');
+    loadView()
       .then((response) => {
         if (active) {
           setView(response);
@@ -233,7 +342,6 @@ export default function ChorePlanAssignmentManager({
       })
       .catch((loadError) => {
         if (active) {
-          setView(null);
           setError(errorMessage(loadError));
         }
       })
@@ -245,7 +353,7 @@ export default function ChorePlanAssignmentManager({
     return () => {
       active = false;
     };
-  }, [planClient, rosterID]);
+  }, [loadView]);
 
   const participantsByID = useMemo(
     () =>
@@ -257,329 +365,417 @@ export default function ChorePlanAssignmentManager({
       ),
     [view],
   );
-  const shiftsByID = useMemo(
-    () => new Map(view?.shifts.map((shift) => [shift.id, shift])),
+  const selectedAssignee =
+    participantsByID.get(selectedAssigneeID ?? 0) ?? null;
+  const eligibleAssignees = useMemo(
+    () =>
+      view
+        ? view.participants
+            .map((participant) => ({
+              needs: participantNeeds(participant, view),
+              participant,
+            }))
+            .filter(({ needs }) => needs.total > 0)
+        : [],
     [view],
   );
-  const firstParticipant = participantsByID.get(Number(form.firstUserID));
-  const secondParticipant = participantsByID.get(Number(form.secondUserID));
-  const firstSourceOptions =
-    form.operation === 'assign'
-      ? (view?.shifts ?? [])
-      : (firstParticipant?.assignedShiftIDs ?? [])
-          .map((id) => shiftsByID.get(id))
-          .filter((shift): shift is ChorePlanAdminAssignmentShift =>
-            Boolean(shift),
-          );
-  const secondSourceOptions = (secondParticipant?.assignedShiftIDs ?? [])
-    .map((id) => shiftsByID.get(id))
-    .filter((shift): shift is ChorePlanAdminAssignmentShift => Boolean(shift));
+  const selectedDestination = view?.shifts.find(
+    ({ id }) => id === destinationShiftID,
+  );
+  const canSwap =
+    selectedParticipants.length === 2 &&
+    selectedParticipants[0].shiftID !== selectedParticipants[1].shiftID;
+  let moveButtonLabel = 'Move person';
+  let swapButtonLabel = 'Swap people';
+  if (submitting) {
+    moveButtonLabel = 'Saving…';
+    swapButtonLabel = 'Saving…';
+  } else if (force) {
+    moveButtonLabel = 'Force move';
+    swapButtonLabel = 'Force swap';
+  }
 
-  const setField = <K extends keyof FormState>(
-    field: K,
-    value: FormState[K],
+  const resetSelection = () => {
+    setSelectedAssigneeID(null);
+    setSelectedParticipants([]);
+    setDestinationShiftID(null);
+    setForce(false);
+    setForceReason('');
+  };
+
+  const runMutation = async (
+    mutation: ChorePlanAdminAssignmentMutation,
+    changedMessage: string,
+    allowForce = true,
   ) => {
-    setForm((current) => ({ ...current, [field]: value }));
-    setError(null);
-    setSuccess(null);
-  };
-
-  const handleOperation = (event: SelectChangeEvent<AssignmentOperation>) => {
-    setForm({
-      ...initialForm,
-      operation: event.target.value as AssignmentOperation,
-    });
-    setError(null);
-    setSuccess(null);
-  };
-
-  const handleSubmit = async () => {
-    const parsedRosterID = positiveID(rosterID);
-    const mutation = buildMutation(form);
-    if (parsedRosterID === null || !mutation) {
-      setError(
-        'Choose every participant and shift required by this operation.',
-      );
-      return;
-    }
-    if (form.forced && form.reason.trim().length === 0) {
+    if (force && allowForce && forceReason.trim().length === 0) {
       setError('Enter a reason before forcing an assignment change.');
       return;
     }
-    setMutating(true);
+    setSubmitting(true);
     setError(null);
     setSuccess(null);
     try {
-      const result = form.forced
-        ? await planClient.ForceAdminAssignments(parsedRosterID, {
-            mutation,
-            reason: form.reason.trim(),
-          })
-        : await planClient.MutateAdminAssignments(parsedRosterID, mutation);
-      setView(await planClient.GetAdminAssignments(parsedRosterID));
-      setSuccess(successMessage(result, mutation.operation));
-      setForm({ ...initialForm, operation: form.operation });
+      const result =
+        force && allowForce
+          ? await planClient.ForceAdminAssignments(rosterID, {
+              mutation,
+              reason: forceReason.trim(),
+            })
+          : await planClient.MutateAdminAssignments(rosterID, mutation);
+      setView(await loadView());
+      setSuccess(successMessage(result, changedMessage));
+      resetSelection();
     } catch (mutationError) {
       setError(errorMessage(mutationError));
     } finally {
-      setMutating(false);
+      setSubmitting(false);
     }
   };
 
+  const handleAssigneeChange = (event: SelectChangeEvent<number | ''>) => {
+    setSelectedAssigneeID(
+      event.target.value === '' ? null : Number(event.target.value),
+    );
+    setSelectedParticipants([]);
+    setDestinationShiftID(null);
+    setForce(false);
+    setForceReason('');
+    setError(null);
+    setSuccess(null);
+  };
+
+  const handleToggleParticipant = (selection: AdminParticipantSelection) => {
+    setSelectedAssigneeID(null);
+    setError(null);
+    setSuccess(null);
+    const selected = selectedParticipants.some(
+      ({ shiftID, userID }) =>
+        shiftID === selection.shiftID && userID === selection.userID,
+    );
+    let next = selectedParticipants;
+    if (selected) {
+      next = selectedParticipants.filter(
+        ({ shiftID, userID }) =>
+          shiftID !== selection.shiftID || userID !== selection.userID,
+      );
+    } else if (
+      selectedParticipants.length < 2 &&
+      !selectedParticipants.some(({ userID }) => userID === selection.userID)
+    ) {
+      next = [...selectedParticipants, selection];
+    }
+    setSelectedParticipants(next);
+    if (next.length !== 1) {
+      setDestinationShiftID(null);
+    }
+  };
+
+  const handleAssign = (shift: ChorePlanAdminAssignmentShift) => {
+    if (!selectedAssignee) {
+      return;
+    }
+    runMutation(
+      {
+        operation: 'assign',
+        userID: selectedAssignee.userID,
+        shiftID: shift.id,
+      },
+      `${participantName(selectedAssignee)} was assigned to ${shift.scheduleName}.`,
+      false,
+    );
+  };
+
+  const handleMove = () => {
+    if (selectedParticipants.length !== 1 || !selectedDestination) {
+      return;
+    }
+    const source = selectedParticipants[0];
+    runMutation(
+      {
+        operation: 'move',
+        userID: source.userID,
+        fromShiftID: source.shiftID,
+        toShiftID: selectedDestination.id,
+      },
+      `${source.participantName} was ${force ? 'force-moved' : 'moved'} to ${selectedDestination.scheduleName}.`,
+    );
+  };
+
+  const handleSwap = () => {
+    if (!canSwap) {
+      return;
+    }
+    const [first, second] = selectedParticipants;
+    runMutation(
+      {
+        operation: 'swap',
+        firstUserID: first.userID,
+        firstShiftID: first.shiftID,
+        secondUserID: second.userID,
+        secondShiftID: second.shiftID,
+      },
+      `The selected people were ${force ? 'force-swapped' : 'swapped'}.`,
+    );
+  };
+
+  const handleUnassign = () => {
+    if (selectedParticipants.length !== 1) {
+      return;
+    }
+    const selected = selectedParticipants[0];
+    runMutation(
+      {
+        operation: 'unassign',
+        userID: selected.userID,
+        shiftID: selected.shiftID,
+      },
+      `${selected.participantName} was unassigned.`,
+      false,
+    );
+  };
+
+  if (loading) {
+    return (
+      <Paper sx={{ p: 5, textAlign: 'center' }}>
+        <CircularProgress aria-label="Loading chore assignments" size={28} />
+        <Typography color="text.secondary" sx={{ mt: 2 }}>
+          Loading administrative signup sheets…
+        </Typography>
+      </Paper>
+    );
+  }
+  if (!view) {
+    return <Alert severity="error">{error}</Alert>;
+  }
+  if (!view.plan) {
+    return <Alert severity="info">No chore plan exists for this roster.</Alert>;
+  }
+
   return (
-    <Stack spacing={3}>
-      <FormControl sx={{ maxWidth: 320 }}>
-        <InputLabel id="assignment-roster-label">Roster</InputLabel>
-        <Select
-          label="Roster"
-          labelId="assignment-roster-label"
-          onChange={(event) => setRosterID(event.target.value)}
-          value={rosterID}
-        >
-          {rosters.map((roster) => (
-            <MenuItem key={roster.id} value={String(roster.id)}>
-              {roster.year}
-            </MenuItem>
-          ))}
-        </Select>
-      </FormControl>
-
-      {loading && <CircularProgress aria-label="Loading chore assignments" />}
-      {error && <Alert severity="error">{error}</Alert>}
-      {success && <Alert severity="success">{success}</Alert>}
-      {!loading && view && !view.plan && (
-        <Alert severity="info">No chore plan exists for this roster.</Alert>
-      )}
-      {!loading && view?.plan && (
-        <>
-          <Stack direction="row" spacing={1} alignItems="center">
-            <Chip label={`Plan ${view.plan.status}`} size="small" />
-            <Typography color="text.secondary">
-              {view.mutationsAllowed
-                ? 'Administrative assignment changes are open.'
-                : 'Reopen the plan before changing assignments.'}
-            </Typography>
-          </Stack>
-
-          <Box component="section">
-            <Typography variant="h6" gutterBottom>
-              Current assignments
-            </Typography>
-            <TableContainer>
-              <Table aria-label="Administrative chore assignments" size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Shift</TableCell>
-                    <TableCell>Type</TableCell>
-                    <TableCell>Capacity</TableCell>
-                    <TableCell>Participants</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {view.shifts.map((shift) => (
-                    <TableRow key={shift.id}>
-                      <TableCell>{shiftName(shift)}</TableCell>
-                      <TableCell>{shift.kind}</TableCell>
-                      <TableCell>
-                        {shift.assignedUserIDs.length}/
-                        {shift.requiredParticipants}
-                      </TableCell>
-                      <TableCell>
-                        {shift.assignedUserIDs.length
-                          ? shift.assignedUserIDs
-                              .map((userID) => participantsByID.get(userID))
-                              .map((participant, index) =>
-                                participant
-                                  ? participantName(participant)
-                                  : `User ${shift.assignedUserIDs[index]}`,
-                              )
-                              .join(', ')
-                          : 'Unassigned'}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </Box>
-
-          <Stack component="section" spacing={2} sx={{ maxWidth: 720 }}>
-            <Typography variant="h6">Change assignments</Typography>
-            <FormControl>
-              <InputLabel id="assignment-operation-label">Operation</InputLabel>
-              <Select
-                label="Operation"
-                labelId="assignment-operation-label"
-                onChange={handleOperation}
-                value={form.operation}
-              >
-                <MenuItem value="assign">Assign</MenuItem>
-                <MenuItem value="unassign">Unassign</MenuItem>
-                <MenuItem value="move">Move</MenuItem>
-                <MenuItem value="swap">Swap</MenuItem>
-              </Select>
-            </FormControl>
-            <FormControl>
-              <InputLabel id="first-participant-label">
-                {form.operation === 'swap'
-                  ? 'First participant'
-                  : 'Participant'}
-              </InputLabel>
-              <Select
-                label={
-                  form.operation === 'swap'
-                    ? 'First participant'
-                    : 'Participant'
+    <Stack spacing={2}>
+      <Alert severity={view.mutationsAllowed ? 'success' : 'info'}>
+        {view.plan.status === 'open'
+          ? `Chore signups are open for ${view.plan.planningYear}.`
+          : `The ${view.plan.planningYear} chore plan is ${view.plan.status}. Reopen signups before changing assignments.`}
+      </Alert>
+      <Paper sx={{ p: { xs: 1, sm: 3 } }}>
+        <Stack spacing={2}>
+          <Alert severity={force ? 'warning' : 'info'}>
+            <Stack spacing={1.5}>
+              <Typography variant="body2">
+                To add someone, choose a roster person who still needs shifts,
+                then select an open spot. To change assignments, select one
+                person to move or unassign, or two people to swap. Safe edits
+                check capacity, attendance dates, time conflicts, roster,
+                category, and signup requirements.
+              </Typography>
+              <FormControl
+                disabled={
+                  !view.mutationsAllowed ||
+                  eligibleAssignees.length === 0 ||
+                  submitting
                 }
-                labelId="first-participant-label"
-                onChange={(event) => {
-                  setForm((current) => ({
-                    ...current,
-                    firstUserID: event.target.value,
-                    firstShiftID: '',
-                  }));
-                }}
-                value={form.firstUserID}
+                size="small"
+                sx={{ maxWidth: 620 }}
               >
-                {view.participants.map((participant) => (
-                  <MenuItem
-                    key={participant.userID}
-                    value={String(participant.userID)}
-                  >
-                    {participantName(participant)}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <FormControl>
-              <InputLabel id="first-shift-label">
-                {form.operation === 'assign' ? 'Shift' : 'Source shift'}
-              </InputLabel>
-              <Select
-                label={form.operation === 'assign' ? 'Shift' : 'Source shift'}
-                labelId="first-shift-label"
-                onChange={(event) =>
-                  setField('firstShiftID', event.target.value)
-                }
-                value={form.firstShiftID}
-              >
-                {firstSourceOptions.map((shift) => (
-                  <MenuItem key={shift.id} value={String(shift.id)}>
-                    {shiftName(shift)}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            {form.operation === 'move' && (
-              <FormControl>
-                <InputLabel id="destination-shift-label">
-                  Destination shift
+                <InputLabel id="admin-shift-assignee-label">
+                  Person needing shifts
                 </InputLabel>
-                <Select
-                  label="Destination shift"
-                  labelId="destination-shift-label"
-                  onChange={(event) =>
-                    setField('destinationShiftID', event.target.value)
-                  }
-                  value={form.destinationShiftID}
+                <Select<number | ''>
+                  id="admin-shift-assignee"
+                  label="Person needing shifts"
+                  labelId="admin-shift-assignee-label"
+                  onChange={handleAssigneeChange}
+                  value={selectedAssigneeID ?? ''}
                 >
-                  {view.shifts.map((shift) => (
-                    <MenuItem key={shift.id} value={String(shift.id)}>
-                      {shiftName(shift)}
+                  <MenuItem value="">
+                    <em>Select a person</em>
+                  </MenuItem>
+                  {eligibleAssignees.map(({ needs, participant }) => (
+                    <MenuItem
+                      key={participant.userID}
+                      value={participant.userID}
+                    >
+                      {participantName(participant)} — needs {needs.label}
                     </MenuItem>
                   ))}
                 </Select>
               </FormControl>
-            )}
-            {form.operation === 'swap' && (
-              <>
-                <FormControl>
-                  <InputLabel id="second-participant-label">
-                    Second participant
-                  </InputLabel>
-                  <Select
-                    label="Second participant"
-                    labelId="second-participant-label"
-                    onChange={(event) => {
-                      setForm((current) => ({
-                        ...current,
-                        secondUserID: event.target.value,
-                        secondShiftID: '',
-                      }));
-                    }}
-                    value={form.secondUserID}
-                  >
-                    {view.participants.map((participant) => (
-                      <MenuItem
-                        key={participant.userID}
-                        value={String(participant.userID)}
-                      >
-                        {participantName(participant)}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-                <FormControl>
-                  <InputLabel id="second-shift-label">
-                    Second source shift
-                  </InputLabel>
-                  <Select
-                    label="Second source shift"
-                    labelId="second-shift-label"
-                    onChange={(event) =>
-                      setField('secondShiftID', event.target.value)
-                    }
-                    value={form.secondShiftID}
-                  >
-                    {secondSourceOptions.map((shift) => (
-                      <MenuItem key={shift.id} value={String(shift.id)}>
-                        {shiftName(shift)}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </>
-            )}
-            {form.operation !== 'unassign' && (
-              <>
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={form.forced}
-                      onChange={(event) =>
-                        setField('forced', event.target.checked)
+              {eligibleAssignees.length === 0 && (
+                <Typography variant="caption">
+                  Everyone on this roster has all of their required shifts.
+                </Typography>
+              )}
+              {selectedAssignee && (
+                <Typography variant="caption">
+                  {participantName(selectedAssignee)} still needs{' '}
+                  {participantNeeds(selectedAssignee, view).label}. Select an
+                  enabled open spot below to add them.
+                </Typography>
+              )}
+              {selectedParticipants.length > 0 && (
+                <Stack spacing={0.25}>
+                  {selectedParticipants.map((participant) => (
+                    <Typography
+                      key={`${participant.shiftID}|${participant.userID}`}
+                      variant="caption"
+                    >
+                      {participant.participantName} —{' '}
+                      {participant.shiftDescription}
+                    </Typography>
+                  ))}
+                  {selectedDestination && (
+                    <Typography variant="caption">
+                      Destination — {shiftDescription(selectedDestination)}
+                    </Typography>
+                  )}
+                </Stack>
+              )}
+              {!selectedAssignee && (
+                <>
+                  {canForceAssignments && (
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          checked={force}
+                          disabled={!view.mutationsAllowed || submitting}
+                          onChange={(event) => {
+                            setForce(event.target.checked);
+                            setForceReason('');
+                            setError(null);
+                            setSuccess(null);
+                          }}
+                          size="small"
+                        />
                       }
+                      label="Force (skip safety constraints)"
                     />
-                  }
-                  label="Force rule conflicts (separate permission required)"
-                />
-                {form.forced && (
-                  <TextField
-                    inputProps={{ maxLength: 500 }}
-                    label="Force reason"
-                    multiline
-                    onChange={(event) => setField('reason', event.target.value)}
-                    required
-                    value={form.reason}
-                  />
-                )}
-              </>
-            )}
-            <Button
-              disabled={!view.mutationsAllowed || mutating}
-              onClick={handleSubmit}
-              variant="contained"
-            >
-              {mutating ? 'Saving...' : `Run ${form.operation}`}
-            </Button>
-          </Stack>
-        </>
-      )}
+                  )}
+                  {force && (
+                    <>
+                      <Typography variant="caption">
+                        Force may bypass capacity, attendance, time, and
+                        category checks. Lifecycle, membership, generated-shift
+                        ownership, and duplicate rules remain enforced.
+                      </Typography>
+                      <TextField
+                        fullWidth
+                        inputProps={{ maxLength: 500 }}
+                        label="Force reason"
+                        multiline
+                        onChange={(event) => setForceReason(event.target.value)}
+                        required
+                        size="small"
+                        value={forceReason}
+                      />
+                    </>
+                  )}
+                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+                    <Button
+                      color={force ? 'warning' : 'primary'}
+                      disabled={
+                        !view.mutationsAllowed ||
+                        selectedParticipants.length !== 1 ||
+                        !destinationShiftID ||
+                        submitting
+                      }
+                      onClick={handleMove}
+                      size="small"
+                      variant="contained"
+                    >
+                      {moveButtonLabel}
+                    </Button>
+                    <Button
+                      color={force ? 'warning' : 'primary'}
+                      disabled={
+                        !view.mutationsAllowed || !canSwap || submitting
+                      }
+                      onClick={handleSwap}
+                      size="small"
+                      variant="contained"
+                    >
+                      {swapButtonLabel}
+                    </Button>
+                    <Button
+                      color="error"
+                      disabled={
+                        !view.mutationsAllowed ||
+                        selectedParticipants.length !== 1 ||
+                        submitting
+                      }
+                      onClick={handleUnassign}
+                      size="small"
+                      variant="contained"
+                    >
+                      {submitting ? 'Saving…' : 'Unassign'}
+                    </Button>
+                  </Stack>
+                </>
+              )}
+            </Stack>
+          </Alert>
+          {error && <Alert severity="error">{error}</Alert>}
+          {success && <Alert severity="success">{success}</Alert>}
+          {KINDS.map((kind) => {
+            const shifts = view.shifts.filter((shift) => shift.kind === kind);
+            return (
+              <Accordion key={kind} defaultExpanded={kind === 'chore'}>
+                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                  <Stack
+                    alignItems={{ xs: 'flex-start', sm: 'center' }}
+                    direction={{ xs: 'column', sm: 'row' }}
+                    spacing={{ xs: 0.5, sm: 2 }}
+                  >
+                    <Typography variant="h6">
+                      {CATEGORY_LABELS[kind]}
+                    </Typography>
+                    <Chip label={`${shifts.length} shifts`} size="small" />
+                  </Stack>
+                </AccordionSummary>
+                <AccordionDetails sx={{ px: { xs: 0, sm: 2 } }}>
+                  {shifts.length ? (
+                    <SignupSheetTable
+                      emptyCellContent={null}
+                      kind={kind}
+                      shifts={shifts.map(signupSheetShift)}
+                      renderShift={({ shift }) => (
+                        <AdminSignupSlots
+                          assignee={selectedAssignee}
+                          destinationShiftID={destinationShiftID}
+                          mutationsAllowed={view.mutationsAllowed}
+                          onAssign={handleAssign}
+                          onToggleDestination={(shiftID) => {
+                            setDestinationShiftID((current) =>
+                              current === shiftID ? null : shiftID,
+                            );
+                            setError(null);
+                            setSuccess(null);
+                          }}
+                          onToggleParticipant={handleToggleParticipant}
+                          participantsByID={participantsByID}
+                          selectedParticipants={selectedParticipants}
+                          shift={shift}
+                          submitting={submitting}
+                        />
+                      )}
+                    />
+                  ) : (
+                    <Typography color="text.secondary">
+                      No {CATEGORY_LABELS[kind].toLowerCase()} were generated.
+                    </Typography>
+                  )}
+                </AccordionDetails>
+              </Accordion>
+            );
+          })}
+        </Stack>
+      </Paper>
     </Stack>
   );
 }
 
 ChorePlanAssignmentManager.defaultProps = {
-  planClient: undefined,
-  rosterClient: undefined,
+  canForceAssignments: false,
+  planClient: defaultPlanClient,
 };

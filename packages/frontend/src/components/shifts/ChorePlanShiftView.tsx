@@ -1,27 +1,32 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ChorePlanShiftViewResponse } from 'backend/view_models/chore_plan_shifts';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import {
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
+  Alert,
+  Button,
+  Chip,
+  CircularProgress,
+  Paper,
+  Stack,
+  Typography,
+} from '@mui/material';
+import { ChoreCatalogKind } from 'backend/view_models/chore_catalog';
+import {
+  ChorePlanShiftViewItem,
+  ChorePlanShiftViewPlan,
+  ChorePlanShiftViewResponse,
+} from 'backend/view_models/chore_plan_shifts';
 import {
   ChorePlanSignupMutationResponse,
   ChorePlanSignupRequest,
   ChorePlanSwitchRequest,
 } from 'backend/view_models/chore_plan_signup';
-import {
-  Alert,
-  Box,
-  Button,
-  Chip,
-  Paper,
-  Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Typography,
-} from '@mui/material';
 import BackendChorePlanClient from '../../api/chore_plans/client';
 import { getFrontendConfig } from '../../config/config';
+import ChorePlanAssignmentManager from '../admin/ChorePlanAssignmentManager';
+import SignupSheetTable, { SignupSheetShift } from './SignupSheetTable';
 
 export interface ChorePlanShiftClient {
   GetShifts: (rosterID: number) => Promise<ChorePlanShiftViewResponse>;
@@ -41,13 +46,82 @@ export interface ChorePlanShiftClient {
 
 interface ChorePlanShiftViewProps {
   rosterID: number;
+  adminEditMode?: boolean;
+  canForceAssignments?: boolean;
+  planClient?: ChorePlanShiftClient;
+}
+
+interface MemberChorePlanShiftViewProps {
+  rosterID: number;
   planClient?: ChorePlanShiftClient;
 }
 
 const frontendConfig = getFrontendConfig();
+const KINDS: ChoreCatalogKind[] = ['chore', 'event', 'dinner'];
+const CATEGORY_LABELS: Record<ChoreCatalogKind, string> = {
+  chore: 'Daily chores',
+  event: 'Event crew',
+  dinner: 'Dinner crew',
+};
 
-function kindLabel(kind: 'chore' | 'event' | 'dinner'): string {
-  return `${kind.charAt(0).toUpperCase()}${kind.slice(1)}`;
+interface MemberSignupSheetShift extends SignupSheetShift {
+  item: ChorePlanShiftViewItem;
+}
+
+interface SignupCategoryProps {
+  kind: ChoreCatalogKind;
+  plan: ChorePlanShiftViewPlan;
+  shifts: ChorePlanShiftViewItem[];
+  mutationsAllowed: boolean;
+  onSignup: (shiftID: number) => Promise<ChorePlanSignupMutationResponse>;
+  onRemove: (shiftID: number) => Promise<ChorePlanSignupMutationResponse>;
+  onSwitch: (
+    fromShiftID: number,
+    toShiftID: number,
+  ) => Promise<ChorePlanSignupMutationResponse>;
+  onChanged: () => Promise<void>;
+}
+
+function signupSheetShift(
+  item: ChorePlanShiftViewItem,
+): MemberSignupSheetShift {
+  return {
+    key: item.stableKey,
+    scheduleName: item.scheduleName,
+    day: item.displayDayNumber,
+    timePeriod: item.timePeriodLabel,
+    periodOrder: item.periodOrder ?? 0,
+    item,
+  };
+}
+
+function requirementChip(
+  kind: ChoreCatalogKind,
+  plan: ChorePlanShiftViewPlan,
+  shifts: ChorePlanShiftViewItem[],
+): { color: 'default' | 'success' | 'warning'; label: string } {
+  if (plan.status === 'closed') {
+    return { color: 'default', label: 'Signups closed' };
+  }
+
+  const requirement = plan.requirements[kind];
+  if (requirement === 0) {
+    return {
+      color: 'success',
+      label: `${CATEGORY_LABELS[kind]} not required`,
+    };
+  }
+  const assigned = shifts.filter(({ currentUserAssigned }) =>
+    Boolean(currentUserAssigned),
+  ).length;
+  const remaining = Math.max(0, requirement - assigned);
+  if (remaining === 0) {
+    return { color: 'success', label: 'Requirement complete!' };
+  }
+  return {
+    color: 'warning',
+    label: `${remaining} shift${remaining === 1 ? '' : 's'} required!`,
+  };
 }
 
 function mutationErrorMessage(error: unknown): string {
@@ -65,10 +139,294 @@ function mutationErrorMessage(error: unknown): string {
   return 'Could not update your chore assignment. Please try again.';
 }
 
-export default function ChorePlanShiftView({
+function SignupSlots({
+  shift,
+  mutationsAllowed,
+  signupSelected,
+  removalSelected,
+  selectionDisabled,
+  submitting,
+  onToggleSignup,
+  onToggleRemoval,
+}: {
+  shift: ChorePlanShiftViewItem;
+  mutationsAllowed: boolean;
+  signupSelected: boolean;
+  removalSelected: boolean;
+  selectionDisabled: boolean;
+  submitting: boolean;
+  onToggleSignup: () => void;
+  onToggleRemoval: () => void;
+}) {
+  const slotCount = Math.max(
+    shift.requiredParticipants,
+    shift.slots.length,
+    shift.assignedParticipantCount,
+  );
+  const assignedCount = Math.min(shift.assignedParticipantCount, slotCount);
+
+  if (slotCount === 0) {
+    return null;
+  }
+
+  return (
+    <div className="signup-sheet-slots">
+      {Array.from({ length: slotCount }, (_, index) => {
+        const currentUser = shift.currentUserAssigned && index === 0;
+        if (index < assignedCount) {
+          if (currentUser && mutationsAllowed) {
+            return (
+              <button
+                aria-label={`${
+                  removalSelected ? 'Keep' : 'Remove'
+                } your spot for ${shift.scheduleName}, day ${
+                  shift.displayDayNumber
+                }, ${shift.timePeriodLabel}`}
+                aria-pressed={removalSelected}
+                className={`signup-sheet-slot signup-sheet-slot-button filled current-user ${
+                  removalSelected ? 'removal-selected' : ''
+                }`}
+                disabled={submitting}
+                key={`${shift.stableKey}|slot-${index}`}
+                onClick={onToggleRemoval}
+                type="button"
+              >
+                Your signup
+              </button>
+            );
+          }
+          return (
+            <span
+              className={`signup-sheet-slot filled ${
+                currentUser ? 'current-user' : 'other-user'
+              }`}
+              key={`${shift.stableKey}|slot-${index}`}
+            >
+              {currentUser ? 'Your signup' : 'Filled'}
+            </span>
+          );
+        }
+
+        const firstOpenSlot = index === assignedCount;
+        if (firstOpenSlot && mutationsAllowed) {
+          return (
+            <button
+              aria-label={`${
+                signupSelected ? 'Deselect' : 'Select'
+              } open spot for ${shift.scheduleName}, day ${
+                shift.displayDayNumber
+              }, ${shift.timePeriodLabel}`}
+              aria-pressed={signupSelected}
+              className={`signup-sheet-slot signup-sheet-slot-button ${
+                signupSelected ? 'selected' : 'open'
+              }`}
+              disabled={submitting || selectionDisabled}
+              key={`${shift.stableKey}|slot-${index}`}
+              onClick={onToggleSignup}
+              type="button"
+            >
+              {signupSelected ? 'Selected' : 'Open spot'}
+            </button>
+          );
+        }
+        return (
+          <span
+            className="signup-sheet-slot open"
+            key={`${shift.stableKey}|slot-${index}`}
+          >
+            Open spot
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
+function SignupCategory({
+  kind,
+  plan,
+  shifts,
+  mutationsAllowed,
+  onSignup,
+  onRemove,
+  onSwitch,
+  onChanged,
+}: SignupCategoryProps) {
+  const [selectedShiftID, setSelectedShiftID] = useState<number | null>(null);
+  const [selectedRemovalShiftID, setSelectedRemovalShiftID] = useState<
+    number | null
+  >(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const requirement = plan.requirements[kind];
+  const confirmedShiftCount = shifts.filter(
+    ({ currentUserAssigned }) => currentUserAssigned,
+  ).length;
+  const remainingSignupCount = Math.max(0, requirement - confirmedShiftCount);
+  const changeReady =
+    selectedRemovalShiftID !== null && selectedShiftID !== null;
+  let submitButtonLabel = changeReady ? 'Change shift' : 'Sign up (0)';
+  if (selectedShiftID !== null && !changeReady) {
+    submitButtonLabel = 'Sign up (1)';
+  }
+  if (submitting) {
+    submitButtonLabel = changeReady ? 'Changing…' : 'Signing up…';
+  }
+  let signupGuidance = 'Signups are not open';
+  if (mutationsAllowed && selectedRemovalShiftID !== null) {
+    signupGuidance = `Select one open ${kind} shift as your replacement. Your current spot is kept unless the change succeeds.`;
+  } else if (mutationsAllowed && requirement === 0) {
+    signupGuidance = `No ${kind} shifts are required for you. You can remove or change any existing spots.`;
+  } else if (mutationsAllowed && remainingSignupCount > 0) {
+    signupGuidance = `You are signed up for ${confirmedShiftCount} of ${requirement}. Select one open shift at a time; overlapping time blocks are unavailable.`;
+  } else if (mutationsAllowed) {
+    signupGuidance = `You are signed up for all ${requirement} required ${kind} shift${
+      requirement === 1 ? '' : 's'
+    }. Select one of your spots if you need to change it.`;
+  }
+
+  const performMutation = async (
+    action: () => Promise<ChorePlanSignupMutationResponse>,
+    successMessage: string,
+  ) => {
+    setSubmitting(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      const result = await action();
+      await onChanged();
+      setSuccess(
+        result.changed ? successMessage : 'Your assignments are unchanged.',
+      );
+      setSelectedShiftID(null);
+      setSelectedRemovalShiftID(null);
+    } catch (mutationFailure) {
+      setError(mutationErrorMessage(mutationFailure));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleSignup = () => {
+    if (selectedShiftID === null) {
+      return;
+    }
+    const selectedShift = shifts.find(({ id }) => id === selectedShiftID);
+    performMutation(
+      () => onSignup(selectedShiftID),
+      `Signed up for ${selectedShift?.scheduleName ?? 'the selected shift'}.`,
+    );
+  };
+
+  const handleRemove = () => {
+    if (selectedRemovalShiftID === null) {
+      return;
+    }
+    const selectedShift = shifts.find(
+      ({ id }) => id === selectedRemovalShiftID,
+    );
+    performMutation(
+      () => onRemove(selectedRemovalShiftID),
+      `Removed ${selectedShift?.scheduleName ?? 'the selected shift'}.`,
+    );
+  };
+
+  const handleSwitch = () => {
+    if (selectedRemovalShiftID === null || selectedShiftID === null) {
+      return;
+    }
+    const selectedShift = shifts.find(({ id }) => id === selectedShiftID);
+    performMutation(
+      () => onSwitch(selectedRemovalShiftID, selectedShiftID),
+      `Changed to ${selectedShift?.scheduleName ?? 'the selected shift'}.`,
+    );
+  };
+
+  return (
+    <Stack spacing={2}>
+      <SignupSheetTable
+        emptyCellContent={null}
+        kind={kind}
+        shifts={shifts.map(signupSheetShift)}
+        renderShift={({ item }) => {
+          const selected = selectedShiftID === item.id;
+          const selectionDisabled =
+            !selected &&
+            (item.currentUserAssigned ||
+              (selectedRemovalShiftID === null &&
+                (remainingSignupCount === 0 || selectedShiftID !== null)));
+          return (
+            <SignupSlots
+              mutationsAllowed={mutationsAllowed}
+              onToggleRemoval={() => {
+                setError(null);
+                setSuccess(null);
+                setSelectedRemovalShiftID((current) =>
+                  current === item.id ? null : item.id,
+                );
+              }}
+              onToggleSignup={() => {
+                setError(null);
+                setSuccess(null);
+                setSelectedShiftID((current) =>
+                  current === item.id ? null : item.id,
+                );
+              }}
+              removalSelected={selectedRemovalShiftID === item.id}
+              selectionDisabled={selectionDisabled}
+              shift={item}
+              signupSelected={selected}
+              submitting={submitting}
+            />
+          );
+        }}
+      />
+      {mutationsAllowed && (
+        <Stack
+          alignItems={{ xs: 'stretch', sm: 'center' }}
+          direction={{ xs: 'column', sm: 'row' }}
+          justifyContent="space-between"
+          spacing={1}
+        >
+          <Typography color="text.secondary" variant="body2">
+            {signupGuidance}
+          </Typography>
+          <Stack direction="row" spacing={1}>
+            {selectedRemovalShiftID !== null && !changeReady && (
+              <Button
+                color="error"
+                disabled={submitting}
+                onClick={handleRemove}
+                variant="contained"
+              >
+                {submitting ? 'Removing…' : 'Remove shift'}
+              </Button>
+            )}
+            <Button
+              disabled={
+                selectedShiftID === null ||
+                (selectedRemovalShiftID !== null && !changeReady) ||
+                submitting
+              }
+              onClick={changeReady ? handleSwitch : handleSignup}
+              variant="contained"
+            >
+              {submitButtonLabel}
+            </Button>
+          </Stack>
+        </Stack>
+      )}
+      {error && <Alert severity="error">{error}</Alert>}
+      {success && <Alert severity="success">{success}</Alert>}
+    </Stack>
+  );
+}
+
+function MemberChorePlanShiftView({
   rosterID,
   planClient,
-}: ChorePlanShiftViewProps) {
+}: MemberChorePlanShiftViewProps) {
   const client = useMemo<ChorePlanShiftClient>(
     () => planClient ?? new BackendChorePlanClient(frontendConfig.BackendURL),
     [planClient],
@@ -77,12 +435,10 @@ export default function ChorePlanShiftView({
     null,
   );
   const [error, setError] = useState<string | null>(null);
-  const [mutationError, setMutationError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
-  const [mutatingShiftID, setMutatingShiftID] = useState<number | null>(null);
-  const [switchFromShiftID, setSwitchFromShiftID] = useState<number | null>(
-    null,
-  );
+
+  const loadShifts = async () => {
+    setResponse(await client.GetShifts(rosterID));
+  };
 
   useEffect(() => {
     let active = true;
@@ -109,40 +465,26 @@ export default function ChorePlanShiftView({
     };
   }, [client, rosterID]);
 
-  const mutate = async (
-    shiftID: number,
-    action: () => Promise<ChorePlanSignupMutationResponse>,
-    successMessage: string,
-  ) => {
-    setMutatingShiftID(shiftID);
-    setMutationError(null);
-    setSuccess(null);
-    try {
-      const result = await action();
-      setResponse(await client.GetShifts(rosterID));
-      setSuccess(
-        result.changed ? successMessage : 'Your assignments are unchanged.',
-      );
-      setSwitchFromShiftID(null);
-    } catch (mutationFailure) {
-      setMutationError(mutationErrorMessage(mutationFailure));
-    } finally {
-      setMutatingShiftID(null);
-    }
-  };
-
   if (error) {
     return <Alert severity="error">{error}</Alert>;
   }
   if (!response) {
-    return <Typography>Loading chore plan shifts...</Typography>;
+    return (
+      <Paper sx={{ p: 5, textAlign: 'center' }}>
+        <CircularProgress size={28} />
+        <Typography color="text.secondary" sx={{ mt: 2 }}>
+          Loading the signup sheets…
+        </Typography>
+      </Paper>
+    );
   }
-  if (!response.plan) {
+  const { plan } = response;
+  if (!plan) {
     return (
       <Alert severity="info">No chore plan is available for this roster.</Alert>
     );
   }
-  if (response.plan.status === 'draft') {
+  if (plan.status === 'draft') {
     return (
       <Alert severity="info">
         The chore plan is still being prepared. Generated shifts will appear
@@ -152,174 +494,96 @@ export default function ChorePlanShiftView({
   }
 
   return (
-    <Paper>
-      <Stack spacing={2} sx={{ p: 2 }}>
-        <Box>
-          <Typography variant="h5">Camp chores, events, and dinners</Typography>
-          <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
-            <Chip
-              color={
-                response.selfServiceMutationsAllowed ? 'success' : 'default'
-              }
-              label={
-                response.plan.status === 'open' ? 'Plan open' : 'Plan closed'
-              }
-              size="small"
-            />
-            <Typography color="text.secondary" variant="body2">
-              {response.plan.status === 'open'
-                ? 'Self-service signup, removal, and switching are open.'
-                : 'Assignments are read-only while the plan is closed.'}
-            </Typography>
-          </Stack>
-          {switchFromShiftID !== null && (
-            <Alert
-              action={
-                <Button
-                  color="inherit"
-                  onClick={() => setSwitchFromShiftID(null)}
-                  size="small"
-                >
-                  Cancel
-                </Button>
-              }
-              severity="info"
-              sx={{ mt: 2 }}
-            >
-              Choose the destination shift for your switch.
-            </Alert>
-          )}
-          {mutationError && (
-            <Alert severity="error" sx={{ mt: 2 }}>
-              {mutationError}
-            </Alert>
-          )}
-          {success && (
-            <Alert severity="success" sx={{ mt: 2 }}>
-              {success}
-            </Alert>
-          )}
-        </Box>
-
+    <Stack spacing={2}>
+      <Alert severity={plan.status === 'open' ? 'success' : 'info'}>
+        {plan.status === 'open'
+          ? `Chore signups are open for ${plan.planningYear}.`
+          : `The ${plan.planningYear} chore plan is closed. Assignments are read-only.`}
+      </Alert>
+      <Paper sx={{ p: { xs: 1, sm: 3 } }}>
         {response.shifts.length === 0 ? (
           <Alert severity="warning">This plan has no generated shifts.</Alert>
         ) : (
-          <TableContainer>
-            <Table aria-label="Chore plan shifts" size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Day</TableCell>
-                  <TableCell>Type</TableCell>
-                  <TableCell>Schedule</TableCell>
-                  <TableCell>Time</TableCell>
-                  <TableCell>Positions</TableCell>
-                  <TableCell>Assigned</TableCell>
-                  <TableCell>My status</TableCell>
-                  {response.selfServiceMutationsAllowed && (
-                    <TableCell>Actions</TableCell>
+          KINDS.map((kind) => {
+            const shifts = response.shifts.filter(
+              (shift) => shift.kind === kind,
+            );
+            const status = requirementChip(kind, plan, shifts);
+            return (
+              <Accordion key={kind} defaultExpanded={kind === 'chore'}>
+                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                  <Stack
+                    alignItems={{ xs: 'flex-start', sm: 'center' }}
+                    direction={{ xs: 'column', sm: 'row' }}
+                    spacing={{ xs: 0.5, sm: 2 }}
+                  >
+                    <Typography variant="h6">
+                      {CATEGORY_LABELS[kind]}
+                    </Typography>
+                    <Chip
+                      color={status.color}
+                      label={status.label}
+                      size="small"
+                    />
+                  </Stack>
+                </AccordionSummary>
+                <AccordionDetails sx={{ px: { xs: 0, sm: 2 } }}>
+                  {shifts.length ? (
+                    <SignupCategory
+                      kind={kind}
+                      mutationsAllowed={response.selfServiceMutationsAllowed}
+                      onChanged={loadShifts}
+                      onRemove={(shiftID) => client.Remove(rosterID, shiftID)}
+                      onSignup={(shiftID) =>
+                        client.Signup(rosterID, { shiftID })
+                      }
+                      onSwitch={(fromShiftID, toShiftID) =>
+                        client.Switch(rosterID, { fromShiftID, toShiftID })
+                      }
+                      plan={plan}
+                      shifts={shifts}
+                    />
+                  ) : (
+                    <Typography color="text.secondary">
+                      No {CATEGORY_LABELS[kind].toLowerCase()} were generated.
+                    </Typography>
                   )}
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {response.shifts.map((shift) => (
-                  <TableRow key={shift.stableKey}>
-                    <TableCell>{shift.displayDayLabel}</TableCell>
-                    <TableCell>{kindLabel(shift.kind)}</TableCell>
-                    <TableCell>{shift.scheduleName}</TableCell>
-                    <TableCell>{shift.timePeriodLabel}</TableCell>
-                    <TableCell>
-                      {shift.slots
-                        .map(({ positionLabel }) => positionLabel)
-                        .join(', ')}
-                    </TableCell>
-                    <TableCell>
-                      {shift.assignedParticipantCount}/
-                      {shift.requiredParticipants}
-                    </TableCell>
-                    <TableCell>
-                      {shift.currentUserAssigned ? (
-                        <Chip color="primary" label="Assigned" size="small" />
-                      ) : (
-                        'Not assigned'
-                      )}
-                    </TableCell>
-                    {response.selfServiceMutationsAllowed && (
-                      <TableCell>
-                        {shift.currentUserAssigned ? (
-                          <Stack direction="row" spacing={1}>
-                            <Button
-                              aria-label={`Remove ${shift.scheduleName}`}
-                              disabled={mutatingShiftID !== null}
-                              onClick={() =>
-                                mutate(
-                                  shift.id,
-                                  () => client.Remove(rosterID, shift.id),
-                                  `Removed ${shift.scheduleName}.`,
-                                )
-                              }
-                              size="small"
-                              variant="outlined"
-                            >
-                              Remove
-                            </Button>
-                            <Button
-                              aria-label={`Switch from ${shift.scheduleName}`}
-                              disabled={mutatingShiftID !== null}
-                              onClick={() => setSwitchFromShiftID(shift.id)}
-                              size="small"
-                            >
-                              Switch
-                            </Button>
-                          </Stack>
-                        ) : (
-                          <Button
-                            aria-label={
-                              switchFromShiftID === null
-                                ? `Sign up for ${shift.scheduleName}`
-                                : `Switch to ${shift.scheduleName}`
-                            }
-                            disabled={mutatingShiftID !== null}
-                            onClick={() =>
-                              switchFromShiftID === null
-                                ? mutate(
-                                    shift.id,
-                                    () =>
-                                      client.Signup(rosterID, {
-                                        shiftID: shift.id,
-                                      }),
-                                    `Signed up for ${shift.scheduleName}.`,
-                                  )
-                                : mutate(
-                                    shift.id,
-                                    () =>
-                                      client.Switch(rosterID, {
-                                        fromShiftID: switchFromShiftID,
-                                        toShiftID: shift.id,
-                                      }),
-                                    `Switched to ${shift.scheduleName}.`,
-                                  )
-                            }
-                            size="small"
-                            variant="contained"
-                          >
-                            {switchFromShiftID === null
-                              ? 'Sign up'
-                              : 'Switch here'}
-                          </Button>
-                        )}
-                      </TableCell>
-                    )}
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
+                </AccordionDetails>
+              </Accordion>
+            );
+          })
         )}
-      </Stack>
-    </Paper>
+      </Paper>
+    </Stack>
+  );
+}
+
+MemberChorePlanShiftView.defaultProps = {
+  planClient: undefined,
+};
+
+export default function ChorePlanShiftView({
+  rosterID,
+  adminEditMode = false,
+  canForceAssignments = false,
+  planClient,
+}: ChorePlanShiftViewProps) {
+  if (adminEditMode) {
+    return (
+      <ChorePlanAssignmentManager
+        canForceAssignments={canForceAssignments}
+        rosterID={rosterID}
+      />
+    );
+  }
+
+  return (
+    <MemberChorePlanShiftView rosterID={rosterID} planClient={planClient} />
   );
 }
 
 ChorePlanShiftView.defaultProps = {
+  adminEditMode: false,
+  canForceAssignments: false,
   planClient: undefined,
 };

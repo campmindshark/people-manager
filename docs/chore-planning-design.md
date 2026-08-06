@@ -187,13 +187,34 @@ the application read model. Only an open plan reports self-service mutations as
 allowed. This response is the shared read contract for the later signup slice,
 while the read-only UI in this slice adds no mutation controls.
 
-The administrative planner loads only the current draft summary needed for
-optimistic concurrency; it does not expose participant mutations or lifecycle
-controls. Preview displays exact category shortages and generated shifts. A
-shortage disables apply. If the observed draft inputs, planning year, or
-catalog revision differ from the preview, the UI requires explicit replacement
-confirmation and sends the observed draft revision. A `409` clears the stale
-preview and requires the administrator to preview again.
+The member shift page follows PR #58's signup-sheet layout: the roster-year
+heading and explanatory copy lead into daily-chore, event-crew, and dinner-crew
+accordions using the shared weekly grids. Read-only slot pills distinguish the
+member's assignment, filled spots, and open spots without exposing another
+participant's identity. Category chips show the member's remaining default
+requirements while the plan is open and the closed state after signups close.
+While chore planning is enabled, this signup-sheet experience replaces the
+legacy hourly shift grid, matching PR #58; disabling the feature restores the
+legacy view.
+
+The administrative planner loads the current plan summary and the draft
+revision needed for optimistic concurrency. It exposes reviewed open, close,
+and reason-required reopen controls in the same plan-status alert used by PR
+#58, but it does not expose participant mutations. Preview displays exact
+category shortages and generated shifts. A shortage disables apply. If the
+observed draft inputs, planning year, or catalog revision differ from the
+preview, the UI requires explicit replacement confirmation and sends the
+observed draft revision. A `409` clears the stale preview and requires the
+administrator to preview again.
+
+PR #58 is the visual source of truth for the chore-planning experience. The
+planner keeps its camp-year and prospective-camper form, fixed 3 chore / 3 event
+/ 1 dinner requirement copy, three category-capacity cards, and accordion
+signup-sheet preview. Chores and dinners use a Sunday-through-Saturday
+day-by-schedule grid; events use a day-by-shift-by-period grid. Both grids use
+the same responsive, horizontally scrollable signup-sheet component that later
+member signup, administrative assignment, and final-assignment views will
+reuse.
 
 ## Requirements and overrides
 
@@ -262,6 +283,15 @@ changes use a separate endpoint protected by both `chorePlans:assign` and
 `chorePlans:forceAssign`; they wrap the same mutation with a trimmed 1–500
 character reason. Unassignment cannot be forced because it only removes
 constraints.
+
+Following PR #58, administrative assignment editing is an `Admin Edit` mode on
+the Shifts page rather than a separate administrative destination. It reuses the
+same category accordions and weekly signup-sheet grids as the member view, with
+participant names inside the slot pills. An administrator chooses a person who
+still needs shifts and selects an open spot to assign them, selects one existing
+assignment plus a destination to move them, selects two assignments to swap
+them, or selects one assignment to remove it. The safer reimplementation adds a
+required audit reason when the original force checkbox is enabled.
 
 Administrative mutations lock affected users, the plan, roster participants,
 and generated shifts in stable order. Move and swap validate their proposed

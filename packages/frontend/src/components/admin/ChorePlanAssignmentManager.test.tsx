@@ -1,11 +1,9 @@
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import Roster from 'backend/models/roster/roster';
 import { ChorePlanAdminAssignmentViewResponse } from 'backend/view_models/chore_plan_assignments';
 import ChorePlanAssignmentManager, {
   ChorePlanAdminAssignmentClient,
-  ChorePlanAdminAssignmentRosterClient,
 } from './ChorePlanAssignmentManager';
 
 const firstShift = {
@@ -13,8 +11,10 @@ const firstShift = {
   stableKey: 'chore|1|am',
   kind: 'chore' as const,
   scheduleName: 'AM Chum Wench',
+  displayDayNumber: 1,
   displayDayLabel: 'Sunday, Aug 30',
   timePeriodLabel: '11:00 AM',
+  periodOrder: null,
   startTime: '2026-08-30T18:00:00.000Z',
   endTime: '2026-08-30T19:00:00.000Z',
   requiredParticipants: 2,
@@ -37,7 +37,12 @@ function assignmentView(
 ): ChorePlanAdminAssignmentViewResponse {
   return {
     rosterID: 2,
-    plan: { id: 3, status: 'open', planningYear: 2026 },
+    plan: {
+      id: 3,
+      status: 'open',
+      planningYear: 2026,
+      requirements: { chore: 2, event: 1, dinner: 1 },
+    },
     mutationsAllowed: true,
     participants: [
       {
@@ -64,84 +69,96 @@ function assignmentView(
   };
 }
 
-function clients(view = assignmentView()): {
-  planClient: ChorePlanAdminAssignmentClient;
-  rosterClient: ChorePlanAdminAssignmentRosterClient;
-} {
+function planClient(view = assignmentView()): ChorePlanAdminAssignmentClient {
   return {
-    planClient: {
-      GetAdminAssignments: jest.fn().mockResolvedValue(view),
-      MutateAdminAssignments: jest
-        .fn()
-        .mockResolvedValue({ changed: true, forced: false, bypassedRules: [] }),
-      ForceAdminAssignments: jest.fn().mockResolvedValue({
-        changed: true,
-        forced: true,
-        bypassedRules: ['capacity:shift:12'],
-      }),
-    },
-    rosterClient: {
-      GetAllRosters: jest
-        .fn()
-        .mockResolvedValue([{ id: 2, year: 2026 } as Roster]),
-    },
+    GetAdminAssignments: jest.fn().mockResolvedValue(view),
+    MutateAdminAssignments: jest
+      .fn()
+      .mockResolvedValue({ changed: true, forced: false, bypassedRules: [] }),
+    ForceAdminAssignments: jest.fn().mockResolvedValue({
+      changed: true,
+      forced: true,
+      bypassedRules: ['capacity:shift:12'],
+    }),
   };
 }
 
-async function choose(label: string, option: string | RegExp): Promise<void> {
-  userEvent.click(screen.getByLabelText(label));
+async function choosePerson(option: string | RegExp): Promise<void> {
+  userEvent.click(screen.getByLabelText('Person needing shifts'));
   userEvent.click(await screen.findByRole('option', { name: option }));
 }
 
-test('renders identities and sends a narrow assign mutation before refreshing', async () => {
-  const { planClient, rosterClient } = clients();
-  render(
-    <ChorePlanAssignmentManager
-      planClient={planClient}
-      rosterClient={rosterClient}
-    />,
-  );
+test('renders PR 58 signup sheets with participant identities', async () => {
+  const client = planClient();
+  render(<ChorePlanAssignmentManager planClient={client} rosterID={2} />);
 
-  expect(await screen.findByText('Plan open')).toBeVisible();
+  expect(
+    await screen.findByText('Chore signups are open for 2026.'),
+  ).toBeVisible();
+  expect(screen.getByLabelText('Person needing shifts')).toBeEnabled();
   expect(screen.getByText('Alpha Camper (A)')).toBeVisible();
   expect(screen.getByText('Beta Camper')).toBeVisible();
-  await choose('Participant', 'Alpha Camper (A)');
-  await choose('Shift', /PM Chum Wench/);
-  userEvent.click(screen.getByRole('button', { name: 'Run assign' }));
+  expect(screen.getAllByText('Open spot')).toHaveLength(2);
+});
+
+test('assigns a selected person by clicking an open signup-sheet spot', async () => {
+  const client = planClient();
+  render(<ChorePlanAssignmentManager planClient={client} rosterID={2} />);
+
+  await screen.findByText('Chore signups are open for 2026.');
+  await choosePerson(/Alpha Camper \(A\).*needs/);
+  userEvent.click(
+    screen.getByRole('button', {
+      name: /Add Alpha Camper \(A\) to PM Chum Wench/,
+    }),
+  );
 
   await waitFor(() =>
-    expect(planClient.MutateAdminAssignments).toHaveBeenCalledWith(2, {
+    expect(client.MutateAdminAssignments).toHaveBeenCalledWith(2, {
       operation: 'assign',
       userID: 21,
       shiftID: 12,
     }),
   );
-  expect(await screen.findByText('Assign completed.')).toBeVisible();
-  expect(planClient.GetAdminAssignments).toHaveBeenCalledTimes(2);
+  expect(
+    await screen.findByText(/Alpha Camper \(A\) was assigned/),
+  ).toBeVisible();
+  expect(client.GetAdminAssignments).toHaveBeenCalledTimes(2);
 });
 
-test('uses the separate force endpoint with an exact move and trimmed reason', async () => {
-  const { planClient, rosterClient } = clients();
+test('force-moves a selected participant with an audited reason', async () => {
+  const client = planClient();
   render(
     <ChorePlanAssignmentManager
-      planClient={planClient}
-      rosterClient={rosterClient}
+      canForceAssignments
+      planClient={client}
+      rosterID={2}
     />,
   );
 
-  expect(await screen.findByText('Plan open')).toBeVisible();
-  await choose('Operation', 'Move');
-  await choose('Participant', 'Alpha Camper (A)');
-  await choose('Source shift', /AM Chum Wench/);
-  await choose('Destination shift', /PM Chum Wench/);
   userEvent.click(
-    screen.getByRole('checkbox', { name: /force rule conflicts/i }),
+    await screen.findByRole('button', {
+      name: /Select Alpha Camper \(A\).*for admin shift editing/,
+    }),
   );
-  userEvent.type(screen.getByLabelText(/force reason/i), '  Approved cover  ');
-  userEvent.click(screen.getByRole('button', { name: 'Run move' }));
+  userEvent.click(
+    screen.getByRole('button', {
+      name: /Select PM Chum Wench.*as move destination/,
+    }),
+  );
+  userEvent.click(
+    screen.getByRole('checkbox', {
+      name: 'Force (skip safety constraints)',
+    }),
+  );
+  userEvent.type(
+    await screen.findByRole('textbox', { name: 'Force reason' }),
+    '  Approved cover  ',
+  );
+  userEvent.click(screen.getByRole('button', { name: 'Force move' }));
 
   await waitFor(() =>
-    expect(planClient.ForceAdminAssignments).toHaveBeenCalledWith(2, {
+    expect(client.ForceAdminAssignments).toHaveBeenCalledWith(2, {
       mutation: {
         operation: 'move',
         userID: 21,
@@ -151,50 +168,82 @@ test('uses the separate force endpoint with an exact move and trimmed reason', a
       reason: 'Approved cover',
     }),
   );
-  expect(planClient.MutateAdminAssignments).not.toHaveBeenCalled();
-  expect(await screen.findByText(/bypassed capacity:shift:12/i)).toBeVisible();
+  expect(client.MutateAdminAssignments).not.toHaveBeenCalled();
+  expect(await screen.findByText(/bypassed: capacity:shift:12/i)).toBeVisible();
 });
 
-test('keeps closed assignment state visible and disables mutations', async () => {
-  const { planClient, rosterClient } = clients(
+test('swaps two selected participants in different shifts', async () => {
+  const client = planClient();
+  render(<ChorePlanAssignmentManager planClient={client} rosterID={2} />);
+
+  userEvent.click(
+    await screen.findByRole('button', {
+      name: /Select Alpha Camper \(A\).*for admin shift editing/,
+    }),
+  );
+  userEvent.click(
+    screen.getByRole('button', {
+      name: /Select Beta Camper.*for admin shift editing/,
+    }),
+  );
+  userEvent.click(screen.getByRole('button', { name: 'Swap people' }));
+
+  await waitFor(() =>
+    expect(client.MutateAdminAssignments).toHaveBeenCalledWith(2, {
+      operation: 'swap',
+      firstUserID: 21,
+      firstShiftID: 11,
+      secondUserID: 22,
+      secondShiftID: 12,
+    }),
+  );
+  expect(
+    await screen.findByText(/selected people were swapped/i),
+  ).toBeVisible();
+});
+
+test('keeps closed assignments visible and read-only', async () => {
+  const client = planClient(
     assignmentView({
-      plan: { id: 3, status: 'closed', planningYear: 2026 },
+      plan: {
+        id: 3,
+        status: 'closed',
+        planningYear: 2026,
+        requirements: { chore: 2, event: 1, dinner: 1 },
+      },
       mutationsAllowed: false,
     }),
   );
-  render(
-    <ChorePlanAssignmentManager
-      planClient={planClient}
-      rosterClient={rosterClient}
-    />,
-  );
+  render(<ChorePlanAssignmentManager planClient={client} rosterID={2} />);
 
-  expect(await screen.findByText('Plan closed')).toBeVisible();
-  expect(screen.getByText(/reopen the plan/i)).toBeVisible();
-  expect(screen.getByText('AM Chum Wench', { exact: false })).toBeVisible();
-  expect(screen.getByRole('button', { name: 'Run assign' })).toBeDisabled();
+  expect(await screen.findByText(/chore plan is closed/i)).toBeVisible();
+  expect(screen.getByText('Alpha Camper (A)')).toBeVisible();
+  expect(screen.getByText('Beta Camper')).toBeVisible();
+  expect(screen.getByLabelText('Person needing shifts')).toHaveAttribute(
+    'aria-disabled',
+    'true',
+  );
+  expect(screen.getByRole('button', { name: 'Move person' })).toBeDisabled();
 });
 
 test('surfaces authoritative backend conflicts without refreshing', async () => {
-  const { planClient, rosterClient } = clients();
-  planClient.MutateAdminAssignments = jest.fn().mockRejectedValue({
+  const client = planClient();
+  client.MutateAdminAssignments = jest.fn().mockRejectedValue({
     response: {
       status: 409,
       data: { error: 'The proposed assignment state exceeds shift capacity.' },
     },
   });
-  render(
-    <ChorePlanAssignmentManager
-      planClient={planClient}
-      rosterClient={rosterClient}
-    />,
+  render(<ChorePlanAssignmentManager planClient={client} rosterID={2} />);
+
+  await screen.findByText('Chore signups are open for 2026.');
+  await choosePerson(/Alpha Camper \(A\).*needs/);
+  userEvent.click(
+    screen.getByRole('button', {
+      name: /Add Alpha Camper \(A\) to PM Chum Wench/,
+    }),
   );
 
-  expect(await screen.findByText('Plan open')).toBeVisible();
-  await choose('Participant', 'Alpha Camper (A)');
-  await choose('Shift', /PM Chum Wench/);
-  userEvent.click(screen.getByRole('button', { name: 'Run assign' }));
-
   expect(await screen.findByText(/exceeds shift capacity/i)).toBeVisible();
-  expect(planClient.GetAdminAssignments).toHaveBeenCalledTimes(1);
+  expect(client.GetAdminAssignments).toHaveBeenCalledTimes(1);
 });

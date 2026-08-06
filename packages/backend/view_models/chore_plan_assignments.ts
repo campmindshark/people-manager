@@ -1,4 +1,5 @@
 import { ChoreCatalogKind } from './chore_catalog';
+import { ChorePlanRequirements } from './chore_plan_preview';
 
 export type ChorePlanAdminAssignmentMutation =
   | {
@@ -34,6 +35,7 @@ export interface ChorePlanAdminAssignmentPlan {
   id: number;
   status: 'draft' | 'open' | 'closed';
   planningYear: number;
+  requirements: ChorePlanRequirements;
 }
 
 export interface ChorePlanAdminAssignmentParticipant {
@@ -51,8 +53,10 @@ export interface ChorePlanAdminAssignmentShift {
   stableKey: string;
   kind: ChoreCatalogKind;
   scheduleName: string;
+  displayDayNumber: number;
   displayDayLabel: string;
   timePeriodLabel: string;
+  periodOrder: number | null;
   startTime: string;
   endTime: string;
   requiredParticipants: number;

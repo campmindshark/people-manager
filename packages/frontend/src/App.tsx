@@ -16,7 +16,6 @@ import Roster from './pages/Roster';
 import Shifts from './pages/Shifts';
 import ManageRosters from './pages/ManageRosters';
 import ChoreCatalog from './pages/ChoreCatalog';
-import ChoreAssignments from './pages/ChoreAssignments';
 import ChorePlanner from './pages/ChorePlanner';
 import FeatureGate from './components/FeatureGate';
 
@@ -99,18 +98,6 @@ const router = createBrowserRouter([
         <AuthenticatedPage>
           <FeatureGate feature="chorePlanning">
             <ChorePlanner />
-          </FeatureGate>
-        </AuthenticatedPage>
-      );
-    },
-  },
-  {
-    path: '/admin/chore-assignments',
-    Component() {
-      return (
-        <AuthenticatedPage>
-          <FeatureGate feature="chorePlanning">
-            <ChoreAssignments />
           </FeatureGate>
         </AuthenticatedPage>
       );

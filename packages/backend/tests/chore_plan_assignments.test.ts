@@ -249,10 +249,22 @@ test(
       await lifecycleController.open(roster.id, users[0].id);
       const initialView = await assignmentsController.getView(roster.id);
       assert.equal(initialView.plan?.status, 'open');
+      assert.deepEqual(initialView.plan?.requirements, {
+        chore: 1,
+        event: 1,
+        dinner: 1,
+      });
       assert.equal(initialView.mutationsAllowed, true);
       assert.deepEqual(
         initialView.participants.map(({ firstName }) => firstName),
         ['Alpha', 'Beta', 'Late'],
+      );
+      assert(
+        initialView.shifts.every(
+          (shift) =>
+            Number.isInteger(shift.displayDayNumber) &&
+            (shift.periodOrder === null || Number.isInteger(shift.periodOrder)),
+        ),
       );
 
       assert.deepEqual(

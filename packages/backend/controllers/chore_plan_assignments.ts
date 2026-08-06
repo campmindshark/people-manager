@@ -39,8 +39,10 @@ interface GeneratedShiftRow {
   stableKey: string;
   kind: ChorePlanKind;
   scheduleName: string;
+  displayDayNumber: number;
   displayDayLabel: string;
   timePeriodLabel: string;
+  periodOrder: number | null;
   startTime: Date | string;
   endTime: Date | string;
   requiredParticipants: number;
@@ -169,7 +171,14 @@ export default class ChorePlanAssignmentsController {
         .orderBy('participant.userID')) as ParticipantRow[];
 
       const plan = (await transaction<PlanRow>('chore_plans')
-        .select('id', 'status', 'planningYear')
+        .select(
+          'id',
+          'status',
+          'planningYear',
+          'choreRequirement',
+          'eventRequirement',
+          'dinnerRequirement',
+        )
         .where({ rosterID })
         .first()) as PlanRow | undefined;
       if (!plan) {
@@ -194,8 +203,10 @@ export default class ChorePlanAssignmentsController {
           'generated.stableKey',
           'generated.kind',
           'generated.scheduleName',
+          'generated.displayDayNumber',
           'generated.displayDayLabel',
           'generated.timePeriodLabel',
+          'generated.periodOrder',
           'shift.startTime',
           'shift.endTime',
           'shift.requiredParticipants',
@@ -231,6 +242,11 @@ export default class ChorePlanAssignmentsController {
           id: plan.id,
           status: plan.status,
           planningYear: plan.planningYear,
+          requirements: {
+            chore: plan.choreRequirement,
+            event: plan.eventRequirement,
+            dinner: plan.dinnerRequirement,
+          },
         },
         mutationsAllowed: plan.status === 'open',
         participants: participants.map((participant) =>
@@ -244,8 +260,10 @@ export default class ChorePlanAssignmentsController {
           stableKey: shift.stableKey,
           kind: shift.kind,
           scheduleName: shift.scheduleName,
+          displayDayNumber: shift.displayDayNumber,
           displayDayLabel: shift.displayDayLabel,
           timePeriodLabel: shift.timePeriodLabel,
+          periodOrder: shift.periodOrder,
           startTime: timestamp(shift.startTime),
           endTime: timestamp(shift.endTime),
           requiredParticipants: shift.requiredParticipants,

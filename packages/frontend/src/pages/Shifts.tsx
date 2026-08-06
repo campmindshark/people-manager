@@ -1,39 +1,110 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { Alert, Box, Button, Typography } from '@mui/material';
 import Container from '@mui/material/Container';
 import Stack from '@mui/material/Stack';
 import { useSetRecoilState, useRecoilValue } from 'recoil';
-import FeatureGate from 'src/components/FeatureGate';
 import ChorePlanShiftView from 'src/components/shifts/ChorePlanShiftView';
 import ShiftDisplay from 'src/components/shifts/ShiftDisplay';
 import Dashboard from '../layouts/dashboard/Dashboard';
-import { ActiveRosterIDState } from '../state/roster';
-import PageState, { CurrentUserIsVerified } from '../state/store';
+import { FeatureFlagsState } from '../state/features';
+import { CurrentRosterState } from '../state/roster';
+import PageState, { CurrentUserIsVerified, MyRolesState } from '../state/store';
+
+export function VerifiedShiftExperience({
+  rosterID,
+  adminEditMode = false,
+  canForceAssignments = false,
+}: {
+  rosterID: number;
+  adminEditMode?: boolean;
+  canForceAssignments?: boolean;
+}) {
+  const featureFlags = useRecoilValue(FeatureFlagsState);
+
+  return featureFlags.chorePlanning ? (
+    <ChorePlanShiftView
+      adminEditMode={adminEditMode}
+      canForceAssignments={canForceAssignments}
+      rosterID={rosterID}
+    />
+  ) : (
+    <ShiftDisplay />
+  );
+}
+
+VerifiedShiftExperience.defaultProps = {
+  adminEditMode: false,
+  canForceAssignments: false,
+};
 
 export default function Shifts() {
   const setPageState = useSetRecoilState(PageState);
   const userIsVerified = useRecoilValue(CurrentUserIsVerified);
-  const activeRosterID = useRecoilValue(ActiveRosterIDState);
+  const currentRoster = useRecoilValue(CurrentRosterState);
+  const featureFlags = useRecoilValue(FeatureFlagsState);
+  const roles = useRecoilValue(MyRolesState);
+  const [adminEditMode, setAdminEditMode] = useState(false);
+  const canManageAssignments =
+    featureFlags.chorePlanning &&
+    roles.some((role) => role.permissions.includes('chorePlans:assign'));
+  const canForceAssignments = roles.some((role) =>
+    role.permissions.includes('chorePlans:forceAssign'),
+  );
 
   useEffect(() => {
     setPageState({
       title: 'Shifts',
       index: 'shifts',
     });
-  }, [PageState]);
+  }, [setPageState]);
+
+  useEffect(() => {
+    if (!canManageAssignments) {
+      setAdminEditMode(false);
+    }
+  }, [canManageAssignments]);
 
   return (
     <Dashboard>
-      <Container maxWidth={false} sx={{ mt: 4, mb: 4 }}>
-        {userIsVerified ? (
-          <Stack spacing={4}>
-            <FeatureGate feature="chorePlanning">
-              <ChorePlanShiftView rosterID={activeRosterID} />
-            </FeatureGate>
-            <ShiftDisplay />
+      <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
+        <Stack spacing={3}>
+          <Stack
+            alignItems={{ xs: 'stretch', sm: 'flex-start' }}
+            direction={{ xs: 'column', sm: 'row' }}
+            justifyContent="space-between"
+            spacing={2}
+          >
+            <Box>
+              <Typography variant="h3" component="h1" gutterBottom>
+                {currentRoster.year} shift signup
+              </Typography>
+              <Typography color="text.secondary" sx={{ maxWidth: 900 }}>
+                Browse the chore, event, and dinner sheets generated from this
+                year&apos;s chore plan.
+              </Typography>
+            </Box>
+            {canManageAssignments && userIsVerified && (
+              <Button
+                color={adminEditMode ? 'secondary' : 'primary'}
+                onClick={() => setAdminEditMode((enabled) => !enabled)}
+                variant={adminEditMode ? 'contained' : 'outlined'}
+              >
+                {adminEditMode ? 'Exit Admin Edit' : 'Admin Edit'}
+              </Button>
+            )}
           </Stack>
-        ) : (
-          <h1>Verify your account to sign up for shifts.</h1>
-        )}
+          {userIsVerified ? (
+            <VerifiedShiftExperience
+              adminEditMode={adminEditMode}
+              canForceAssignments={canForceAssignments}
+              rosterID={currentRoster.id}
+            />
+          ) : (
+            <Alert severity="info">
+              Verify your account to view the shift signup sheets.
+            </Alert>
+          )}
+        </Stack>
       </Container>
     </Dashboard>
   );

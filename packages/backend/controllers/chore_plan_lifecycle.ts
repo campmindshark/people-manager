@@ -2,7 +2,10 @@ import { Knex } from 'knex';
 import ChorePlan from '../models/chore_plan/chore_plan';
 import ChorePlanLifecycleError from '../utils/chorePlanLifecycleError';
 import { MAX_CHORE_PLAN_REOPEN_REASON_LENGTH } from '../utils/chorePlanLifecycleInput';
-import { ChorePlanLifecycleState } from '../view_models/chore_plan_lifecycle';
+import {
+  ChorePlanLifecycleResponse,
+  ChorePlanLifecycleState,
+} from '../view_models/chore_plan_lifecycle';
 
 type LifecycleAction = 'open' | 'close' | 'reopen';
 
@@ -10,6 +13,11 @@ interface ChorePlanLifecycleRow {
   id: number;
   rosterID: number;
   status: 'draft' | 'open' | 'closed';
+  planningYear: number;
+  camperCount: number;
+  choreRequirement: number;
+  eventRequirement: number;
+  dinnerRequirement: number;
   openedAt: Date | string | null;
   openedByUserID: number | null;
   closedAt: Date | string | null;
@@ -19,6 +27,15 @@ interface ChorePlanLifecycleRow {
 
 interface TransitionTimeRow {
   transitionedAt: Date | string;
+}
+
+interface CountRow {
+  count: string;
+}
+
+interface LifecycleCounts {
+  shiftCount: number;
+  slotCount: number;
 }
 
 interface TransitionContract {
@@ -49,11 +66,48 @@ function timestamp(value: Date | string | null): string | null {
   return value === null ? null : new Date(value).toISOString();
 }
 
-function lifecycleState(plan: ChorePlanLifecycleRow): ChorePlanLifecycleState {
+async function loadLifecycleCounts(
+  database: Knex,
+  chorePlanID: number,
+): Promise<LifecycleCounts> {
+  const [shiftCount, slotCount] = await Promise.all([
+    database('chore_plan_generated_shifts')
+      .where({ chorePlanID })
+      .count('* as count')
+      .first() as Promise<CountRow | undefined>,
+    database('chore_plan_slot_snapshots as slot')
+      .innerJoin(
+        'chore_plan_generated_shifts as generated',
+        'generated.shiftID',
+        'slot.shiftID',
+      )
+      .where('generated.chorePlanID', chorePlanID)
+      .count('* as count')
+      .first() as Promise<CountRow | undefined>,
+  ]);
+  return {
+    shiftCount: Number(shiftCount?.count ?? 0),
+    slotCount: Number(slotCount?.count ?? 0),
+  };
+}
+
+function lifecycleState(
+  plan: ChorePlanLifecycleRow,
+  counts: LifecycleCounts,
+): ChorePlanLifecycleState {
   return {
     id: plan.id,
     rosterID: plan.rosterID,
     status: plan.status,
+    planningYear: plan.planningYear,
+    camperCount: plan.camperCount,
+    requirements: {
+      chore: plan.choreRequirement,
+      event: plan.eventRequirement,
+      dinner: plan.dinnerRequirement,
+    },
+    shiftCount: counts.shiftCount,
+    slotCount: counts.slotCount,
     openedAt: timestamp(plan.openedAt),
     openedByUserID: plan.openedByUserID,
     closedAt: timestamp(plan.closedAt),
@@ -81,6 +135,19 @@ export default class ChorePlanLifecycleController {
 
   private getDatabase(): Knex {
     return this.database ?? ChorePlan.knex();
+  }
+
+  async getByRosterID(rosterID: number): Promise<ChorePlanLifecycleResponse> {
+    const database = this.getDatabase();
+    const plan = (await database<ChorePlanLifecycleRow>('chore_plans')
+      .where({ rosterID })
+      .first()) as ChorePlanLifecycleRow | undefined;
+    if (!plan) {
+      return { plan: null };
+    }
+    return {
+      plan: lifecycleState(plan, await loadLifecycleCounts(database, plan.id)),
+    };
   }
 
   async open(
@@ -176,7 +243,10 @@ export default class ChorePlanLifecycleController {
         createdAt: transitionedAt,
       });
 
-      return lifecycleState(updated);
+      return lifecycleState(
+        updated,
+        await loadLifecycleCounts(transaction, updated.id),
+      );
     });
   }
 }

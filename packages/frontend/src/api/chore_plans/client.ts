@@ -14,6 +14,10 @@ import {
 } from 'backend/view_models/chore_plan_preview';
 import { ChorePlanShiftViewResponse } from 'backend/view_models/chore_plan_shifts';
 import {
+  ChorePlanLifecycleResponse,
+  ChorePlanLifecycleState,
+} from 'backend/view_models/chore_plan_lifecycle';
+import {
   ChorePlanSignupMutationResponse,
   ChorePlanSignupRequest,
   ChorePlanSwitchRequest,
@@ -125,6 +129,44 @@ export default class BackendChorePlanClient {
     const { data } = await axios.post<ChorePlanApplyResponse>(
       `${this.baseApiURL}/api/chore-plans/apply`,
       request,
+      defaultRequestConfig,
+    );
+    return data;
+  }
+
+  async GetLifecycle(rosterID: number): Promise<ChorePlanLifecycleResponse> {
+    const { data } = await axios.get<ChorePlanLifecycleResponse>(
+      `${this.baseApiURL}/api/chore-plans/${rosterID}/lifecycle`,
+      defaultRequestConfig,
+    );
+    return data;
+  }
+
+  async Open(rosterID: number): Promise<ChorePlanLifecycleState> {
+    const { data } = await axios.post<ChorePlanLifecycleState>(
+      `${this.baseApiURL}/api/chore-plans/${rosterID}/open`,
+      {},
+      defaultRequestConfig,
+    );
+    return data;
+  }
+
+  async Close(rosterID: number): Promise<ChorePlanLifecycleState> {
+    const { data } = await axios.post<ChorePlanLifecycleState>(
+      `${this.baseApiURL}/api/chore-plans/${rosterID}/close`,
+      {},
+      defaultRequestConfig,
+    );
+    return data;
+  }
+
+  async Reopen(
+    rosterID: number,
+    reason: string,
+  ): Promise<ChorePlanLifecycleState> {
+    const { data } = await axios.post<ChorePlanLifecycleState>(
+      `${this.baseApiURL}/api/chore-plans/${rosterID}/reopen`,
+      { reason },
       defaultRequestConfig,
     );
     return data;
