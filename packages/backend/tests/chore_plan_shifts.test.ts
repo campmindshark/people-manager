@@ -142,6 +142,11 @@ test(
       );
       const draftView = await shiftsController.getForUser(roster.id, member.id);
       assert.equal(draftView.plan?.status, 'draft');
+      assert.deepEqual(draftView.plan?.requirements, {
+        chore: 1,
+        event: 1,
+        dinner: 1,
+      });
       assert.equal(draftView.selfServiceMutationsAllowed, false);
       assert.deepEqual(draftView.shifts, []);
 

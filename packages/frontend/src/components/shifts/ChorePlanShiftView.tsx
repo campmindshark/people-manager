@@ -1,21 +1,25 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ChorePlanShiftViewResponse } from 'backend/view_models/chore_plan_shifts';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import {
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
   Alert,
-  Box,
   Chip,
+  CircularProgress,
   Paper,
   Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   Typography,
 } from '@mui/material';
+import { ChoreCatalogKind } from 'backend/view_models/chore_catalog';
+import {
+  ChorePlanShiftViewItem,
+  ChorePlanShiftViewPlan,
+  ChorePlanShiftViewResponse,
+} from 'backend/view_models/chore_plan_shifts';
 import BackendChorePlanClient from '../../api/chore_plans/client';
 import { getFrontendConfig } from '../../config/config';
+import SignupSheetTable, { SignupSheetShift } from './SignupSheetTable';
 
 export interface ChorePlanShiftClient {
   GetShifts: (rosterID: number) => Promise<ChorePlanShiftViewResponse>;
@@ -27,9 +31,94 @@ interface ChorePlanShiftViewProps {
 }
 
 const frontendConfig = getFrontendConfig();
+const KINDS: ChoreCatalogKind[] = ['chore', 'event', 'dinner'];
+const CATEGORY_LABELS: Record<ChoreCatalogKind, string> = {
+  chore: 'Daily chores',
+  event: 'Event crew',
+  dinner: 'Dinner crew',
+};
 
-function kindLabel(kind: 'chore' | 'event' | 'dinner'): string {
-  return `${kind.charAt(0).toUpperCase()}${kind.slice(1)}`;
+interface MemberSignupSheetShift extends SignupSheetShift {
+  item: ChorePlanShiftViewItem;
+}
+
+function signupSheetShift(
+  item: ChorePlanShiftViewItem,
+): MemberSignupSheetShift {
+  return {
+    key: item.stableKey,
+    scheduleName: item.scheduleName,
+    day: item.displayDayNumber,
+    timePeriod: item.timePeriodLabel,
+    periodOrder: item.periodOrder ?? 0,
+    item,
+  };
+}
+
+function requirementChip(
+  kind: ChoreCatalogKind,
+  plan: ChorePlanShiftViewPlan,
+  shifts: ChorePlanShiftViewItem[],
+): { color: 'default' | 'success' | 'warning'; label: string } {
+  if (plan.status === 'closed') {
+    return { color: 'default', label: 'Signups closed' };
+  }
+
+  const requirement = plan.requirements[kind];
+  if (requirement === 0) {
+    return {
+      color: 'success',
+      label: `${CATEGORY_LABELS[kind]} not required`,
+    };
+  }
+  const assigned = shifts.filter(({ currentUserAssigned }) =>
+    Boolean(currentUserAssigned),
+  ).length;
+  const remaining = Math.max(0, requirement - assigned);
+  if (remaining === 0) {
+    return { color: 'success', label: 'Requirement complete!' };
+  }
+  return {
+    color: 'warning',
+    label: `${remaining} shift${remaining === 1 ? '' : 's'} required!`,
+  };
+}
+
+function ReadOnlySignupSlots({ shift }: { shift: ChorePlanShiftViewItem }) {
+  const slotCount = Math.max(shift.requiredParticipants, shift.slots.length);
+  const assignedCount = Math.min(shift.assignedParticipantCount, slotCount);
+
+  if (slotCount === 0) {
+    return null;
+  }
+
+  return (
+    <div className="signup-sheet-slots">
+      {Array.from({ length: slotCount }, (_, index) => {
+        const currentUser = shift.currentUserAssigned && index === 0;
+        if (index < assignedCount) {
+          return (
+            <span
+              className={`signup-sheet-slot filled ${
+                currentUser ? 'current-user' : 'other-user'
+              }`}
+              key={`${shift.stableKey}|slot-${index}`}
+            >
+              {currentUser ? 'Your signup' : 'Filled'}
+            </span>
+          );
+        }
+        return (
+          <span
+            className="signup-sheet-slot open"
+            key={`${shift.stableKey}|slot-${index}`}
+          >
+            Open spot
+          </span>
+        );
+      })}
+    </div>
+  );
 }
 
 export default function ChorePlanShiftView({
@@ -74,14 +163,22 @@ export default function ChorePlanShiftView({
     return <Alert severity="error">{error}</Alert>;
   }
   if (!response) {
-    return <Typography>Loading chore plan shifts...</Typography>;
+    return (
+      <Paper sx={{ p: 5, textAlign: 'center' }}>
+        <CircularProgress size={28} />
+        <Typography color="text.secondary" sx={{ mt: 2 }}>
+          Loading the signup sheets…
+        </Typography>
+      </Paper>
+    );
   }
-  if (!response.plan) {
+  const { plan } = response;
+  if (!plan) {
     return (
       <Alert severity="info">No chore plan is available for this roster.</Alert>
     );
   }
-  if (response.plan.status === 'draft') {
+  if (plan.status === 'draft') {
     return (
       <Alert severity="info">
         The chore plan is still being prepared. Generated shifts will appear
@@ -91,72 +188,59 @@ export default function ChorePlanShiftView({
   }
 
   return (
-    <Paper>
-      <Stack spacing={2} sx={{ p: 2 }}>
-        <Box>
-          <Typography variant="h5">Camp chores, events, and dinners</Typography>
-          <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
-            <Chip
-              color={
-                response.selfServiceMutationsAllowed ? 'success' : 'default'
-              }
-              label={
-                response.plan.status === 'open' ? 'Plan open' : 'Plan closed'
-              }
-              size="small"
-            />
-            <Typography color="text.secondary" variant="body2">
-              {response.plan.status === 'open'
-                ? 'This release is read-only; signup controls arrive in the next slice.'
-                : 'Assignments are read-only while the plan is closed.'}
-            </Typography>
-          </Stack>
-        </Box>
-
+    <Paper sx={{ p: { xs: 1, sm: 3 } }}>
+      <Stack spacing={2}>
+        <Alert severity={plan.status === 'open' ? 'success' : 'info'}>
+          {plan.status === 'open'
+            ? `Chore signups are open for ${plan.planningYear}.`
+            : `The ${plan.planningYear} chore plan is closed. Assignments are read-only.`}
+        </Alert>
         {response.shifts.length === 0 ? (
           <Alert severity="warning">This plan has no generated shifts.</Alert>
         ) : (
-          <TableContainer>
-            <Table aria-label="Chore plan shifts" size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Day</TableCell>
-                  <TableCell>Type</TableCell>
-                  <TableCell>Schedule</TableCell>
-                  <TableCell>Time</TableCell>
-                  <TableCell>Positions</TableCell>
-                  <TableCell>Assigned</TableCell>
-                  <TableCell>My status</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {response.shifts.map((shift) => (
-                  <TableRow key={shift.stableKey}>
-                    <TableCell>{shift.displayDayLabel}</TableCell>
-                    <TableCell>{kindLabel(shift.kind)}</TableCell>
-                    <TableCell>{shift.scheduleName}</TableCell>
-                    <TableCell>{shift.timePeriodLabel}</TableCell>
-                    <TableCell>
-                      {shift.slots
-                        .map(({ positionLabel }) => positionLabel)
-                        .join(', ')}
-                    </TableCell>
-                    <TableCell>
-                      {shift.assignedParticipantCount}/
-                      {shift.requiredParticipants}
-                    </TableCell>
-                    <TableCell>
-                      {shift.currentUserAssigned ? (
-                        <Chip color="primary" label="Assigned" size="small" />
-                      ) : (
-                        'Not assigned'
+          KINDS.map((kind) => {
+            const items = response.shifts.filter(
+              (shift) => shift.kind === kind,
+            );
+            const shifts = items.map(signupSheetShift);
+            const status = requirementChip(kind, plan, items);
+            return (
+              <Accordion key={kind} defaultExpanded={kind === 'chore'}>
+                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                  <Stack
+                    alignItems={{ xs: 'flex-start', sm: 'center' }}
+                    direction={{ xs: 'column', sm: 'row' }}
+                    spacing={{ xs: 0.5, sm: 2 }}
+                  >
+                    <Typography variant="h6">
+                      {CATEGORY_LABELS[kind]}
+                    </Typography>
+                    <Chip
+                      color={status.color}
+                      label={status.label}
+                      size="small"
+                    />
+                  </Stack>
+                </AccordionSummary>
+                <AccordionDetails sx={{ px: { xs: 0, sm: 2 } }}>
+                  {shifts.length ? (
+                    <SignupSheetTable
+                      emptyCellContent={null}
+                      kind={kind}
+                      shifts={shifts}
+                      renderShift={(shift) => (
+                        <ReadOnlySignupSlots shift={shift.item} />
                       )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
+                    />
+                  ) : (
+                    <Typography color="text.secondary">
+                      No {CATEGORY_LABELS[kind].toLowerCase()} were generated.
+                    </Typography>
+                  )}
+                </AccordionDetails>
+              </Accordion>
+            );
+          })
         )}
       </Stack>
     </Paper>

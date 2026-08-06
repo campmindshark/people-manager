@@ -187,6 +187,13 @@ the application read model. Only an open plan reports self-service mutations as
 allowed. This response is the shared read contract for the later signup slice,
 while the read-only UI in this slice adds no mutation controls.
 
+The member shift page follows PR #58's signup-sheet layout: the roster-year
+heading and explanatory copy lead into daily-chore, event-crew, and dinner-crew
+accordions using the shared weekly grids. Read-only slot pills distinguish the
+member's assignment, filled spots, and open spots without exposing another
+participant's identity. Category chips show the member's remaining default
+requirements while the plan is open and the closed state after signups close.
+
 The administrative planner loads the current plan summary and the draft
 revision needed for optimistic concurrency. It exposes reviewed open, close,
 and reason-required reopen controls in the same plan-status alert used by PR

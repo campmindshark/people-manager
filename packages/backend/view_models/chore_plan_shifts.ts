@@ -1,10 +1,12 @@
 import { ChoreCatalogKind } from './chore_catalog';
+import { ChorePlanRequirements } from './chore_plan_preview';
 
 export interface ChorePlanShiftViewPlan {
   id: number;
   rosterID: number;
   status: 'draft' | 'open' | 'closed';
   planningYear: number;
+  requirements: ChorePlanRequirements;
   openedAt: string | null;
   closedAt: string | null;
 }

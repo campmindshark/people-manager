@@ -1,5 +1,6 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import {
   ChorePlanShiftViewItem,
   ChorePlanShiftViewResponse,
@@ -70,6 +71,7 @@ test('does not reveal generated draft shifts', async () => {
             rosterID: 2,
             status: 'draft',
             planningYear: 2026,
+            requirements: { chore: 1, event: 1, dinner: 1 },
             openedAt: null,
             closedAt: null,
           },
@@ -112,6 +114,7 @@ test('renders open generated shifts without mutation controls', async () => {
             rosterID: 2,
             status: 'open',
             planningYear: 2026,
+            requirements: { chore: 1, event: 1, dinner: 1 },
             openedAt: '2026-08-06T12:00:00.000Z',
             closedAt: null,
           },
@@ -122,14 +125,22 @@ test('renders open generated shifts without mutation controls', async () => {
     />,
   );
 
-  expect(await screen.findByText('Plan open')).toBeVisible();
+  expect(
+    await screen.findByText('Chore signups are open for 2026.'),
+  ).toBeVisible();
   expect(screen.getByText('AM Chum Wench')).toBeVisible();
-  expect(screen.getByText('Gate')).toBeVisible();
+  expect(screen.getByText('Your signup')).toBeVisible();
+  expect(screen.getByText('Requirement complete!')).toBeVisible();
+  expect(screen.getAllByText('1 shift required!')).toHaveLength(2);
+  expect(screen.getAllByText('Open spot')).toHaveLength(3);
+
+  userEvent.click(screen.getByRole('button', { name: /event crew/i }));
+  expect(screen.getAllByText('Gate')).toHaveLength(7);
+  userEvent.click(screen.getByRole('button', { name: /dinner crew/i }));
   expect(screen.getByText('Kitchen Dinner')).toBeVisible();
-  expect(screen.getAllByText('First, Second')).toHaveLength(3);
-  expect(screen.getAllByText('1/2')).toHaveLength(3);
-  expect(screen.getAllByText('Assigned')).toHaveLength(2);
-  expect(screen.queryByRole('button')).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole('button', { name: /select|remove|sign up/i }),
+  ).not.toBeInTheDocument();
 });
 
 test('keeps closed assignments visible and read-only', async () => {
@@ -143,6 +154,7 @@ test('keeps closed assignments visible and read-only', async () => {
             rosterID: 2,
             status: 'closed',
             planningYear: 2026,
+            requirements: { chore: 1, event: 1, dinner: 1 },
             openedAt: '2026-08-06T12:00:00.000Z',
             closedAt: '2026-08-06T13:00:00.000Z',
           },
@@ -152,8 +164,13 @@ test('keeps closed assignments visible and read-only', async () => {
     />,
   );
 
-  expect(await screen.findByText('Plan closed')).toBeVisible();
+  expect(
+    await screen.findByText(/the 2026 chore plan is closed/i),
+  ).toBeVisible();
   expect(screen.getByText('AM Chum Wench')).toBeVisible();
   expect(screen.getByText(/assignments are read-only/i)).toBeVisible();
-  expect(screen.queryByRole('button')).not.toBeInTheDocument();
+  expect(screen.getAllByText('Signups closed')).toHaveLength(3);
+  expect(
+    screen.queryByRole('button', { name: /select|remove|sign up/i }),
+  ).not.toBeInTheDocument();
 });

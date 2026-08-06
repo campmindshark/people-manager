@@ -13,6 +13,9 @@ interface ChorePlanRow {
   rosterID: number;
   status: 'draft' | 'open' | 'closed';
   planningYear: number;
+  choreRequirement: number;
+  eventRequirement: number;
+  dinnerRequirement: number;
   openedAt: Date | string | null;
   closedAt: Date | string | null;
 }
@@ -55,6 +58,11 @@ function planView(plan: ChorePlanRow): ChorePlanShiftViewPlan {
     rosterID: plan.rosterID,
     status: plan.status,
     planningYear: plan.planningYear,
+    requirements: {
+      chore: plan.choreRequirement,
+      event: plan.eventRequirement,
+      dinner: plan.dinnerRequirement,
+    },
     openedAt: isoTimestamp(plan.openedAt),
     closedAt: isoTimestamp(plan.closedAt),
   };
@@ -105,6 +113,9 @@ export default class ChorePlanShiftsController {
           'rosterID',
           'status',
           'planningYear',
+          'choreRequirement',
+          'eventRequirement',
+          'dinnerRequirement',
           'openedAt',
           'closedAt',
         )
