@@ -4,8 +4,19 @@ import User from '../models/user/user';
 import ShiftController from '../controllers/shift';
 import hasPermission from '../middleware/rbac';
 import userIsVerified from '../middleware/verified_user';
+import ShiftSignupError from '../utils/shiftSignupError';
 
 const router: Router = express.Router();
+
+function sendShiftSignupError(error: unknown, res: Response): void {
+  if (error instanceof ShiftSignupError) {
+    res.status(error.status).json({ error: error.message });
+    return;
+  }
+
+  console.error('Failed to update shift signup:', error);
+  res.status(500).json({ error: 'Failed to update shift signup.' });
+}
 
 /* GET Shift(s). */
 router.get(
@@ -75,6 +86,7 @@ router.post(
 /* Sign up for a shift with the current user. */
 router.get(
   '/:id/signup',
+  userIsVerified(),
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
@@ -88,22 +100,22 @@ router.get(
 
     console.log(`Signing up user ${user.id} for shift ${id}`);
 
-    const success = await ShiftController.RegisterParticipantForShift(
-      parseInt(id, 10),
-      user.id,
-    );
-
-    if (!success) {
-      res.status(500).json({ error: 'Failed to register user for shift' });
-      return;
+    try {
+      const result = await ShiftController.RegisterParticipantForShift(
+        parseInt(id, 10),
+        user.id,
+      );
+      res.json({ success: true, ...result });
+    } catch (error) {
+      sendShiftSignupError(error, res);
     }
-    res.json({ success: true });
   },
 );
 
 /* Unregister the current user from a specific shift. */
 router.get(
   '/:id/unregister',
+  userIsVerified(),
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
@@ -116,17 +128,15 @@ router.get(
 
     console.log(`Unregister user ${user.id} from shift ${id}`);
 
-    const success = await ShiftController.UnregisterParticipantFromShift(
-      parseInt(id, 10),
-      user.id,
-    );
-
-    if (!success) {
-      res.status(500).json({ error: 'Failed to unregister user from shift' });
-      return;
+    try {
+      await ShiftController.UnregisterParticipantFromShift(
+        parseInt(id, 10),
+        user.id,
+      );
+      res.json({ success: true });
+    } catch (error) {
+      sendShiftSignupError(error, res);
     }
-
-    res.json({ success: true });
   },
 );
 

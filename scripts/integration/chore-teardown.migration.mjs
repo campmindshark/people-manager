@@ -1,5 +1,7 @@
 import { spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
+import { readdirSync } from 'node:fs';
+import path from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 
 const databaseName = 'people_manager_chore_teardown_test';
@@ -92,13 +94,21 @@ async function main() {
       throw new Error(`Could not parse PostgreSQL port from ${portOutput}.`);
     }
 
+    const requestedTestFiles = process.argv.slice(2);
+    const testFiles = (
+      requestedTestFiles.length > 0
+        ? requestedTestFiles
+        : readdirSync('packages/backend/tests').filter((fileName) =>
+            fileName.endsWith('.test.ts'),
+          )
+    ).map((fileName) => path.join('packages/backend/tests', fileName));
     const testResult = spawnSync(
       process.execPath,
       [
         '--require',
         'ts-node/register',
         '--test',
-        'packages/backend/tests/chore_planning_teardown.test.ts',
+        ...testFiles,
       ],
       {
         cwd: process.cwd(),

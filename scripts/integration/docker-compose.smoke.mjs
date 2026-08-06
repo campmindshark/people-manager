@@ -114,6 +114,68 @@ async function runIntegrationTest() {
       'Disabled chore-planning routes must appear absent',
     );
 
+    const verificationResponse = await fetch(
+      `http://localhost:3001/api/users/verify/${authCheck.user.id}`,
+      {
+        method: 'POST',
+        headers: { cookie: sessionCookie },
+      },
+    );
+    assert(verificationResponse.ok, 'Could not verify the smoke-test user');
+
+    const groupResponse = await fetch('http://localhost:3001/api/groups', {
+      method: 'POST',
+      headers: {
+        cookie: sessionCookie,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        name: 'Smoke-test signup group',
+        description: 'Disposable ordinary-shift signup access',
+        rosterID: 1,
+        shiftSignupOpenDate: '2020-01-01T00:00:00.000Z',
+      }),
+    });
+    assert(groupResponse.ok, 'Could not create a shift signup group');
+    const group = await groupResponse.json();
+
+    const groupMemberResponse = await fetch(
+      `http://localhost:3001/api/groups/${group.id}/members/${authCheck.user.id}`,
+      {
+        method: 'POST',
+        headers: { cookie: sessionCookie },
+      },
+    );
+    assert(groupMemberResponse.ok, 'Could not add the user to a signup group');
+
+    const signupResponse = await fetch(
+      'http://localhost:3001/api/shifts/1/signup',
+      { headers: { cookie: sessionCookie } },
+    );
+    assert(signupResponse.ok, 'Ordinary shift signup failed');
+    const signupResult = await signupResponse.json();
+    assert(
+      signupResult.registeredShiftIDs?.[0] === 1,
+      'Ordinary shift signup did not register the selected shift',
+    );
+
+    const duplicateSignupResponse = await fetch(
+      'http://localhost:3001/api/shifts/1/signup',
+      { headers: { cookie: sessionCookie } },
+    );
+    assert(duplicateSignupResponse.ok, 'Duplicate signup was not idempotent');
+    const duplicateSignupResult = await duplicateSignupResponse.json();
+    assert(
+      duplicateSignupResult.registeredShiftIDs?.length === 0,
+      'Duplicate signup created another assignment',
+    );
+
+    const unregisterResponse = await fetch(
+      'http://localhost:3001/api/shifts/1/unregister',
+      { headers: { cookie: sessionCookie } },
+    );
+    assert(unregisterResponse.ok, 'Ordinary shift removal failed');
+
     const rosterResponse = await fetch('http://localhost:3001/api/rosters/2', {
       headers: { cookie: sessionCookie },
     });
