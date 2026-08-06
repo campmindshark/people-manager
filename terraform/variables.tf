@@ -32,6 +32,12 @@ variable "migration_docker_image_tag" {
   default = "latest-migration"
 }
 
+variable "chore_planning_enabled" {
+  description = "Enables backend chore-planning routes and frontend entry points."
+  type        = bool
+  default     = false
+}
+
 variable "domain" {
   type    = string
   default = "mindsharkportal.com"

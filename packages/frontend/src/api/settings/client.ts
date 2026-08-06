@@ -1,4 +1,5 @@
 import axios from 'axios';
+import FeatureFlags from 'backend/view_models/feature_flags';
 import defaultRequestConfig from '../common/requestConfig';
 
 interface ActiveRosterResponse {
@@ -14,6 +15,14 @@ export default class BackendSettingsClient {
 
   constructor(baseApiURL: string) {
     this.baseApiURL = baseApiURL;
+  }
+
+  async GetFeatureFlags(): Promise<FeatureFlags> {
+    const { data } = await axios.get<FeatureFlags>(
+      `${this.baseApiURL}/api/settings/features`,
+      defaultRequestConfig,
+    );
+    return data;
   }
 
   async GetActiveRosterID(): Promise<number> {

@@ -27,7 +27,7 @@ services:
     environment:
       - POSTGRES_CONNECTION_URL=postgresql://citizix_user:S3cret@postgres:5432/citizix_db
       - NODE_ENV=development
-    command: sh -c "yarn install && yarn db-migrate && yarn db-seed"
+    command: sh -c "yarn install --frozen-lockfile && yarn db-migrate && yarn db-seed"
     depends_on:
       postgres:
         condition: service_healthy
@@ -51,6 +51,7 @@ services:
       - GOOGLE_OAUTH_CLIENT_ID=${GOOGLE_OAUTH_CLIENT_ID:-placeholder}
       - GOOGLE_OAUTH_CLIENT_SECRET=${GOOGLE_OAUTH_CLIENT_SECRET:-placeholder}
       - DEV_AUTH_BYPASS=true
+      - CHORE_PLANNING_ENABLED=false
     command: yarn backend-dev
     depends_on:
       migrate:

@@ -3,6 +3,7 @@ name: Deploy
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -121,6 +122,7 @@ jobs:
           TF_VAR_GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
           TF_VAR_GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
           TF_VAR_JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          TF_VAR_chore_planning_enabled: ${{ vars.CHORE_PLANNING_ENABLED || 'false' }}
           TF_LOG: info
         run: terraform plan
 
@@ -132,6 +134,7 @@ jobs:
           TF_VAR_GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
           TF_VAR_GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
           TF_VAR_JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          TF_VAR_chore_planning_enabled: ${{ vars.CHORE_PLANNING_ENABLED || 'false' }}
           TF_LOG: info
         run: terraform apply -auto-approve
 

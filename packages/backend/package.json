@@ -6,7 +6,7 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "dev": "nodemon index.ts env/.env.local",
-    "test": "echo 'TODO: implement server tests'",
+    "test": "node --require ts-node/register --test tests/*.test.ts",
     "migrate": "knex migrate:latest",
     "seed": "knex seed:run",
     "lint": "pnpx eslint@8.57.0 \"**/*.{ts,tsx}\"",

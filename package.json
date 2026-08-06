@@ -9,6 +9,7 @@
     "dev": "concurrently --kill-others-on-fail \"yarn frontend-dev\"  \"yarn backend-dev\"",
     "frontend-dev": "yarn workspace frontend start",
     "backend-dev": "yarn workspace backend dev",
+    "test": "concurrently \"yarn workspace frontend test\" \"yarn workspace backend test\"",
     "test:migration:chore-teardown": "node ./scripts/integration/chore-teardown.migration.mjs",
     "test:integration:docker": "node ./scripts/integration/docker-compose.smoke.mjs",
     "build-frontend": "yarn workspace frontend build",
