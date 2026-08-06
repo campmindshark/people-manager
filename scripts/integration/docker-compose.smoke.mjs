@@ -125,6 +125,14 @@ async function runIntegrationTest() {
       disabledLifecycleResponse.status === 404,
       'Disabled chore lifecycle routes must appear absent',
     );
+    const disabledShiftViewResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/1/shifts',
+      { headers: { cookie: sessionCookie } },
+    );
+    assert(
+      disabledShiftViewResponse.status === 404,
+      'Disabled chore shift-view routes must appear absent',
+    );
 
     const verificationResponse = await fetch(
       `http://localhost:3001/api/users/verify/${authCheck.user.id}`,
@@ -223,6 +231,25 @@ async function runIntegrationTest() {
     );
     assert(verifyStandardResponse.ok, 'Could not verify the standard user');
 
+    const rosterSignupResponse = await fetch(
+      'http://localhost:3001/api/roster_participants/1',
+      {
+        method: 'POST',
+        headers: {
+          cookie: standardCookie,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          probabilityOfAttending: 100,
+          yearsAtCamp: [],
+          estimatedArrivalDate: '2026-08-20T00:00:00.000Z',
+          estimatedDepartureDate: '2026-09-10T00:00:00.000Z',
+          sleepingArrangement: 'Smoke test',
+        }),
+      },
+    );
+    assert(rosterSignupResponse.ok, 'Could not add the standard roster member');
+
     run('docker compose up -d --force-recreate --no-deps backend', {
       CHORE_PLANNING_ENABLED: 'true',
     });
@@ -255,6 +282,27 @@ async function runIntegrationTest() {
     assert(
       forbiddenCatalogResponse.status === 403,
       'A verified standard user must not read the chore catalog',
+    );
+
+    const forbiddenOutsiderShiftViewResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/1/shifts',
+      { headers: { cookie: sessionCookie } },
+    );
+    assert(
+      forbiddenOutsiderShiftViewResponse.status === 403,
+      'A verified non-member must not read chore plan shifts',
+    );
+    const emptyShiftViewResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/1/shifts',
+      { headers: { cookie: standardCookie } },
+    );
+    assert(emptyShiftViewResponse.ok, 'Roster member could not read empty plan');
+    const emptyShiftView = await emptyShiftViewResponse.json();
+    assert(
+      emptyShiftView.plan === null &&
+        emptyShiftView.selfServiceMutationsAllowed === false &&
+        emptyShiftView.shifts?.length === 0,
+      'Empty member shift view returned unexpected state',
     );
 
     const forbiddenPreviewResponse = await fetch(
@@ -483,6 +531,18 @@ async function runIntegrationTest() {
         savedDraft.draft?.catalogRevision === '2',
       'Saved draft read model did not match the applied draft',
     );
+    const memberDraftResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/1/shifts',
+      { headers: { cookie: standardCookie } },
+    );
+    assert(memberDraftResponse.ok, 'Roster member could not read draft state');
+    const memberDraft = await memberDraftResponse.json();
+    assert(
+      memberDraft.plan?.status === 'draft' &&
+        memberDraft.selfServiceMutationsAllowed === false &&
+        memberDraft.shifts?.length === 0,
+      'Draft generated shifts were exposed to a roster member',
+    );
 
     const repeatedApplyResponse = await fetch(
       'http://localhost:3001/api/chore-plans/apply',
@@ -619,6 +679,26 @@ async function runIntegrationTest() {
         openedPlan.closedAt === null,
       'Opening did not return the expected lifecycle state',
     );
+    const memberOpenResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/1/shifts',
+      { headers: { cookie: standardCookie } },
+    );
+    assert(memberOpenResponse.ok, 'Roster member could not read open plan');
+    const memberOpen = await memberOpenResponse.json();
+    assert(
+      memberOpen.plan?.status === 'open' &&
+        memberOpen.selfServiceMutationsAllowed === true &&
+        memberOpen.shifts?.length > 0 &&
+        ['chore', 'event', 'dinner'].every((kind) =>
+          memberOpen.shifts.some((shift) => shift.kind === kind),
+        ),
+      'Open member shift view omitted generated category rows',
+    );
+    assert(
+      !JSON.stringify(memberOpen).includes('userID') &&
+        !JSON.stringify(memberOpen).includes('@localhost'),
+      'Member shift view exposed participant identity fields',
+    );
 
     const repeatedOpenResponse = await fetch(
       'http://localhost:3001/api/chore-plans/1/open',
@@ -645,6 +725,18 @@ async function runIntegrationTest() {
         closedPlan.closedByUserID === authCheck.user.id &&
         closedPlan.closedAt,
       'Closing did not return the expected lifecycle state',
+    );
+    const memberClosedResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/1/shifts',
+      { headers: { cookie: standardCookie } },
+    );
+    assert(memberClosedResponse.ok, 'Roster member could not read closed plan');
+    const memberClosed = await memberClosedResponse.json();
+    assert(
+      memberClosed.plan?.status === 'closed' &&
+        memberClosed.selfServiceMutationsAllowed === false &&
+        memberClosed.shifts?.length === memberOpen.shifts.length,
+      'Closed member shift view did not remain visible and read-only',
     );
 
     const invalidReopenResponse = await fetch(

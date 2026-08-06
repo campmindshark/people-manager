@@ -3,6 +3,7 @@ import ChoreCatalogController from '../controllers/chore_catalog';
 import ChorePlanDraftController from '../controllers/chore_plan_draft';
 import ChorePlanLifecycleController from '../controllers/chore_plan_lifecycle';
 import ChorePlanPreviewController from '../controllers/chore_plan_preview';
+import ChorePlanShiftsController from '../controllers/chore_plan_shifts';
 import hasPermission from '../middleware/rbac';
 import userIsVerified from '../middleware/verified_user';
 import User from '../models/user/user';
@@ -19,18 +20,21 @@ import {
   parseChorePlanRosterID,
 } from '../utils/chorePlanPreviewInput';
 import ChorePlanPreviewError from '../utils/chorePlanPreviewError';
+import ChorePlanShiftViewError from '../utils/chorePlanShiftViewError';
 
 const router: Router = express.Router();
 const controller = new ChoreCatalogController();
 const draftController = new ChorePlanDraftController();
 const lifecycleController = new ChorePlanLifecycleController();
 const previewController = new ChorePlanPreviewController();
+const shiftsController = new ChorePlanShiftsController();
 
 function sendError(error: unknown, res: Response, operation: string): void {
   if (
     (error instanceof ChoreCatalogError ||
       error instanceof ChorePlanLifecycleError ||
-      error instanceof ChorePlanPreviewError) &&
+      error instanceof ChorePlanPreviewError ||
+      error instanceof ChorePlanShiftViewError) &&
     error.status < 500
   ) {
     res.status(error.status).json({ error: error.message });
@@ -40,6 +44,24 @@ function sendError(error: unknown, res: Response, operation: string): void {
   console.error(`Failed to ${operation}:`, error);
   res.status(500).json({ error: `Failed to ${operation}.` });
 }
+
+router.get(
+  '/:rosterID/shifts',
+  userIsVerified(),
+  async (req: Request, res: Response) => {
+    try {
+      const user = req.user as User;
+      res.json(
+        await shiftsController.getForUser(
+          parseChorePlanRosterID(req.params.rosterID),
+          user.id,
+        ),
+      );
+    } catch (error) {
+      sendError(error, res, 'load chore plan shifts');
+    }
+  },
+);
 
 router.post(
   '/preview',

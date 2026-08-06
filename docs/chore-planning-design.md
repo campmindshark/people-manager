@@ -174,6 +174,19 @@ mutate a persisted plan or its audit meaning. Generated draft schedules and
 shifts are excluded from the ordinary schedule, shift, and signup APIs; a later
 slice introduces their dedicated read contract.
 
+The dedicated member read endpoint requires a verified user who belongs to the
+requested roster. It returns the roster ID, a narrow plan lifecycle summary,
+whether self-service mutations are lifecycle-eligible, and ordered generated
+shift rows. A missing plan returns a null plan and no shifts. A draft returns
+only its lifecycle summary and no generated shifts. Open and closed plans return
+the generated-shift display fields and stable slot identities from the immutable
+snapshot, assignment counts, and whether the caller is assigned. They never
+return participant identities, planner revisions, or score data. Assignment
+status is aggregated in PostgreSQL so other participants' user IDs do not enter
+the application read model. Only an open plan reports self-service mutations as
+allowed. This response is the shared read contract for the later signup slice,
+while the read-only UI in this slice adds no mutation controls.
+
 The administrative planner loads only the current draft summary needed for
 optimistic concurrency; it does not expose participant mutations or lifecycle
 controls. Preview displays exact category shortages and generated shifts. A

@@ -6,6 +6,7 @@ import {
   ChorePlanPreview,
   ChorePlanPreviewRequest,
 } from 'backend/view_models/chore_plan_preview';
+import { ChorePlanShiftViewResponse } from 'backend/view_models/chore_plan_shifts';
 import defaultRequestConfig from '../common/requestConfig';
 
 export default class BackendChorePlanClient {
@@ -27,6 +28,14 @@ export default class BackendChorePlanClient {
   async GetDraft(rosterID: number): Promise<ChorePlanDraftResponse> {
     const { data } = await axios.get<ChorePlanDraftResponse>(
       `${this.baseApiURL}/api/chore-plans/draft/${rosterID}`,
+      defaultRequestConfig,
+    );
+    return data;
+  }
+
+  async GetShifts(rosterID: number): Promise<ChorePlanShiftViewResponse> {
+    const { data } = await axios.get<ChorePlanShiftViewResponse>(
+      `${this.baseApiURL}/api/chore-plans/${rosterID}/shifts`,
       defaultRequestConfig,
     );
     return data;
