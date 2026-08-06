@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
+import Box from '@mui/material/Box';
 import Container from '@mui/material/Container';
-import Paper from '@mui/material/Paper';
+import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { useSetRecoilState } from 'recoil';
 import ChorePlanBuilder from '../components/admin/ChorePlanBuilder';
@@ -20,17 +21,19 @@ export default function ChorePlanner() {
   return (
     <Dashboard>
       <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
-        <Paper sx={{ p: 2 }}>
-          <Typography variant="h4" gutterBottom>
-            Chore plan draft
-          </Typography>
-          <Typography variant="body1" sx={{ mb: 3 }}>
-            Preview a deterministic plan from the current catalog, then save it
-            as a draft. Applying a draft does not open signups or expose shifts
-            to participants.
-          </Typography>
+        <Stack spacing={3}>
+          <Box>
+            <Typography variant="h3" component="h1" gutterBottom>
+              Chore planner
+            </Typography>
+            <Typography color="text.secondary" sx={{ maxWidth: 900 }}>
+              Turn the scored chore catalog into a blank, dated signup plan.
+              Preview the mix first, then if it&apos;s ready create the signup
+              sheet.
+            </Typography>
+          </Box>
           <ChorePlanBuilder />
-        </Paper>
+        </Stack>
       </Container>
     </Dashboard>
   );

@@ -118,7 +118,7 @@ function clients(
 
 async function enterCamperCount(value: string) {
   const input = await screen.findByRole('spinbutton', {
-    name: /camper count/i,
+    name: /prospective campers/i,
   });
   userEvent.clear(input);
   userEvent.type(input, value);
@@ -138,7 +138,7 @@ test('previews and applies a new draft through the narrow request contracts', as
   );
 
   await enterCamperCount('1');
-  userEvent.click(screen.getByRole('button', { name: /preview plan/i }));
+  userEvent.click(screen.getByRole('button', { name: /preview signup plan/i }));
 
   await waitFor(() =>
     expect(planClient.Preview).toHaveBeenCalledWith({
@@ -149,11 +149,10 @@ test('previews and applies a new draft through the narrow request contracts', as
   );
   expect(planClient.GetDraft).toHaveBeenCalledWith(1);
   expect(await screen.findByText('AM Chum Wench')).toBeVisible();
-  expect(
-    screen.getByRole('table', { name: /category summary/i }),
-  ).toBeVisible();
+  expect(screen.getAllByText('Daily chores')).toHaveLength(2);
+  expect(screen.getByText('First')).toBeVisible();
 
-  userEvent.click(screen.getByRole('button', { name: /apply new draft/i }));
+  userEvent.click(screen.getByRole('button', { name: /create signup plan/i }));
   await waitFor(() =>
     expect(planClient.Apply).toHaveBeenCalledWith({
       rosterID: 1,
@@ -163,7 +162,9 @@ test('previews and applies a new draft through the narrow request contracts', as
       expectedDraftRevision: null,
     }),
   );
-  expect(await screen.findByText(/created draft revision 1/i)).toBeVisible();
+  expect(
+    await screen.findByText(/created signup plan draft revision 1/i),
+  ).toBeVisible();
 });
 
 test('requires explicit confirmation before replacing an observed draft', async () => {
@@ -180,14 +181,12 @@ test('requires explicit confirmation before replacing an observed draft', async 
   );
 
   await enterCamperCount('1');
-  userEvent.click(screen.getByRole('button', { name: /preview plan/i }));
+  userEvent.click(screen.getByRole('button', { name: /preview signup plan/i }));
   expect(
     await screen.findByText(/will replace saved draft revision 4/i),
   ).toBeVisible();
 
-  userEvent.click(
-    screen.getByRole('button', { name: /replace existing draft/i }),
-  );
+  userEvent.click(screen.getByRole('button', { name: /apply plan updates/i }));
   expect(
     screen.getByRole('dialog', { name: /replace existing draft/i }),
   ).toBeVisible();
@@ -200,7 +199,7 @@ test('requires explicit confirmation before replacing an observed draft', async 
     ),
   );
   expect(
-    await screen.findByText(/replaced the draft with revision 5/i),
+    await screen.findByText(/applied signup plan updates in draft revision 5/i),
   ).toBeVisible();
 });
 
@@ -220,16 +219,16 @@ test('reapplies an identical draft without a replacement dialog', async () => {
   );
 
   await enterCamperCount('1');
-  userEvent.click(screen.getByRole('button', { name: /preview plan/i }));
-  const reapplyButton = await screen.findByRole('button', {
-    name: /reapply unchanged draft/i,
+  userEvent.click(screen.getByRole('button', { name: /preview signup plan/i }));
+  const applyUpdatesButton = await screen.findByRole('button', {
+    name: /apply plan updates/i,
   });
-  userEvent.click(reapplyButton);
+  userEvent.click(applyUpdatesButton);
 
   await waitFor(() => expect(planClient.Apply).toHaveBeenCalledTimes(1));
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   expect(
-    await screen.findByText(/already matches this preview/i),
+    await screen.findByText(/saved signup plan already matches this preview/i),
   ).toBeVisible();
 });
 
@@ -247,15 +246,47 @@ test('shows exact shortages and prevents apply', async () => {
   );
 
   await enterCamperCount('1');
-  userEvent.click(screen.getByRole('button', { name: /preview plan/i }));
+  userEvent.click(screen.getByRole('button', { name: /preview signup plan/i }));
 
   expect(
     await screen.findByText(/1 event position, 1 dinner position/i),
   ).toBeVisible();
   expect(
-    screen.getByRole('button', { name: /apply new draft/i }),
+    screen.getByRole('button', { name: /create signup plan/i }),
   ).toBeDisabled();
   expect(planClient.Apply).not.toHaveBeenCalled();
+});
+
+test('uses the original score bands for preview positions', async () => {
+  const generated = preview();
+  generated.shifts[0].slots = [
+    {
+      definitionKey: 'chore-am-chum-wench-first',
+      positionLabel: 'First',
+      score: 75,
+    },
+    {
+      definitionKey: 'chore-am-chum-wench-second',
+      positionLabel: 'Second',
+      score: 25,
+    },
+    {
+      definitionKey: 'chore-am-chum-wench-third',
+      positionLabel: 'Third',
+      score: 24,
+    },
+  ];
+  const { planClient, rosterClient } = clients(generated, null);
+  render(
+    <ChorePlanBuilder planClient={planClient} rosterClient={rosterClient} />,
+  );
+
+  await enterCamperCount('1');
+  userEvent.click(screen.getByRole('button', { name: /preview signup plan/i }));
+
+  expect(await screen.findByText('First')).toHaveClass('high');
+  expect(screen.getByText('Second')).toHaveClass('medium');
+  expect(screen.getByText('Third')).toHaveClass('low');
 });
 
 test('blocks invalid form values before previewing', async () => {
@@ -266,9 +297,11 @@ test('blocks invalid form values before previewing', async () => {
   );
 
   await enterCamperCount('201');
-  userEvent.click(screen.getByRole('button', { name: /preview plan/i }));
+  userEvent.click(screen.getByRole('button', { name: /preview signup plan/i }));
 
-  expect(await screen.findByText(/enter 1–200 campers/i)).toBeVisible();
+  expect(
+    await screen.findByText(/enter 1–200 prospective campers/i),
+  ).toBeVisible();
   expect(planClient.Preview).not.toHaveBeenCalled();
   expect(planClient.GetDraft).not.toHaveBeenCalled();
 });
@@ -289,10 +322,10 @@ test('explains stale catalog and draft conflicts and requires a new preview', as
   );
 
   await enterCamperCount('1');
-  userEvent.click(screen.getByRole('button', { name: /preview plan/i }));
+  userEvent.click(screen.getByRole('button', { name: /preview signup plan/i }));
   userEvent.click(
     await screen.findByRole('button', {
-      name: /reapply unchanged draft/i,
+      name: /apply plan updates/i,
     }),
   );
 
@@ -300,7 +333,7 @@ test('explains stale catalog and draft conflicts and requires a new preview', as
     await screen.findByText(/chore scores changed after this preview/i),
   ).toBeVisible();
   expect(
-    screen.queryByText('Preview', { selector: 'h5' }),
+    screen.queryByText(/signup sheet preview/i, { selector: 'h5' }),
   ).not.toBeInTheDocument();
   consoleError.mockRestore();
 });
@@ -321,10 +354,10 @@ test('distinguishes a stale saved draft from a score conflict', async () => {
   );
 
   await enterCamperCount('1');
-  userEvent.click(screen.getByRole('button', { name: /preview plan/i }));
+  userEvent.click(screen.getByRole('button', { name: /preview signup plan/i }));
   userEvent.click(
     await screen.findByRole('button', {
-      name: /reapply unchanged draft/i,
+      name: /apply plan updates/i,
     }),
   );
 
