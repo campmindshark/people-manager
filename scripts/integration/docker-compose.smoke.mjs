@@ -114,6 +114,17 @@ async function runIntegrationTest() {
       chorePlanningResponse.status === 404,
       'Disabled chore-planning routes must appear absent',
     );
+    const disabledLifecycleResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/1/open',
+      {
+        method: 'POST',
+        headers: { cookie: sessionCookie },
+      },
+    );
+    assert(
+      disabledLifecycleResponse.status === 404,
+      'Disabled chore lifecycle routes must appear absent',
+    );
 
     const verificationResponse = await fetch(
       `http://localhost:3001/api/users/verify/${authCheck.user.id}`,
@@ -579,6 +590,112 @@ async function runIntegrationTest() {
       JSON.stringify(ordinaryShiftsAfter) ===
         JSON.stringify(ordinaryShiftsBefore),
       'Generated draft shifts leaked into the ordinary shift API',
+    );
+
+    const forbiddenOpenResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/1/open',
+      {
+        method: 'POST',
+        headers: { cookie: standardCookie },
+      },
+    );
+    assert(
+      forbiddenOpenResponse.status === 403,
+      'A verified standard user must not open chore plans',
+    );
+    const openResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/1/open',
+      {
+        method: 'POST',
+        headers: { cookie: sessionCookie },
+      },
+    );
+    assert(openResponse.ok, 'Admin could not open the draft chore plan');
+    const openedPlan = await openResponse.json();
+    assert(
+      openedPlan.status === 'open' &&
+        openedPlan.openedByUserID === authCheck.user.id &&
+        openedPlan.openedAt &&
+        openedPlan.closedAt === null,
+      'Opening did not return the expected lifecycle state',
+    );
+
+    const repeatedOpenResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/1/open',
+      {
+        method: 'POST',
+        headers: { cookie: sessionCookie },
+      },
+    );
+    assert(
+      repeatedOpenResponse.status === 409,
+      'Opening an already-open chore plan must be rejected',
+    );
+    const closeResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/1/close',
+      {
+        method: 'POST',
+        headers: { cookie: sessionCookie },
+      },
+    );
+    assert(closeResponse.ok, 'Admin could not close the open chore plan');
+    const closedPlan = await closeResponse.json();
+    assert(
+      closedPlan.status === 'closed' &&
+        closedPlan.closedByUserID === authCheck.user.id &&
+        closedPlan.closedAt,
+      'Closing did not return the expected lifecycle state',
+    );
+
+    const invalidReopenResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/1/reopen',
+      {
+        method: 'POST',
+        headers: {
+          cookie: sessionCookie,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ reason: '   ' }),
+      },
+    );
+    assert(
+      invalidReopenResponse.status === 400,
+      'Reopening without a reason must be rejected',
+    );
+    const forbiddenReopenResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/1/reopen',
+      {
+        method: 'POST',
+        headers: {
+          cookie: standardCookie,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ reason: 'Standard user attempt' }),
+      },
+    );
+    assert(
+      forbiddenReopenResponse.status === 403,
+      'A verified standard user must not reopen chore plans',
+    );
+    const reopenResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/1/reopen',
+      {
+        method: 'POST',
+        headers: {
+          cookie: sessionCookie,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ reason: '  Smoke-test correction  ' }),
+      },
+    );
+    assert(reopenResponse.ok, 'Admin could not reopen the closed chore plan');
+    const reopenedPlan = await reopenResponse.json();
+    assert(
+      reopenedPlan.status === 'open' &&
+        reopenedPlan.openedByUserID === authCheck.user.id &&
+        reopenedPlan.closedAt === null &&
+        reopenedPlan.closedByUserID === null,
+      'Reopening did not return the expected lifecycle state',
     );
 
     console.log('Integration smoke test passed.');

@@ -41,12 +41,20 @@ The lifecycle states are `draft`, `open`, and `closed`:
 - `open -> closed` is allowed. Closing records the actor and time in the same
   transaction and disables self-service mutations.
 - `closed -> open` is the only reopening transition. It requires the dedicated
-  reopen permission and a non-empty reason. The transition is audited in the
-  same transaction.
+  reopen permission and a trimmed reason from 1 through 500 characters. The
+  transition is audited in the same transaction.
 - There is no transition from `open` or `closed` back to `draft`. Replacing a
   generated plan is allowed only while it is a draft.
 - The plan row represents current state. Immutable audit entries preserve every
   lifecycle transition, actor, reason, and timestamp.
+
+Lifecycle operations lock the plan row and use PostgreSQL's transaction time.
+Opening accepts only `draft`, closing accepts only `open`, and reopening accepts
+only `closed`; every other attempted transition returns `409`. Reopening starts
+a new open interval by replacing the current open actor/time and clearing the
+current close actor/time. Prior intervals remain immutable in audit entries.
+Open and close use `chorePlans:lifecycle`; reopen uses the separate
+`chorePlans:reopen` permission.
 
 ## Fixed catalog
 
