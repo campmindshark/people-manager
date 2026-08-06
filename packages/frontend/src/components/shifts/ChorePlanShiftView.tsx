@@ -1,8 +1,14 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ChorePlanShiftViewResponse } from 'backend/view_models/chore_plan_shifts';
 import {
+  ChorePlanSignupMutationResponse,
+  ChorePlanSignupRequest,
+  ChorePlanSwitchRequest,
+} from 'backend/view_models/chore_plan_signup';
+import {
   Alert,
   Box,
+  Button,
   Chip,
   Paper,
   Stack,
@@ -19,6 +25,18 @@ import { getFrontendConfig } from '../../config/config';
 
 export interface ChorePlanShiftClient {
   GetShifts: (rosterID: number) => Promise<ChorePlanShiftViewResponse>;
+  Signup: (
+    rosterID: number,
+    request: ChorePlanSignupRequest,
+  ) => Promise<ChorePlanSignupMutationResponse>;
+  Remove: (
+    rosterID: number,
+    shiftID: number,
+  ) => Promise<ChorePlanSignupMutationResponse>;
+  Switch: (
+    rosterID: number,
+    request: ChorePlanSwitchRequest,
+  ) => Promise<ChorePlanSignupMutationResponse>;
 }
 
 interface ChorePlanShiftViewProps {
@@ -30,6 +48,21 @@ const frontendConfig = getFrontendConfig();
 
 function kindLabel(kind: 'chore' | 'event' | 'dinner'): string {
   return `${kind.charAt(0).toUpperCase()}${kind.slice(1)}`;
+}
+
+function mutationErrorMessage(error: unknown): string {
+  if (error && typeof error === 'object' && 'response' in error) {
+    const { response } = error as {
+      response?: { data?: { error?: string }; status?: number };
+    };
+    if (response?.data?.error) {
+      return response.data.error;
+    }
+    if (response?.status === 404) {
+      return 'Chore signup is unavailable. Refresh the page and try again.';
+    }
+  }
+  return 'Could not update your chore assignment. Please try again.';
 }
 
 export default function ChorePlanShiftView({
@@ -44,6 +77,12 @@ export default function ChorePlanShiftView({
     null,
   );
   const [error, setError] = useState<string | null>(null);
+  const [mutationError, setMutationError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [mutatingShiftID, setMutatingShiftID] = useState<number | null>(null);
+  const [switchFromShiftID, setSwitchFromShiftID] = useState<number | null>(
+    null,
+  );
 
   useEffect(() => {
     let active = true;
@@ -69,6 +108,28 @@ export default function ChorePlanShiftView({
       active = false;
     };
   }, [client, rosterID]);
+
+  const mutate = async (
+    shiftID: number,
+    action: () => Promise<ChorePlanSignupMutationResponse>,
+    successMessage: string,
+  ) => {
+    setMutatingShiftID(shiftID);
+    setMutationError(null);
+    setSuccess(null);
+    try {
+      const result = await action();
+      setResponse(await client.GetShifts(rosterID));
+      setSuccess(
+        result.changed ? successMessage : 'Your assignments are unchanged.',
+      );
+      setSwitchFromShiftID(null);
+    } catch (mutationFailure) {
+      setMutationError(mutationErrorMessage(mutationFailure));
+    } finally {
+      setMutatingShiftID(null);
+    }
+  };
 
   if (error) {
     return <Alert severity="error">{error}</Alert>;
@@ -107,10 +168,37 @@ export default function ChorePlanShiftView({
             />
             <Typography color="text.secondary" variant="body2">
               {response.plan.status === 'open'
-                ? 'This release is read-only; signup controls arrive in the next slice.'
+                ? 'Self-service signup, removal, and switching are open.'
                 : 'Assignments are read-only while the plan is closed.'}
             </Typography>
           </Stack>
+          {switchFromShiftID !== null && (
+            <Alert
+              action={
+                <Button
+                  color="inherit"
+                  onClick={() => setSwitchFromShiftID(null)}
+                  size="small"
+                >
+                  Cancel
+                </Button>
+              }
+              severity="info"
+              sx={{ mt: 2 }}
+            >
+              Choose the destination shift for your switch.
+            </Alert>
+          )}
+          {mutationError && (
+            <Alert severity="error" sx={{ mt: 2 }}>
+              {mutationError}
+            </Alert>
+          )}
+          {success && (
+            <Alert severity="success" sx={{ mt: 2 }}>
+              {success}
+            </Alert>
+          )}
         </Box>
 
         {response.shifts.length === 0 ? (
@@ -127,6 +215,9 @@ export default function ChorePlanShiftView({
                   <TableCell>Positions</TableCell>
                   <TableCell>Assigned</TableCell>
                   <TableCell>My status</TableCell>
+                  {response.selfServiceMutationsAllowed && (
+                    <TableCell>Actions</TableCell>
+                  )}
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -152,6 +243,72 @@ export default function ChorePlanShiftView({
                         'Not assigned'
                       )}
                     </TableCell>
+                    {response.selfServiceMutationsAllowed && (
+                      <TableCell>
+                        {shift.currentUserAssigned ? (
+                          <Stack direction="row" spacing={1}>
+                            <Button
+                              aria-label={`Remove ${shift.scheduleName}`}
+                              disabled={mutatingShiftID !== null}
+                              onClick={() =>
+                                mutate(
+                                  shift.id,
+                                  () => client.Remove(rosterID, shift.id),
+                                  `Removed ${shift.scheduleName}.`,
+                                )
+                              }
+                              size="small"
+                              variant="outlined"
+                            >
+                              Remove
+                            </Button>
+                            <Button
+                              aria-label={`Switch from ${shift.scheduleName}`}
+                              disabled={mutatingShiftID !== null}
+                              onClick={() => setSwitchFromShiftID(shift.id)}
+                              size="small"
+                            >
+                              Switch
+                            </Button>
+                          </Stack>
+                        ) : (
+                          <Button
+                            aria-label={
+                              switchFromShiftID === null
+                                ? `Sign up for ${shift.scheduleName}`
+                                : `Switch to ${shift.scheduleName}`
+                            }
+                            disabled={mutatingShiftID !== null}
+                            onClick={() =>
+                              switchFromShiftID === null
+                                ? mutate(
+                                    shift.id,
+                                    () =>
+                                      client.Signup(rosterID, {
+                                        shiftID: shift.id,
+                                      }),
+                                    `Signed up for ${shift.scheduleName}.`,
+                                  )
+                                : mutate(
+                                    shift.id,
+                                    () =>
+                                      client.Switch(rosterID, {
+                                        fromShiftID: switchFromShiftID,
+                                        toShiftID: shift.id,
+                                      }),
+                                    `Switched to ${shift.scheduleName}.`,
+                                  )
+                            }
+                            size="small"
+                            variant="contained"
+                          >
+                            {switchFromShiftID === null
+                              ? 'Sign up'
+                              : 'Switch here'}
+                          </Button>
+                        )}
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))}
               </TableBody>

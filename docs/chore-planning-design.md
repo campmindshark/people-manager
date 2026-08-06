@@ -232,6 +232,18 @@ the transaction. The database unique constraint on `(shiftID, userID)` is the
 last line of duplicate protection. Switching is one transaction that validates
 the final state before removing the old assignment.
 
+Self-service mutations use exact request contracts for signup by shift ID,
+removal by roster/shift path, and switching by source/destination shift IDs.
+The backend locks the user, holds a shared plan lock against lifecycle changes,
+locks participant attendance, and locks destination shift rows in stable ID
+order. A repeated signup or removal is an idempotent no-op. A switch requires
+the caller to own the source and not the destination; failure leaves the source
+assignment unchanged. Category assignment counts may not exceed the effective
+requirement, and overlap checks include ordinary and generated assignments.
+Frontend controls appear only for an open read model and surface backend
+conflicts, but their visibility is never treated as authorization or integrity
+validation.
+
 Ordinary shifts share the generic attendance, overlap, capacity, and duplicate
 integrity rules. They do not inherit chore-plan lifecycle, category
 requirements, catalog, or chore-specific authorization rules.

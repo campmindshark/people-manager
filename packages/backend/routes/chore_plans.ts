@@ -4,6 +4,7 @@ import ChorePlanDraftController from '../controllers/chore_plan_draft';
 import ChorePlanLifecycleController from '../controllers/chore_plan_lifecycle';
 import ChorePlanPreviewController from '../controllers/chore_plan_preview';
 import ChorePlanShiftsController from '../controllers/chore_plan_shifts';
+import ChorePlanSignupController from '../controllers/chore_plan_signup';
 import hasPermission from '../middleware/rbac';
 import userIsVerified from '../middleware/verified_user';
 import User from '../models/user/user';
@@ -21,6 +22,13 @@ import {
 } from '../utils/chorePlanPreviewInput';
 import ChorePlanPreviewError from '../utils/chorePlanPreviewError';
 import ChorePlanShiftViewError from '../utils/chorePlanShiftViewError';
+import ChorePlanSignupError from '../utils/chorePlanSignupError';
+import {
+  parseEmptyChorePlanSignupRequest,
+  parseChorePlanShiftID,
+  parseChorePlanSignupRequest,
+  parseChorePlanSwitchRequest,
+} from '../utils/chorePlanSignupInput';
 
 const router: Router = express.Router();
 const controller = new ChoreCatalogController();
@@ -28,13 +36,15 @@ const draftController = new ChorePlanDraftController();
 const lifecycleController = new ChorePlanLifecycleController();
 const previewController = new ChorePlanPreviewController();
 const shiftsController = new ChorePlanShiftsController();
+const signupController = new ChorePlanSignupController();
 
 function sendError(error: unknown, res: Response, operation: string): void {
   if (
     (error instanceof ChoreCatalogError ||
       error instanceof ChorePlanLifecycleError ||
       error instanceof ChorePlanPreviewError ||
-      error instanceof ChorePlanShiftViewError) &&
+      error instanceof ChorePlanShiftViewError ||
+      error instanceof ChorePlanSignupError) &&
     error.status < 500
   ) {
     res.status(error.status).json({ error: error.message });
@@ -59,6 +69,67 @@ router.get(
       );
     } catch (error) {
       sendError(error, res, 'load chore plan shifts');
+    }
+  },
+);
+
+router.post(
+  '/:rosterID/signup',
+  userIsVerified(),
+  async (req: Request, res: Response) => {
+    try {
+      const user = req.user as User;
+      const input = parseChorePlanSignupRequest(req.body);
+      res.json(
+        await signupController.signup(
+          parseChorePlanRosterID(req.params.rosterID),
+          input.shiftID,
+          user.id,
+        ),
+      );
+    } catch (error) {
+      sendError(error, res, 'sign up for the chore plan shift');
+    }
+  },
+);
+
+router.delete(
+  '/:rosterID/signup/:shiftID',
+  userIsVerified(),
+  async (req: Request, res: Response) => {
+    try {
+      parseEmptyChorePlanSignupRequest(req.body);
+      const user = req.user as User;
+      res.json(
+        await signupController.remove(
+          parseChorePlanRosterID(req.params.rosterID),
+          parseChorePlanShiftID(req.params.shiftID),
+          user.id,
+        ),
+      );
+    } catch (error) {
+      sendError(error, res, 'remove the chore plan signup');
+    }
+  },
+);
+
+router.post(
+  '/:rosterID/switch',
+  userIsVerified(),
+  async (req: Request, res: Response) => {
+    try {
+      const user = req.user as User;
+      const input = parseChorePlanSwitchRequest(req.body);
+      res.json(
+        await signupController.switch(
+          parseChorePlanRosterID(req.params.rosterID),
+          input.fromShiftID,
+          input.toShiftID,
+          user.id,
+        ),
+      );
+    } catch (error) {
+      sendError(error, res, 'switch chore plan shifts');
     }
   },
 );
