@@ -188,13 +188,13 @@ export default function ChorePlanShiftView({
   }
 
   return (
-    <Paper sx={{ p: { xs: 1, sm: 3 } }}>
-      <Stack spacing={2}>
-        <Alert severity={plan.status === 'open' ? 'success' : 'info'}>
-          {plan.status === 'open'
-            ? `Chore signups are open for ${plan.planningYear}.`
-            : `The ${plan.planningYear} chore plan is closed. Assignments are read-only.`}
-        </Alert>
+    <Stack spacing={2}>
+      <Alert severity={plan.status === 'open' ? 'success' : 'info'}>
+        {plan.status === 'open'
+          ? `Chore signups are open for ${plan.planningYear}.`
+          : `The ${plan.planningYear} chore plan is closed. Assignments are read-only.`}
+      </Alert>
+      <Paper sx={{ p: { xs: 1, sm: 3 } }}>
         {response.shifts.length === 0 ? (
           <Alert severity="warning">This plan has no generated shifts.</Alert>
         ) : (
@@ -242,8 +242,8 @@ export default function ChorePlanShiftView({
             );
           })
         )}
-      </Stack>
-    </Paper>
+      </Paper>
+    </Stack>
   );
 }
 

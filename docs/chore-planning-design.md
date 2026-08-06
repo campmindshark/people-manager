@@ -193,6 +193,9 @@ accordions using the shared weekly grids. Read-only slot pills distinguish the
 member's assignment, filled spots, and open spots without exposing another
 participant's identity. Category chips show the member's remaining default
 requirements while the plan is open and the closed state after signups close.
+While chore planning is enabled, this signup-sheet experience replaces the
+legacy hourly shift grid, matching PR #58; disabling the feature restores the
+legacy view.
 
 The administrative planner loads the current plan summary and the draft
 revision needed for optimistic concurrency. It exposes reviewed open, close,

@@ -3,12 +3,22 @@ import { Alert, Box, Typography } from '@mui/material';
 import Container from '@mui/material/Container';
 import Stack from '@mui/material/Stack';
 import { useSetRecoilState, useRecoilValue } from 'recoil';
-import FeatureGate from 'src/components/FeatureGate';
 import ChorePlanShiftView from 'src/components/shifts/ChorePlanShiftView';
 import ShiftDisplay from 'src/components/shifts/ShiftDisplay';
 import Dashboard from '../layouts/dashboard/Dashboard';
+import { FeatureFlagsState } from '../state/features';
 import { CurrentRosterState } from '../state/roster';
 import PageState, { CurrentUserIsVerified } from '../state/store';
+
+export function VerifiedShiftExperience({ rosterID }: { rosterID: number }) {
+  const featureFlags = useRecoilValue(FeatureFlagsState);
+
+  return featureFlags.chorePlanning ? (
+    <ChorePlanShiftView rosterID={rosterID} />
+  ) : (
+    <ShiftDisplay />
+  );
+}
 
 export default function Shifts() {
   const setPageState = useSetRecoilState(PageState);
@@ -36,12 +46,7 @@ export default function Shifts() {
             </Typography>
           </Box>
           {userIsVerified ? (
-            <Stack spacing={4}>
-              <FeatureGate feature="chorePlanning">
-                <ChorePlanShiftView rosterID={currentRoster.id} />
-              </FeatureGate>
-              <ShiftDisplay />
-            </Stack>
+            <VerifiedShiftExperience rosterID={currentRoster.id} />
           ) : (
             <Alert severity="info">
               Verify your account to view the shift signup sheets.
