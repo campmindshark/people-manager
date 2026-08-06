@@ -253,6 +253,27 @@ assignment state in one transaction. A force operation requires a separate
 permission, a reason, and an audit entry that records every bypassed rule. Force
 never bypasses referential integrity or the duplicate-assignment constraint.
 
+The administrative read model requires `chorePlans:assign` and returns only the
+selected roster's participants, attendance windows, generated shifts, and
+assignment identities. It may expose a draft to that authorized administrator,
+but mutations are allowed only while the plan is open. Ordinary changes use one
+exact discriminated request contract for assign, unassign, move, or swap. Force
+changes use a separate endpoint protected by both `chorePlans:assign` and
+`chorePlans:forceAssign`; they wrap the same mutation with a trimmed 1–500
+character reason. Unassignment cannot be forced because it only removes
+constraints.
+
+Administrative mutations lock affected users, the plan, roster participants,
+and generated shifts in stable order. Move and swap validate their proposed
+post-mutation assignment sets and capacity counts before deleting any source
+row. Force may bypass only attendance, absolute-time overlap, capacity, and
+category-maximum conflicts. It never bypasses feature state, verification,
+permissions, open lifecycle, roster membership, generated-shift ownership,
+source ownership, distinct swap identities, or duplicate prevention. Every
+changed mutation writes one `admin_assignment_mutated` audit entry in the same
+transaction, containing the operation, exact added/removed pairs, whether it
+was forced, its reason, and stable identifiers for every bypassed rule.
+
 ## Authorization
 
 Authentication, roster membership, verification, permissions, and feature

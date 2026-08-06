@@ -93,6 +93,14 @@ const utilityLinks: MenuItemLinkData[] = [
     feature: 'chorePlanning',
   },
   {
+    text: 'Chore Assignments',
+    index: 'admin-chore-assignments',
+    icon: <EventNoteIcon />,
+    path: '/admin/chore-assignments',
+    needsRole: ['admin'],
+    feature: 'chorePlanning',
+  },
+  {
     text: 'Chore Scores',
     index: 'admin-chore-scores',
     icon: <PriceChangeIcon />,
