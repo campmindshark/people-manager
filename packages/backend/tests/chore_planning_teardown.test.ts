@@ -7,6 +7,7 @@ import knexFactory, { Knex } from 'knex';
 
 const TEARDOWN_MIGRATION = '20260805010000_remove_chore_planning.ts';
 const RESET_MIGRATION = '20260805000000_reset_chore_planning_data.ts';
+const FOUNDATION_MIGRATION = '20260806000000_chore_planning_foundation.ts';
 const TEST_DATABASE_URL = process.env.CHORE_TEARDOWN_TEST_DATABASE_URL;
 const POSTGRES_TEST_OPTIONS = {
   skip: TEST_DATABASE_URL
@@ -47,7 +48,7 @@ function assertSafeTestDatabaseURL(databaseURL: string | undefined): string {
 
 async function copyMigrations(
   destinationDirectory: string,
-  includeTeardown: boolean,
+  lastIncludedMigration: string,
 ): Promise<void> {
   const sourceDirectory = path.resolve(__dirname, '../migrations');
   await fs.symlink(
@@ -57,10 +58,7 @@ async function copyMigrations(
   );
   const migrationNames = (await fs.readdir(sourceDirectory))
     .filter((migrationName) => migrationName.endsWith('.ts'))
-    .filter(
-      (migrationName) =>
-        includeTeardown || migrationName !== TEARDOWN_MIGRATION,
-    );
+    .filter((migrationName) => migrationName <= lastIncludedMigration);
 
   await Promise.all(
     migrationNames.map((migrationName) =>
@@ -70,6 +68,14 @@ async function copyMigrations(
       ),
     ),
   );
+
+  if (lastIncludedMigration >= FOUNDATION_MIGRATION) {
+    await fs.cp(
+      path.join(sourceDirectory, 'data'),
+      path.join(destinationDirectory, 'data'),
+      { recursive: true },
+    );
+  }
 }
 
 async function createSchemaDatabase(
@@ -91,7 +97,7 @@ async function createSchemaDatabase(
   });
 }
 
-async function assertFinalSchema(
+async function assertTeardownSchema(
   database: Knex,
   schemaName: string,
 ): Promise<void> {
@@ -124,6 +130,28 @@ async function assertFinalSchema(
   assert.equal(constraints.length, 1);
 }
 
+async function assertFoundationSchema(database: Knex): Promise<void> {
+  await Promise.all(
+    [
+      'chore_plans',
+      'chore_catalog_definitions',
+      'chore_catalog_scores',
+      'chore_catalog_state',
+    ].map(async (tableName) => {
+      assert.equal(await database.schema.hasTable(tableName), true);
+    }),
+  );
+  assert.equal(
+    await database.schema.hasColumn('schedules', 'chorePlanID'),
+    false,
+  );
+  assert.equal(
+    await database.schema.hasColumn('schedules', 'plannerKey'),
+    false,
+  );
+  assert.equal(await database.schema.hasColumn('shifts', 'plannerKey'), false);
+}
+
 test(
   'teardown removes only chore-owned rows and preserves generic shift integrity',
   POSTGRES_TEST_OPTIONS,
@@ -141,7 +169,7 @@ test(
     let database: Knex | undefined;
 
     try {
-      await copyMigrations(migrationsDirectory, false);
+      await copyMigrations(migrationsDirectory, RESET_MIGRATION);
       database = await createSchemaDatabase(
         adminDatabase,
         databaseURL,
@@ -256,7 +284,7 @@ test(
       });
       assert.deepEqual(teardownNames, [TEARDOWN_MIGRATION]);
 
-      await assertFinalSchema(database, schemaName);
+      await assertTeardownSchema(database, schemaName);
       assert.deepEqual(
         await database('schedules')
           .select('description', 'id', 'name', 'rosterID')
@@ -324,7 +352,7 @@ test(
 );
 
 test(
-  'the full migration history builds the same final schema from scratch',
+  'the full migration history installs the rebuilt foundation from scratch',
   POSTGRES_TEST_OPTIONS,
   async () => {
     const databaseURL = assertSafeTestDatabaseURL(TEST_DATABASE_URL);
@@ -340,7 +368,7 @@ test(
     let database: Knex | undefined;
 
     try {
-      await copyMigrations(migrationsDirectory, true);
+      await copyMigrations(migrationsDirectory, FOUNDATION_MIGRATION);
       database = await createSchemaDatabase(
         adminDatabase,
         databaseURL,
@@ -350,8 +378,8 @@ test(
         directory: migrationsDirectory,
         extension: 'ts',
       });
-      assert.equal(migrationNames.at(-1), TEARDOWN_MIGRATION);
-      await assertFinalSchema(database, schemaName);
+      assert.equal(migrationNames.at(-1), FOUNDATION_MIGRATION);
+      await assertFoundationSchema(database);
     } finally {
       await database?.destroy();
       await adminDatabase.schema.dropSchemaIfExists(schemaName, true);
@@ -378,7 +406,7 @@ test(
     let database: Knex | undefined;
 
     try {
-      await copyMigrations(migrationsDirectory, false);
+      await copyMigrations(migrationsDirectory, RESET_MIGRATION);
       database = await createSchemaDatabase(
         adminDatabase,
         databaseURL,

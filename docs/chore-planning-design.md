@@ -70,6 +70,27 @@ edited through an API. Stable keys are never reused for a different semantic
 definition. A catalog migration must assert the exact key set and deterministic
 order.
 
+Catalog v1 contains 326 reviewed definitions: 32 chore template positions, 240
+explicit event positions, and 54 explicit dinner positions. The snapshot was
+verified on 2026-08-05 against workbook
+`12QBFgX_jb9vdli-txNK4M2nkMt7TZ_FCHtX_gbEG9BM`, using `Chore template (One
+day)`, `Event scores table (Week)`, and `Dinner scores table (Week)`. The
+migration records each source tab's SHA-256 hash, and the PostgreSQL migration
+test reconstructs the source CSVs from installed rows and requires exact hash
+matches.
+
+Stable keys are lowercase semantic identifiers. Chore keys identify the shift
+and position, dinner keys identify the explicit day, shift, and position, and
+event keys identify the period order, shift, and position. Period order is part
+of event identity because the same shift and position recur throughout the
+week. The migration pins the complete key set with a separate SHA-256 assertion.
+
+Fixed definitions and editable scores use separate tables. Definition identity
+and source order are unique at the database boundary. The score table accepts
+only exact numeric values from `0` through `100` with no more than two
+fractional digits. A singleton catalog-state row begins at revision 1 and is the
+serialization point for future score updates.
+
 The score is the only editable definition field. Scores are decimal values
 from `0.00` through `100.00`, inclusive, with at most two fractional digits.
 The database uses an exact numeric type plus a range constraint; the backend
