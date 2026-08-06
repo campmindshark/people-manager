@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
+import path from 'node:path';
 import test from 'node:test';
 import knexFactory, { Knex } from 'knex';
 
@@ -153,7 +154,7 @@ test(
       });
 
       const [, migrationNames] = await database.migrate.latest({
-        directory: 'packages/backend/migrations',
+        directory: path.resolve(__dirname, '../migrations'),
         extension: 'ts',
       });
       assert.equal(migrationNames.at(-1), FOUNDATION_MIGRATION);
