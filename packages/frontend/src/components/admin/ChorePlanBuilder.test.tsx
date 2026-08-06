@@ -257,6 +257,38 @@ test('shows exact shortages and prevents apply', async () => {
   expect(planClient.Apply).not.toHaveBeenCalled();
 });
 
+test('uses the original score bands for preview positions', async () => {
+  const generated = preview();
+  generated.shifts[0].slots = [
+    {
+      definitionKey: 'chore-am-chum-wench-first',
+      positionLabel: 'First',
+      score: 75,
+    },
+    {
+      definitionKey: 'chore-am-chum-wench-second',
+      positionLabel: 'Second',
+      score: 25,
+    },
+    {
+      definitionKey: 'chore-am-chum-wench-third',
+      positionLabel: 'Third',
+      score: 24,
+    },
+  ];
+  const { planClient, rosterClient } = clients(generated, null);
+  render(
+    <ChorePlanBuilder planClient={planClient} rosterClient={rosterClient} />,
+  );
+
+  await enterCamperCount('1');
+  userEvent.click(screen.getByRole('button', { name: /preview signup plan/i }));
+
+  expect(await screen.findByText('First')).toHaveClass('high');
+  expect(screen.getByText('Second')).toHaveClass('medium');
+  expect(screen.getByText('Third')).toHaveClass('low');
+});
+
 test('blocks invalid form values before previewing', async () => {
   const generated = preview();
   const { planClient, rosterClient } = clients(generated, null);

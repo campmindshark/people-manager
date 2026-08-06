@@ -6,6 +6,7 @@ import React, {
   useState,
 } from 'react';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import PlaylistAddCheckIcon from '@mui/icons-material/PlaylistAddCheck';
 import {
   Accordion,
   AccordionDetails,
@@ -191,7 +192,7 @@ function scoreTone(score: number): 'high' | 'medium' | 'low' {
   if (score >= 75) {
     return 'high';
   }
-  if (score >= 40) {
+  if (score >= 25) {
     return 'medium';
   }
   return 'low';
@@ -482,95 +483,97 @@ export default function ChorePlanBuilder({
             })}
           </Grid>
 
-          <Paper sx={{ p: { xs: 1, sm: 3 } }}>
-            <Stack spacing={2}>
-              <Stack
-                direction={{ xs: 'column', md: 'row' }}
-                justifyContent="space-between"
-                alignItems={{ xs: 'stretch', md: 'center' }}
-                spacing={2}
+          <Paper sx={{ p: 3 }}>
+            <Stack
+              direction={{ xs: 'column', md: 'row' }}
+              justifyContent="space-between"
+              alignItems={{ xs: 'stretch', md: 'center' }}
+              spacing={2}
+              sx={{ mb: 2 }}
+            >
+              <Box>
+                <Typography variant="h5">
+                  {selectedRoster?.year ?? preview.year} signup sheet preview
+                </Typography>
+                <Typography color="text.secondary">
+                  {preview.shifts.length} dated shifts · {preview.camperCount}{' '}
+                  prospective campers
+                </Typography>
+              </Box>
+              <Button
+                variant="contained"
+                color="secondary"
+                startIcon={<PlaylistAddCheckIcon />}
+                disabled={applying || hasShortage}
+                onClick={handleApply}
               >
-                <Box>
-                  <Typography variant="h5">
-                    {selectedRoster?.year ?? preview.year} signup sheet preview
-                  </Typography>
-                  <Typography color="text.secondary">
-                    {preview.shifts.length} dated shifts · {preview.camperCount}{' '}
-                    prospective campers
-                  </Typography>
-                </Box>
-                <Button
-                  variant="contained"
-                  color="secondary"
-                  disabled={applying || hasShortage}
-                  onClick={handleApply}
-                >
-                  {applyButtonLabel}
-                </Button>
-              </Stack>
-
-              {observedDraft && (
-                <Alert severity={matchesDraft ? 'info' : 'warning'}>
-                  {matchesDraft
-                    ? `Saved draft revision ${observedDraft.draftRevision} already uses these inputs and scores.`
-                    : `Applying this preview will replace saved draft revision ${observedDraft.draftRevision}.`}
-                </Alert>
-              )}
-              {hasShortage && (
-                <Alert severity="warning">
-                  Add more scored positions to the catalog before creating this
-                  plan. The catalog is short by{' '}
-                  {KINDS.filter((kind) => preview.categories[kind].shortage > 0)
-                    .map((kind) => {
-                      const { shortage } = preview.categories[kind];
-                      return `${shortage} ${kind} position${
-                        shortage === 1 ? '' : 's'
-                      }`;
-                    })
-                    .join(', ')}
-                  .
-                </Alert>
-              )}
-
-              {KINDS.map((kind) => {
-                const shifts = preview.shifts
-                  .filter((shift) => shift.kind === kind)
-                  .map(signupSheetShift);
-                return (
-                  <Accordion key={kind} defaultExpanded={kind === 'chore'}>
-                    <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                      <Stack direction="row" spacing={2} alignItems="center">
-                        <Typography variant="h6">
-                          {CATEGORY_LABELS[kind]}
-                        </Typography>
-                        <Chip label={`${shifts.length} shifts`} size="small" />
-                      </Stack>
-                    </AccordionSummary>
-                    <AccordionDetails sx={{ px: { xs: 0, sm: 2 } }}>
-                      {shifts.length ? (
-                        <SignupSheetTable
-                          emptyCellContent={
-                            <span className="signup-sheet-no-slots">
-                              No slots
-                            </span>
-                          }
-                          kind={kind}
-                          shifts={shifts}
-                          renderShift={(shift) => (
-                            <PositionChips shift={shift.preview} />
-                          )}
-                        />
-                      ) : (
-                        <Typography color="text.secondary">
-                          No {CATEGORY_LABELS[kind].toLowerCase()} were
-                          generated.
-                        </Typography>
-                      )}
-                    </AccordionDetails>
-                  </Accordion>
-                );
-              })}
+                {applyButtonLabel}
+              </Button>
             </Stack>
+
+            {observedDraft && (
+              <Alert
+                severity={matchesDraft ? 'info' : 'warning'}
+                sx={{ mb: 2 }}
+              >
+                {matchesDraft
+                  ? `Saved draft revision ${observedDraft.draftRevision} already uses these inputs and scores.`
+                  : `Applying this preview will replace saved draft revision ${observedDraft.draftRevision}.`}
+              </Alert>
+            )}
+            {hasShortage && (
+              <Alert severity="warning" sx={{ mb: 2 }}>
+                Add more scored positions to the catalog before creating this
+                plan. The catalog is short by{' '}
+                {KINDS.filter((kind) => preview.categories[kind].shortage > 0)
+                  .map((kind) => {
+                    const { shortage } = preview.categories[kind];
+                    return `${shortage} ${kind} position${
+                      shortage === 1 ? '' : 's'
+                    }`;
+                  })
+                  .join(', ')}
+                .
+              </Alert>
+            )}
+
+            {KINDS.map((kind) => {
+              const shifts = preview.shifts
+                .filter((shift) => shift.kind === kind)
+                .map(signupSheetShift);
+              return (
+                <Accordion key={kind} defaultExpanded={kind === 'chore'}>
+                  <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                    <Stack direction="row" spacing={2} alignItems="center">
+                      <Typography variant="h6">
+                        {CATEGORY_LABELS[kind]}
+                      </Typography>
+                      <Chip label={`${shifts.length} shifts`} size="small" />
+                    </Stack>
+                  </AccordionSummary>
+                  <AccordionDetails>
+                    {shifts.length ? (
+                      <SignupSheetTable
+                        emptyCellContent={
+                          <span className="signup-sheet-no-slots">
+                            No slots
+                          </span>
+                        }
+                        kind={kind}
+                        shifts={shifts}
+                        renderShift={(shift) => (
+                          <PositionChips shift={shift.preview} />
+                        )}
+                      />
+                    ) : (
+                      <Typography color="text.secondary">
+                        No {CATEGORY_LABELS[kind].toLowerCase()} were generated.
+                      </Typography>
+                    )}
+                  </AccordionDetails>
+                </Accordion>
+              );
+            })}
           </Paper>
         </>
       )}
