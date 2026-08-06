@@ -2,6 +2,7 @@ import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import Roster from 'backend/models/roster/roster';
+import { ChorePlanLifecycleState } from 'backend/view_models/chore_plan_lifecycle';
 import {
   ChorePlanApplyResponse,
   ChorePlanDraftSummary,
@@ -92,10 +93,33 @@ function applyResponse(
   };
 }
 
+function lifecycleState(
+  sourceDraft: ChorePlanDraftSummary,
+  overrides: Partial<ChorePlanLifecycleState> = {},
+): ChorePlanLifecycleState {
+  return {
+    id: sourceDraft.id,
+    rosterID: sourceDraft.rosterID,
+    status: 'draft',
+    planningYear: sourceDraft.planningYear,
+    camperCount: sourceDraft.camperCount,
+    requirements: sourceDraft.requirements,
+    shiftCount: sourceDraft.shiftCount,
+    slotCount: sourceDraft.slotCount,
+    openedAt: null,
+    openedByUserID: null,
+    closedAt: null,
+    closedByUserID: null,
+    updatedAt: sourceDraft.updatedAt,
+    ...overrides,
+  };
+}
+
 function clients(
   previewResult: ChorePlanPreview,
   currentDraft: ChorePlanDraftSummary | null,
   applyResult?: ChorePlanApplyResponse,
+  lifecyclePlan: ChorePlanLifecycleState | null = null,
 ) {
   const planClient: ChorePlannerClient = {
     Preview: jest.fn().mockResolvedValue(previewResult),
@@ -109,6 +133,10 @@ function clients(
             draft(previewResult, { draftRevision: '1' }),
           ),
       ),
+    GetLifecycle: jest.fn().mockResolvedValue({ plan: lifecyclePlan }),
+    Open: jest.fn(),
+    Close: jest.fn(),
+    Reopen: jest.fn(),
   };
   const rosterClient: ChorePlannerRosterClient = {
     GetAllRosters: jest.fn().mockResolvedValue([roster]),
@@ -124,6 +152,118 @@ async function enterCamperCount(value: string) {
   userEvent.type(input, value);
   return input;
 }
+
+test('shows the original planner lifecycle summary and opens signups after review', async () => {
+  const generated = preview();
+  const savedDraft = draft(generated, { draftRevision: '1' });
+  const draftPlan = lifecycleState(savedDraft);
+  const openedPlan = lifecycleState(savedDraft, {
+    status: 'open',
+    openedAt: '2026-08-06T16:00:00.000Z',
+    openedByUserID: 9,
+    updatedAt: '2026-08-06T16:00:00.000Z',
+  });
+  const { planClient, rosterClient } = clients(
+    generated,
+    savedDraft,
+    undefined,
+    draftPlan,
+  );
+  (planClient.Open as jest.Mock).mockResolvedValue(openedPlan);
+
+  render(
+    <ChorePlanBuilder planClient={planClient} rosterClient={rosterClient} />,
+  );
+
+  expect(
+    await screen.findByText(/chore signups are in draft for 2026/i),
+  ).toBeVisible();
+  expect(
+    screen.getByText(/this plan covers 1 campers with 1 signup spots/i),
+  ).toBeVisible();
+
+  userEvent.click(
+    screen.getByRole('button', {
+      name: /review and open chore signups/i,
+    }),
+  );
+  expect(
+    screen.getByRole('dialog', {
+      name: /review and open chore signups/i,
+    }),
+  ).toBeVisible();
+  userEvent.click(
+    screen.getByRole('button', {
+      name: /^open signups$/i,
+    }),
+  );
+
+  await waitFor(() => expect(planClient.Open).toHaveBeenCalledWith(1));
+  expect(
+    await screen.findByText(/chore signups are open for 2026/i),
+  ).toBeVisible();
+  await waitFor(() =>
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument(),
+  );
+  expect(
+    screen.getByRole('button', {
+      name: /review and close chore signups/i,
+    }),
+  ).toBeVisible();
+});
+
+test('requires an audited reason when reopening closed signups', async () => {
+  const generated = preview();
+  const savedDraft = draft(generated);
+  const closedPlan = lifecycleState(savedDraft, {
+    status: 'closed',
+    openedAt: '2026-08-06T16:00:00.000Z',
+    openedByUserID: 9,
+    closedAt: '2026-08-06T17:00:00.000Z',
+    closedByUserID: 10,
+    updatedAt: '2026-08-06T17:00:00.000Z',
+  });
+  const reopenedPlan = lifecycleState(savedDraft, {
+    status: 'open',
+    openedAt: '2026-08-06T18:00:00.000Z',
+    openedByUserID: 11,
+    updatedAt: '2026-08-06T18:00:00.000Z',
+  });
+  const { planClient, rosterClient } = clients(
+    generated,
+    null,
+    undefined,
+    closedPlan,
+  );
+  (planClient.Reopen as jest.Mock).mockResolvedValue(reopenedPlan);
+
+  render(
+    <ChorePlanBuilder planClient={planClient} rosterClient={rosterClient} />,
+  );
+
+  userEvent.click(
+    await screen.findByRole('button', {
+      name: /review and open chore signups/i,
+    }),
+  );
+  const reopenButton = screen.getByRole('button', {
+    name: /^reopen signups$/i,
+  });
+  expect(reopenButton).toBeDisabled();
+  userEvent.type(
+    screen.getByRole('textbox', { name: /reopening reason/i }),
+    ' Scheduling correction ',
+  );
+  expect(reopenButton).toBeEnabled();
+  userEvent.click(reopenButton);
+
+  await waitFor(() =>
+    expect(planClient.Reopen).toHaveBeenCalledWith(1, 'Scheduling correction'),
+  );
+  expect(
+    await screen.findByText(/chore signups are now open for 2026/i),
+  ).toBeVisible();
+});
 
 test('previews and applies a new draft through the narrow request contracts', async () => {
   const generated = preview();

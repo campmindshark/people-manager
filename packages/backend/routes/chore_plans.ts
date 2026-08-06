@@ -92,6 +92,23 @@ router.post(
   },
 );
 
+router.get(
+  '/:rosterID/lifecycle',
+  userIsVerified(),
+  hasPermission('chorePlans:lifecycle'),
+  async (req: Request, res: Response) => {
+    try {
+      res.json(
+        await lifecycleController.getByRosterID(
+          parseChorePlanRosterID(req.params.rosterID),
+        ),
+      );
+    } catch (error) {
+      sendError(error, res, 'load the chore plan lifecycle');
+    }
+  },
+);
+
 router.post(
   '/:rosterID/open',
   userIsVerified(),
