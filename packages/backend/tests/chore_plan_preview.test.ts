@@ -1,0 +1,387 @@
+import assert from 'node:assert/strict';
+import path from 'node:path';
+import test from 'node:test';
+import knexFactory, { Knex } from 'knex';
+import ChorePlanPreviewController from '../controllers/chore_plan_preview';
+import { CHORE_CATALOG_V1 } from '../migrations/data/chore_catalog_v1';
+import RoleConfigCollection from '../roles/role';
+import buildChorePlanPreview from '../utils/chorePlanPreview';
+import ChorePlanPreviewError from '../utils/chorePlanPreviewError';
+import { parseChorePlanPreviewRequest } from '../utils/chorePlanPreviewInput';
+import { ChoreCatalogDefinitionView } from '../view_models/chore_catalog';
+import { ChorePlanPreviewRequest } from '../view_models/chore_plan_preview';
+
+const TEST_DATABASE_URL = process.env.CHORE_TEARDOWN_TEST_DATABASE_URL;
+const POSTGRES_TEST_OPTIONS = {
+  skip: TEST_DATABASE_URL
+    ? false
+    : 'CHORE_TEARDOWN_TEST_DATABASE_URL is not configured.',
+  timeout: 120_000,
+};
+const DEFAULT_REQUEST: ChorePlanPreviewRequest = {
+  rosterID: 1,
+  camperCount: 1,
+  requirements: { chore: 1, event: 1, dinner: 1 },
+};
+
+interface IDRow {
+  id: number;
+}
+
+function assertSafeTestDatabaseURL(databaseURL: string | undefined): string {
+  assert(databaseURL, 'CHORE_TEARDOWN_TEST_DATABASE_URL must be set.');
+  const parsedURL = new URL(databaseURL);
+  assert(
+    ['127.0.0.1', 'localhost'].includes(parsedURL.hostname),
+    'The preview test only runs against PostgreSQL on the local machine.',
+  );
+  assert.equal(
+    parsedURL.pathname,
+    '/people_manager_chore_teardown_test',
+    'The preview test requires its dedicated disposable database.',
+  );
+  return databaseURL;
+}
+
+function catalogDefinitions(): ChoreCatalogDefinitionView[] {
+  return CHORE_CATALOG_V1.map((definition) => ({
+    ...definition,
+    endDayOffset: definition.endDayOffset as 0 | 1,
+  }));
+}
+
+function build(
+  request: ChorePlanPreviewRequest = DEFAULT_REQUEST,
+  definitions = catalogDefinitions(),
+) {
+  return buildChorePlanPreview({
+    ...request,
+    year: 2026,
+    catalogRevision: '1',
+    definitions,
+  });
+}
+
+function isPreviewError(
+  error: unknown,
+  status: number,
+  message: RegExp,
+): boolean {
+  return (
+    error instanceof ChorePlanPreviewError &&
+    error.status === status &&
+    message.test(error.message)
+  );
+}
+
+test('preview input accepts only bounded roster, camper, and requirement values', () => {
+  assert.deepEqual(
+    parseChorePlanPreviewRequest(DEFAULT_REQUEST),
+    DEFAULT_REQUEST,
+  );
+  assert.equal(
+    parseChorePlanPreviewRequest({ ...DEFAULT_REQUEST, camperCount: 200 })
+      .camperCount,
+    200,
+  );
+  assert.throws(
+    () => parseChorePlanPreviewRequest({ ...DEFAULT_REQUEST, camperCount: 0 }),
+    (error) => isPreviewError(error, 400, /1 to 200/i),
+  );
+  assert.throws(
+    () =>
+      parseChorePlanPreviewRequest({ ...DEFAULT_REQUEST, camperCount: 201 }),
+    (error) => isPreviewError(error, 400, /1 to 200/i),
+  );
+  assert.throws(
+    () =>
+      parseChorePlanPreviewRequest({
+        ...DEFAULT_REQUEST,
+        requirements: { chore: 21, event: 1, dinner: 1 },
+      }),
+    (error) => isPreviewError(error, 400, /0 to 20/i),
+  );
+  assert.throws(
+    () =>
+      parseChorePlanPreviewRequest({
+        ...DEFAULT_REQUEST,
+        expectedRevision: '1',
+      }),
+    (error) => isPreviewError(error, 400, /accepts only/i),
+  );
+});
+
+test('pure preview is deterministic, ordered, offline, and identifies every slot', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => {
+    throw new Error('The planner must not access the network.');
+  };
+
+  try {
+    const first = build();
+    const second = build(DEFAULT_REQUEST, catalogDefinitions().reverse());
+    assert.deepEqual(second, first);
+    assert.equal(JSON.stringify(second), JSON.stringify(first));
+    assert.deepEqual(first.categories, {
+      chore: { target: 1, selected: 1, shortage: 0 },
+      event: { target: 1, selected: 1, shortage: 0 },
+      dinner: { target: 1, selected: 1, shortage: 0 },
+    });
+    assert.equal(first.shifts.length, 3);
+    assert.deepEqual(
+      first.shifts.map(({ kind }) => kind),
+      ['chore', 'dinner', 'event'],
+    );
+    assert.deepEqual(first.shifts[0], {
+      stableKey: 'chore|1|chore-am-chum-wench-first',
+      scheduleKey: 'chore|AM Chum Wench',
+      kind: 'chore',
+      scheduleName: 'AM Chum Wench',
+      displayDayNumber: 1,
+      displayDayLabel: 'Sunday, Aug 30',
+      calendarDay: 1,
+      timePeriodLabel: '11:00:00 AM',
+      periodOrder: null,
+      startTime: '2026-08-30T18:00:00.000Z',
+      endTime: '2026-08-30T19:00:00.000Z',
+      requiredParticipants: 1,
+      totalScore: 100,
+      slots: [
+        {
+          definitionKey: 'chore-am-chum-wench-first',
+          positionLabel: 'First',
+          score: 100,
+        },
+      ],
+    });
+    assert.equal(
+      new Set(
+        first.shifts.flatMap(({ slots }) =>
+          slots.map(({ definitionKey }) => definitionKey),
+        ),
+      ).size,
+      3,
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('preview reports exact shortages at maximum input capacity', () => {
+  const preview = build({
+    ...DEFAULT_REQUEST,
+    camperCount: 200,
+    requirements: { chore: 20, event: 20, dinner: 20 },
+  });
+  assert.deepEqual(preview.categories, {
+    chore: { target: 4000, selected: 224, shortage: 3776 },
+    event: { target: 4000, selected: 240, shortage: 3760 },
+    dinner: { target: 4000, selected: 54, shortage: 3946 },
+  });
+});
+
+test('closing Sunday event periods retain Saturday display grouping and actual time', () => {
+  const definitions = catalogDefinitions().map((definition) =>
+    definition.kind === 'event' ? { ...definition, score: 0 } : definition,
+  );
+  const closingPeriod = Math.max(
+    ...definitions
+      .filter(({ kind }) => kind === 'event')
+      .map(({ periodOrder }) => periodOrder ?? 0),
+  );
+  const closingGroup = definitions.filter(
+    ({ kind, periodOrder, shiftLabel }) =>
+      kind === 'event' &&
+      periodOrder === closingPeriod &&
+      shiftLabel === 'Audio',
+  );
+  assert(closingGroup[0]);
+  closingGroup[0].score = 100;
+
+  const preview = build(
+    {
+      ...DEFAULT_REQUEST,
+      requirements: { chore: 0, event: 1, dinner: 0 },
+    },
+    definitions,
+  );
+  assert.deepEqual(preview.shifts[0], {
+    stableKey: 'event|8|event-39-audio-manager',
+    scheduleKey: 'event|Audio',
+    kind: 'event',
+    scheduleName: 'Audio',
+    displayDayNumber: 7,
+    displayDayLabel: 'Saturday, Sep 5',
+    calendarDay: 8,
+    timePeriodLabel: '12a-3a',
+    periodOrder: 39,
+    startTime: '2026-09-06T07:00:00.000Z',
+    endTime: '2026-09-06T10:00:00.000Z',
+    requiredParticipants: 1,
+    totalScore: 100,
+    slots: [
+      {
+        definitionKey: 'event-39-audio-manager',
+        positionLabel: 'Manager',
+        score: 100,
+      },
+    ],
+  });
+});
+
+test('pure preview rejects incomplete or internally invalid stored catalogs', () => {
+  assert.throws(
+    () => build(DEFAULT_REQUEST, catalogDefinitions().slice(1)),
+    (error) => isPreviewError(error, 500, /count/i),
+  );
+
+  const invalidScore = catalogDefinitions();
+  invalidScore[0] = { ...invalidScore[0], score: 1.234 };
+  assert.throws(
+    () => build(DEFAULT_REQUEST, invalidScore),
+    (error) => isPreviewError(error, 500, /two decimals/i),
+  );
+
+  const inconsistentGroup = catalogDefinitions();
+  inconsistentGroup[8] = {
+    ...inconsistentGroup[8],
+    timePeriodLabel: '10:00:00 AM',
+  };
+  assert.throws(
+    () => build(DEFAULT_REQUEST, inconsistentGroup),
+    (error) => isPreviewError(error, 500, /inconsistent/i),
+  );
+
+  const invalidPeriodOrder = catalogDefinitions().map((definition) =>
+    definition.kind === 'event'
+      ? {
+          ...definition,
+          periodOrder: (definition.periodOrder ?? 0) + 1,
+        }
+      : definition,
+  );
+  assert.throws(
+    () => build(DEFAULT_REQUEST, invalidPeriodOrder),
+    (error) => isPreviewError(error, 500, /contiguous from 1/i),
+  );
+});
+
+test('admin role has a preview permission separate from catalog editing', () => {
+  assert.equal(
+    RoleConfigCollection.hasPermission([1], 'chorePlans:preview'),
+    true,
+  );
+  assert.equal(
+    RoleConfigCollection.hasPermission([], 'chorePlans:preview'),
+    false,
+  );
+});
+
+test(
+  'database preview uses a consistent revision snapshot and performs no writes',
+  POSTGRES_TEST_OPTIONS,
+  async () => {
+    const databaseURL = assertSafeTestDatabaseURL(TEST_DATABASE_URL);
+    const adminDatabase = knexFactory({
+      client: 'postgresql',
+      connection: databaseURL,
+      pool: { max: 2, min: 0 },
+    });
+    const schemaName = `chore_plan_preview_${Date.now()}`;
+    let database: Knex | undefined;
+    let scoreTransaction: Knex.Transaction | undefined;
+
+    try {
+      await adminDatabase.schema.createSchema(schemaName);
+      database = knexFactory({
+        client: 'postgresql',
+        connection: databaseURL,
+        migrations: { extension: 'ts', tableName: 'knex_migrations' },
+        pool: { max: 5, min: 0 },
+        searchPath: [schemaName],
+      });
+      await database.migrate.latest({
+        directory: path.resolve(__dirname, '../migrations'),
+        extension: 'ts',
+      });
+      const [roster] = (await database('rosters')
+        .insert({ year: 2026 })
+        .returning('id')) as IDRow[];
+      const controller = new ChorePlanPreviewController(database);
+      const request: ChorePlanPreviewRequest = {
+        rosterID: roster.id,
+        camperCount: 1,
+        requirements: { chore: 0, event: 1, dinner: 0 },
+      };
+
+      const initial = await controller.preview(request);
+      assert.equal(initial.catalogRevision, '1');
+      assert.equal(
+        initial.shifts[0].slots[0].definitionKey,
+        'event-01-bar-manager',
+      );
+      assert.equal(
+        Number(
+          (await database('chore_plans').count('* as count').first())?.count,
+        ),
+        0,
+      );
+      assert.equal(
+        Number(
+          (
+            await database('chore_catalog_score_audit_entries')
+              .count('* as count')
+              .first()
+          )?.count,
+        ),
+        0,
+      );
+
+      scoreTransaction = await database.transaction();
+      await scoreTransaction('chore_catalog_state')
+        .where({ id: 1 })
+        .forUpdate()
+        .first();
+      await scoreTransaction('chore_catalog_scores')
+        .where({ definitionKey: 'event-01-bar-manager' })
+        .update({ score: 0 });
+      await scoreTransaction('chore_catalog_state')
+        .where({ id: 1 })
+        .update({ revision: 2 });
+
+      const whileUncommitted = await controller.preview(request);
+      assert.equal(whileUncommitted.catalogRevision, '1');
+      assert.equal(
+        whileUncommitted.shifts[0].slots[0].definitionKey,
+        'event-01-bar-manager',
+      );
+
+      await scoreTransaction.commit();
+      scoreTransaction = undefined;
+      const afterCommit = await controller.preview(request);
+      assert.equal(afterCommit.catalogRevision, '2');
+      assert.equal(
+        afterCommit.shifts[0].slots[0].definitionKey,
+        'event-02-audio-manager',
+      );
+      assert.equal(
+        Number(
+          (await database('chore_plans').count('* as count').first())?.count,
+        ),
+        0,
+      );
+
+      await assert.rejects(
+        controller.preview({ ...request, rosterID: roster.id + 1000 }),
+        (error) => isPreviewError(error, 404, /roster not found/i),
+      );
+    } finally {
+      if (scoreTransaction && !scoreTransaction.isCompleted()) {
+        await scoreTransaction.rollback();
+      }
+      await database?.destroy();
+      await adminDatabase.schema.dropSchemaIfExists(schemaName, true);
+      await adminDatabase.destroy();
+    }
+  },
+);
