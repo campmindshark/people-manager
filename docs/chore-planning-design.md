@@ -187,13 +187,34 @@ the application read model. Only an open plan reports self-service mutations as
 allowed. This response is the shared read contract for the later signup slice,
 while the read-only UI in this slice adds no mutation controls.
 
-The administrative planner loads only the current draft summary needed for
-optimistic concurrency; it does not expose participant mutations or lifecycle
-controls. Preview displays exact category shortages and generated shifts. A
-shortage disables apply. If the observed draft inputs, planning year, or
-catalog revision differ from the preview, the UI requires explicit replacement
-confirmation and sends the observed draft revision. A `409` clears the stale
-preview and requires the administrator to preview again.
+The member shift page follows PR #58's signup-sheet layout: the roster-year
+heading and explanatory copy lead into daily-chore, event-crew, and dinner-crew
+accordions using the shared weekly grids. Read-only slot pills distinguish the
+member's assignment, filled spots, and open spots without exposing another
+participant's identity. Category chips show the member's remaining default
+requirements while the plan is open and the closed state after signups close.
+While chore planning is enabled, this signup-sheet experience replaces the
+legacy hourly shift grid, matching PR #58; disabling the feature restores the
+legacy view.
+
+The administrative planner loads the current plan summary and the draft
+revision needed for optimistic concurrency. It exposes reviewed open, close,
+and reason-required reopen controls in the same plan-status alert used by PR
+#58, but it does not expose participant mutations. Preview displays exact
+category shortages and generated shifts. A shortage disables apply. If the
+observed draft inputs, planning year, or catalog revision differ from the
+preview, the UI requires explicit replacement confirmation and sends the
+observed draft revision. A `409` clears the stale preview and requires the
+administrator to preview again.
+
+PR #58 is the visual source of truth for the chore-planning experience. The
+planner keeps its camp-year and prospective-camper form, fixed 3 chore / 3 event
+/ 1 dinner requirement copy, three category-capacity cards, and accordion
+signup-sheet preview. Chores and dinners use a Sunday-through-Saturday
+day-by-schedule grid; events use a day-by-shift-by-period grid. Both grids use
+the same responsive, horizontally scrollable signup-sheet component that later
+member signup, administrative assignment, and final-assignment views will
+reuse.
 
 ## Requirements and overrides
 

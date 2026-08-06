@@ -71,6 +71,7 @@ function openResponse(
       rosterID: 2,
       status: 'open',
       planningYear: 2026,
+      requirements: { chore: 1, event: 1, dinner: 1 },
       openedAt: '2026-08-06T12:00:00.000Z',
       closedAt: null,
     },
@@ -99,6 +100,7 @@ test('does not reveal generated draft shifts', async () => {
             rosterID: 2,
             status: 'draft',
             planningYear: 2026,
+            requirements: { chore: 1, event: 1, dinner: 1 },
             openedAt: null,
             closedAt: null,
           },
@@ -112,7 +114,7 @@ test('does not reveal generated draft shifts', async () => {
   expect(screen.queryByRole('button')).not.toBeInTheDocument();
 });
 
-test('renders open generated shifts with self-service controls', async () => {
+test('renders PR 58-style signup sheets and category requirements', async () => {
   const eventShift = {
     ...shift,
     id: 12,
@@ -138,44 +140,45 @@ test('renders open generated shifts with self-service controls', async () => {
     />,
   );
 
-  expect(await screen.findByText('Plan open')).toBeVisible();
+  expect(
+    await screen.findByText('Chore signups are open for 2026.'),
+  ).toBeVisible();
   expect(screen.getByText('AM Chum Wench')).toBeVisible();
-  expect(screen.getByText('Gate')).toBeVisible();
+  expect(screen.getByText('Your signup')).toBeVisible();
+  expect(screen.getByText('Requirement complete!')).toBeVisible();
+  expect(screen.getAllByText('1 shift required!')).toHaveLength(2);
+
+  userEvent.click(screen.getByRole('button', { name: /event crew/i }));
+  expect(screen.getAllByText('Gate')).toHaveLength(7);
+  userEvent.click(screen.getByRole('button', { name: /dinner crew/i }));
   expect(screen.getByText('Kitchen Dinner')).toBeVisible();
-  expect(screen.getAllByText('First, Second')).toHaveLength(3);
-  expect(screen.getAllByText('1/2')).toHaveLength(3);
-  expect(screen.getAllByText('Assigned')).toHaveLength(2);
-  expect(
-    screen.getByRole('button', { name: 'Remove AM Chum Wench' }),
-  ).toBeVisible();
-  expect(
-    screen.getByRole('button', { name: 'Switch from AM Chum Wench' }),
-  ).toBeVisible();
-  expect(
-    screen.getByRole('button', { name: 'Sign up for Gate' }),
-  ).toBeVisible();
 });
 
-test('uses narrow signup, removal, and switch requests then refreshes', async () => {
-  const destination = {
+test('selects signup-sheet slots before signup, removal, and switching', async () => {
+  const openShift = {
     ...shift,
     id: 12,
-    stableKey: 'event|1|gate',
-    scheduleKey: 'event|gate',
-    kind: 'event' as const,
-    scheduleName: 'Gate',
+    stableKey: 'chore|1|am-ice-bitch',
+    scheduleKey: 'chore|am-ice-bitch',
+    scheduleName: 'AM Ice Bitch',
+    assignedParticipantCount: 0,
     currentUserAssigned: false,
   };
 
   const signupClient = client(
-    openResponse([{ ...shift, currentUserAssigned: false }, destination]),
+    openResponse([
+      { ...shift, assignedParticipantCount: 0, currentUserAssigned: false },
+    ]),
   );
   const signupRender = render(
     <ChorePlanShiftView rosterID={2} planClient={signupClient} />,
   );
   userEvent.click(
-    await screen.findByRole('button', { name: 'Sign up for AM Chum Wench' }),
+    await screen.findByRole('button', {
+      name: /select open spot for AM Chum Wench/i,
+    }),
   );
+  userEvent.click(screen.getByRole('button', { name: 'Sign up (1)' }));
   await waitFor(() =>
     expect(signupClient.Signup).toHaveBeenCalledWith(2, { shiftID: 11 }),
   );
@@ -183,35 +186,47 @@ test('uses narrow signup, removal, and switch requests then refreshes', async ()
   expect(signupClient.GetShifts).toHaveBeenCalledTimes(2);
   signupRender.unmount();
 
-  const removeClient = client(openResponse([shift, destination]));
+  const removeClient = client(openResponse([shift]));
   const removeRender = render(
     <ChorePlanShiftView rosterID={2} planClient={removeClient} />,
   );
   userEvent.click(
-    await screen.findByRole('button', { name: 'Remove AM Chum Wench' }),
+    await screen.findByRole('button', {
+      name: /remove your spot for AM Chum Wench/i,
+    }),
   );
+  userEvent.click(screen.getByRole('button', { name: 'Remove shift' }));
   await waitFor(() => expect(removeClient.Remove).toHaveBeenCalledWith(2, 11));
   expect(await screen.findByText(/removed AM Chum Wench/i)).toBeVisible();
   removeRender.unmount();
 
-  const switchClient = client(openResponse([shift, destination]));
+  const switchClient = client(openResponse([shift, openShift]));
   render(<ChorePlanShiftView rosterID={2} planClient={switchClient} />);
   userEvent.click(
-    await screen.findByRole('button', { name: 'Switch from AM Chum Wench' }),
+    await screen.findByRole('button', {
+      name: /remove your spot for AM Chum Wench/i,
+    }),
   );
-  userEvent.click(screen.getByRole('button', { name: 'Switch to Gate' }));
+  userEvent.click(
+    screen.getByRole('button', {
+      name: /select open spot for AM Ice Bitch/i,
+    }),
+  );
+  userEvent.click(screen.getByRole('button', { name: 'Change shift' }));
   await waitFor(() =>
     expect(switchClient.Switch).toHaveBeenCalledWith(2, {
       fromShiftID: 11,
       toShiftID: 12,
     }),
   );
-  expect(await screen.findByText(/switched to Gate/i)).toBeVisible();
+  expect(await screen.findByText(/changed to AM Ice Bitch/i)).toBeVisible();
 });
 
 test('shows authoritative backend signup conflicts', async () => {
   const planClient = client(
-    openResponse([{ ...shift, currentUserAssigned: false }]),
+    openResponse([
+      { ...shift, assignedParticipantCount: 0, currentUserAssigned: false },
+    ]),
   );
   planClient.Signup = jest.fn().mockRejectedValue({
     response: {
@@ -222,8 +237,11 @@ test('shows authoritative backend signup conflicts', async () => {
   render(<ChorePlanShiftView rosterID={2} planClient={planClient} />);
 
   userEvent.click(
-    await screen.findByRole('button', { name: 'Sign up for AM Chum Wench' }),
+    await screen.findByRole('button', {
+      name: /select open spot for AM Chum Wench/i,
+    }),
   );
+  userEvent.click(screen.getByRole('button', { name: 'Sign up (1)' }));
   expect(await screen.findByText(/chore plan shift is full/i)).toBeVisible();
   expect(planClient.GetShifts).toHaveBeenCalledTimes(1);
 });
@@ -239,6 +257,7 @@ test('keeps closed assignments visible and read-only', async () => {
             rosterID: 2,
             status: 'closed',
             planningYear: 2026,
+            requirements: { chore: 1, event: 1, dinner: 1 },
             openedAt: '2026-08-06T12:00:00.000Z',
             closedAt: '2026-08-06T13:00:00.000Z',
           },
@@ -248,8 +267,13 @@ test('keeps closed assignments visible and read-only', async () => {
     />,
   );
 
-  expect(await screen.findByText('Plan closed')).toBeVisible();
+  expect(
+    await screen.findByText(/the 2026 chore plan is closed/i),
+  ).toBeVisible();
   expect(screen.getByText('AM Chum Wench')).toBeVisible();
   expect(screen.getByText(/assignments are read-only/i)).toBeVisible();
-  expect(screen.queryByRole('button')).not.toBeInTheDocument();
+  expect(screen.getAllByText('Signups closed')).toHaveLength(3);
+  expect(
+    screen.queryByRole('button', { name: /select|remove|sign up/i }),
+  ).not.toBeInTheDocument();
 });

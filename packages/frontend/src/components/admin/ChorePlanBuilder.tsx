@@ -1,27 +1,43 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import Alert from '@mui/material/Alert';
-import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
-import CircularProgress from '@mui/material/CircularProgress';
-import Dialog from '@mui/material/Dialog';
-import DialogActions from '@mui/material/DialogActions';
-import DialogContent from '@mui/material/DialogContent';
-import DialogContentText from '@mui/material/DialogContentText';
-import DialogTitle from '@mui/material/DialogTitle';
-import FormControl from '@mui/material/FormControl';
-import InputLabel from '@mui/material/InputLabel';
-import MenuItem from '@mui/material/MenuItem';
-import Select, { SelectChangeEvent } from '@mui/material/Select';
-import Stack from '@mui/material/Stack';
-import Table from '@mui/material/Table';
-import TableBody from '@mui/material/TableBody';
-import TableCell from '@mui/material/TableCell';
-import TableContainer from '@mui/material/TableContainer';
-import TableHead from '@mui/material/TableHead';
-import TableRow from '@mui/material/TableRow';
-import TextField from '@mui/material/TextField';
-import Typography from '@mui/material/Typography';
+import React, {
+  FormEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import PlaylistAddCheckIcon from '@mui/icons-material/PlaylistAddCheck';
+import {
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
+  Alert,
+  Box,
+  Button,
+  Chip,
+  CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
+  FormControl,
+  Grid,
+  InputLabel,
+  MenuItem,
+  Paper,
+  Select,
+  SelectChangeEvent,
+  Stack,
+  TextField,
+  Typography,
+} from '@mui/material';
 import Roster from 'backend/models/roster/roster';
+import { ChoreCatalogKind } from 'backend/view_models/chore_catalog';
+import {
+  ChorePlanLifecycleResponse,
+  ChorePlanLifecycleState,
+} from 'backend/view_models/chore_plan_lifecycle';
 import {
   ChorePlanApplyRequest,
   ChorePlanApplyResponse,
@@ -30,20 +46,44 @@ import {
   ChorePlanPreview,
   ChorePlanPreviewRequest,
   ChorePlanRequirements,
+  ChorePlanShiftPreview,
 } from 'backend/view_models/chore_plan_preview';
 import BackendChorePlanClient from '../../api/chore_plans/client';
 import BackendRosterClient from '../../api/roster/roster';
 import { getFrontendConfig } from '../../config/config';
+import SignupSheetTable, { SignupSheetShift } from '../shifts/SignupSheetTable';
 
 const frontendConfig = getFrontendConfig();
 const defaultPlanClient = new BackendChorePlanClient(frontendConfig.BackendURL);
 const defaultRosterClient = new BackendRosterClient(frontendConfig.BackendURL);
-const KINDS = ['chore', 'event', 'dinner'] as const;
+const KINDS: ChoreCatalogKind[] = ['chore', 'event', 'dinner'];
+const CATEGORY_LABELS: Record<ChoreCatalogKind, string> = {
+  chore: 'Daily chores',
+  event: 'Event crew',
+  dinner: 'Dinner crew',
+};
+const DEFAULT_REQUIREMENTS: ChorePlanRequirements = {
+  chore: 3,
+  event: 3,
+  dinner: 1,
+};
+const LIFECYCLE_DATE_FORMATTER = new Intl.DateTimeFormat('en-US', {
+  timeZone: 'America/Los_Angeles',
+  dateStyle: 'medium',
+  timeStyle: 'short',
+});
 
 export interface ChorePlannerClient {
   Preview: (request: ChorePlanPreviewRequest) => Promise<ChorePlanPreview>;
   GetDraft: (rosterID: number) => Promise<ChorePlanDraftResponse>;
   Apply: (request: ChorePlanApplyRequest) => Promise<ChorePlanApplyResponse>;
+  GetLifecycle: (rosterID: number) => Promise<ChorePlanLifecycleResponse>;
+  Open: (rosterID: number) => Promise<ChorePlanLifecycleState>;
+  Close: (rosterID: number) => Promise<ChorePlanLifecycleState>;
+  Reopen: (
+    rosterID: number,
+    reason: string,
+  ) => Promise<ChorePlanLifecycleState>;
 }
 
 export interface ChorePlannerRosterClient {
@@ -58,9 +98,10 @@ interface ChorePlanBuilderProps {
 interface FormValues {
   rosterID: string;
   camperCount: string;
-  choreRequirement: string;
-  eventRequirement: string;
-  dinnerRequirement: string;
+}
+
+interface SignupSheetPreviewShift extends SignupSheetShift {
+  preview: ChorePlanShiftPreview;
 }
 
 function responseStatus(error: unknown): number | undefined {
@@ -93,24 +134,13 @@ function wholeNumber(
 function parseForm(values: FormValues): ChorePlanPreviewRequest | null {
   const rosterID = wholeNumber(values.rosterID, 1, Number.MAX_SAFE_INTEGER);
   const camperCount = wholeNumber(values.camperCount, 1, 200);
-  const requirements = {
-    chore: wholeNumber(values.choreRequirement, 0, 20),
-    event: wholeNumber(values.eventRequirement, 0, 20),
-    dinner: wholeNumber(values.dinnerRequirement, 0, 20),
-  };
-  if (
-    rosterID === null ||
-    camperCount === null ||
-    requirements.chore === null ||
-    requirements.event === null ||
-    requirements.dinner === null
-  ) {
+  if (rosterID === null || camperCount === null) {
     return null;
   }
   return {
     rosterID,
     camperCount,
-    requirements: requirements as ChorePlanRequirements,
+    requirements: { ...DEFAULT_REQUIREMENTS },
   };
 }
 
@@ -174,6 +204,145 @@ function applyErrorMessage(error: unknown): string {
   return 'Failed to apply the chore plan draft. Please try again.';
 }
 
+function lifecycleErrorMessage(error: unknown): string {
+  const message = responseMessage(error);
+  if (message) {
+    return message;
+  }
+  if (responseStatus(error) === 403) {
+    return 'You do not have permission to manage chore signups.';
+  }
+  return 'Failed to update chore signups. Please try again.';
+}
+
+function lifecycleFromDraft(
+  draft: ChorePlanDraftSummary,
+): ChorePlanLifecycleState {
+  return {
+    id: draft.id,
+    rosterID: draft.rosterID,
+    status: 'draft',
+    planningYear: draft.planningYear,
+    camperCount: draft.camperCount,
+    requirements: draft.requirements,
+    shiftCount: draft.shiftCount,
+    slotCount: draft.slotCount,
+    openedAt: null,
+    openedByUserID: null,
+    closedAt: null,
+    closedByUserID: null,
+    updatedAt: draft.updatedAt,
+  };
+}
+
+function lifecycleEvent(label: string, timestamp: string): string {
+  return `${label} ${LIFECYCLE_DATE_FORMATTER.format(
+    new Date(timestamp),
+  )} by an administrator.`;
+}
+
+export function PlanLifecycleSummary({
+  plan,
+  loading,
+  onReviewTransition,
+}: {
+  plan: ChorePlanLifecycleState;
+  loading: boolean;
+  onReviewTransition: () => void;
+}) {
+  const signupsOpen = plan.status === 'open';
+  const signupsClosed = plan.status === 'closed';
+  let severity: 'success' | 'info' | 'warning' = 'warning';
+  let title = `Chore signups are in draft for ${plan.planningYear}.`;
+  let description =
+    'Members cannot join shifts until signups are opened. Plan updates are available while the plan remains a draft.';
+  if (signupsOpen) {
+    severity = 'success';
+    title = `Chore signups are open for ${plan.planningYear}.`;
+    description = 'Members can join available shifts.';
+  } else if (signupsClosed) {
+    severity = 'info';
+    title = `Chore signups are closed for ${plan.planningYear}.`;
+    description =
+      'Members cannot change their signups while the plan is closed. Reopen signups to allow changes again.';
+  }
+
+  return (
+    <Alert
+      severity={severity}
+      action={
+        <Button
+          color="inherit"
+          size="small"
+          disabled={loading}
+          onClick={onReviewTransition}
+        >
+          {loading
+            ? `${signupsOpen ? 'Closing' : 'Opening'}…`
+            : `Review and ${signupsOpen ? 'close' : 'open'} chore signups`}
+        </Button>
+      }
+    >
+      <Typography variant="subtitle2">{title}</Typography>
+      <Typography variant="body2">
+        This plan covers {plan.camperCount} campers with {plan.slotCount} signup
+        spots across {plan.shiftCount} shifts. The default member requirement is{' '}
+        {plan.requirements.chore} chore, {plan.requirements.event} event, and{' '}
+        {plan.requirements.dinner} dinner shifts. {description}
+      </Typography>
+      {plan.openedAt && (
+        <Typography variant="caption" display="block">
+          {lifecycleEvent('Last opened', plan.openedAt)}
+        </Typography>
+      )}
+      {plan.closedAt && (
+        <Typography variant="caption" display="block">
+          {lifecycleEvent('Last closed', plan.closedAt)}
+        </Typography>
+      )}
+    </Alert>
+  );
+}
+
+function scoreTone(score: number): 'high' | 'medium' | 'low' {
+  if (score >= 75) {
+    return 'high';
+  }
+  if (score >= 25) {
+    return 'medium';
+  }
+  return 'low';
+}
+
+function PositionChips({ shift }: { shift: ChorePlanShiftPreview }) {
+  return (
+    <div className="signup-sheet-positions">
+      {shift.slots.map((slot) => (
+        <span
+          className={`signup-sheet-position ${scoreTone(slot.score)}`}
+          key={slot.definitionKey}
+        >
+          {slot.positionLabel}
+          <small>{slot.score}</small>
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function signupSheetShift(
+  preview: ChorePlanShiftPreview,
+): SignupSheetPreviewShift {
+  return {
+    key: preview.stableKey,
+    scheduleName: preview.scheduleName,
+    day: preview.displayDayNumber,
+    timePeriod: preview.timePeriodLabel,
+    periodOrder: preview.periodOrder ?? 0,
+    preview,
+  };
+}
+
 export default function ChorePlanBuilder({
   planClient = defaultPlanClient,
   rosterClient = defaultRosterClient,
@@ -181,18 +350,19 @@ export default function ChorePlanBuilder({
   const [rosters, setRosters] = useState<Roster[]>([]);
   const [values, setValues] = useState<FormValues>({
     rosterID: '',
-    camperCount: '',
-    choreRequirement: '3',
-    eventRequirement: '3',
-    dinnerRequirement: '1',
+    camperCount: '50',
   });
   const [preview, setPreview] = useState<ChorePlanPreview | null>(null);
   const [observedDraft, setObservedDraft] =
     useState<ChorePlanDraftSummary | null>(null);
+  const [plan, setPlan] = useState<ChorePlanLifecycleState | null>(null);
   const [loadingRosters, setLoadingRosters] = useState(true);
   const [previewing, setPreviewing] = useState(false);
   const [applying, setApplying] = useState(false);
+  const [transitioning, setTransitioning] = useState(false);
   const [confirmingReplacement, setConfirmingReplacement] = useState(false);
+  const [reviewingTransition, setReviewingTransition] = useState(false);
+  const [reopenReason, setReopenReason] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -233,6 +403,34 @@ export default function ChorePlanBuilder({
     };
   }, [rosterClient]);
 
+  useEffect(() => {
+    const rosterID = wholeNumber(values.rosterID, 1, Number.MAX_SAFE_INTEGER);
+    if (rosterID === null) {
+      setPlan(null);
+      return undefined;
+    }
+
+    let active = true;
+    setPlan(null);
+    planClient
+      .GetLifecycle(rosterID)
+      .then((response) => {
+        if (active) {
+          setPlan(response.plan);
+        }
+      })
+      .catch((loadError) => {
+        console.error('Failed to load chore plan lifecycle:', loadError);
+        if (active) {
+          setError('Failed to load the current chore plan. Please try again.');
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [planClient, values.rosterID]);
+
   const resetGeneratedState = useCallback(() => {
     setPreview(null);
     setObservedDraft(null);
@@ -249,12 +447,11 @@ export default function ChorePlanBuilder({
     setField('rosterID', event.target.value);
   };
 
-  const handlePreview = async () => {
+  const handlePreview = async (event: FormEvent) => {
+    event.preventDefault();
     const request = parseForm(values);
     if (!request) {
-      setError(
-        'Choose a roster, enter 1–200 campers, and use whole requirements from 0–20.',
-      );
+      setError('Choose a camp year and enter 1–200 prospective campers.');
       setSuccess(null);
       return;
     }
@@ -288,6 +485,9 @@ export default function ChorePlanBuilder({
   );
   const matchesDraft = draftMatchesPreview(observedDraft, preview);
   const replacesDraft = Boolean(observedDraft && preview && !matchesDraft);
+  const selectedRoster = rosters.find(
+    (roster) => String(roster.id) === values.rosterID,
+  );
 
   const applyPreview = async () => {
     if (!preview || hasShortage) {
@@ -307,16 +507,17 @@ export default function ChorePlanBuilder({
       });
       setPreview(response.preview);
       setObservedDraft(response.draft);
+      setPlan(lifecycleFromDraft(response.draft));
       if (!response.changed) {
-        setSuccess(
-          `Draft revision ${response.draft.draftRevision} already matches this preview.`,
-        );
+        setSuccess('The saved signup plan already matches this preview.');
       } else if (response.replaced) {
         setSuccess(
-          `Replaced the draft with revision ${response.draft.draftRevision}.`,
+          `Applied signup plan updates in draft revision ${response.draft.draftRevision}.`,
         );
       } else {
-        setSuccess(`Created draft revision ${response.draft.draftRevision}.`);
+        setSuccess(
+          `Created signup plan draft revision ${response.draft.draftRevision}.`,
+        );
       }
     } catch (applyError) {
       console.error('Failed to apply chore plan draft:', applyError);
@@ -338,13 +539,60 @@ export default function ChorePlanBuilder({
     applyPreview();
   };
 
-  let applyButtonLabel = 'Apply new draft';
+  const handleLifecycleTransition = async () => {
+    if (!plan) {
+      return;
+    }
+    const normalizedReason = reopenReason.trim();
+    if (plan.status === 'closed' && normalizedReason.length === 0) {
+      setError('Enter a reason before reopening chore signups.');
+      return;
+    }
+
+    setTransitioning(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      let updated: ChorePlanLifecycleState;
+      if (plan.status === 'draft') {
+        updated = await planClient.Open(plan.rosterID);
+      } else if (plan.status === 'open') {
+        updated = await planClient.Close(plan.rosterID);
+      } else {
+        updated = await planClient.Reopen(plan.rosterID, normalizedReason);
+      }
+      setPlan(updated);
+      setReviewingTransition(false);
+      setReopenReason('');
+      setSuccess(
+        `Chore signups are now ${
+          updated.status === 'open' ? 'open' : 'closed'
+        } for ${updated.planningYear}.`,
+      );
+    } catch (transitionError) {
+      console.error('Failed to update chore plan lifecycle:', transitionError);
+      setError(lifecycleErrorMessage(transitionError));
+      setReviewingTransition(false);
+    } finally {
+      setTransitioning(false);
+    }
+  };
+
+  let applyButtonLabel = observedDraft
+    ? 'Apply plan updates'
+    : 'Create signup plan';
   if (applying) {
     applyButtonLabel = 'Applying…';
-  } else if (replacesDraft) {
-    applyButtonLabel = 'Replace existing draft';
-  } else if (matchesDraft) {
-    applyButtonLabel = 'Reapply unchanged draft';
+  } else if (plan?.status === 'open') {
+    applyButtonLabel = 'Signup plan is open';
+  } else if (plan?.status === 'closed') {
+    applyButtonLabel = 'Signup plan is closed';
+  }
+  let lifecycleAction: 'open' | 'close' | 'reopen' = 'open';
+  if (plan?.status === 'open') {
+    lifecycleAction = 'close';
+  } else if (plan?.status === 'closed') {
+    lifecycleAction = 'reopen';
   }
 
   if (loadingRosters) {
@@ -359,181 +607,239 @@ export default function ChorePlanBuilder({
     <Stack spacing={3}>
       {error && <Alert severity="error">{error}</Alert>}
       {success && <Alert severity="success">{success}</Alert>}
+      {plan && (
+        <PlanLifecycleSummary
+          loading={transitioning}
+          onReviewTransition={() => {
+            setError(null);
+            setSuccess(null);
+            setReopenReason('');
+            setReviewingTransition(true);
+          }}
+          plan={plan}
+        />
+      )}
 
-      <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-        <FormControl sx={{ minWidth: 220 }}>
-          <InputLabel id="planner-roster-label">Roster</InputLabel>
-          <Select
-            labelId="planner-roster-label"
-            label="Roster"
-            value={values.rosterID}
-            onChange={handleRosterChange}
-          >
-            {rosters.map((roster) => (
-              <MenuItem key={roster.id} value={String(roster.id)}>
-                {roster.year} (ID: {roster.id})
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-        <TextField
-          label="Camper count"
-          type="number"
-          value={values.camperCount}
-          onChange={(event) => setField('camperCount', event.target.value)}
-          inputProps={{ min: 1, max: 200, step: 1 }}
-          helperText="1–200"
-        />
-        <TextField
-          label="Chores per camper"
-          type="number"
-          value={values.choreRequirement}
-          onChange={(event) => setField('choreRequirement', event.target.value)}
-          inputProps={{ min: 0, max: 20, step: 1 }}
-          helperText="0–20"
-        />
-        <TextField
-          label="Events per camper"
-          type="number"
-          value={values.eventRequirement}
-          onChange={(event) => setField('eventRequirement', event.target.value)}
-          inputProps={{ min: 0, max: 20, step: 1 }}
-          helperText="0–20"
-        />
-        <TextField
-          label="Dinners per camper"
-          type="number"
-          value={values.dinnerRequirement}
-          onChange={(event) =>
-            setField('dinnerRequirement', event.target.value)
-          }
-          inputProps={{ min: 0, max: 20, step: 1 }}
-          helperText="0–20"
-        />
-      </Stack>
-      <Box>
-        <Button
-          variant="contained"
-          onClick={handlePreview}
-          disabled={previewing || rosters.length === 0}
-        >
-          {previewing ? 'Previewing…' : 'Preview plan'}
-        </Button>
-      </Box>
+      <Paper component="form" onSubmit={handlePreview} sx={{ p: 3 }}>
+        <Grid container spacing={3} alignItems="flex-start">
+          <Grid item xs={12} md={3}>
+            <FormControl fullWidth>
+              <InputLabel id="planner-roster-label">Camp year</InputLabel>
+              <Select
+                labelId="planner-roster-label"
+                label="Camp year"
+                value={values.rosterID}
+                onChange={handleRosterChange}
+              >
+                {rosters.map((roster) => (
+                  <MenuItem key={roster.id} value={String(roster.id)}>
+                    {roster.year}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid item xs={12} md={3}>
+            <TextField
+              fullWidth
+              required
+              type="number"
+              label="Prospective campers"
+              inputProps={{ min: 1, max: 200, step: 1 }}
+              value={values.camperCount}
+              onChange={(event) => setField('camperCount', event.target.value)}
+              helperText={`${DEFAULT_REQUIREMENTS.chore} chore, ${DEFAULT_REQUIREMENTS.event} event, and ${DEFAULT_REQUIREMENTS.dinner} dinner slots per camper.`}
+            />
+          </Grid>
+          <Grid item xs={12}>
+            <Button
+              type="submit"
+              variant="contained"
+              disabled={previewing || rosters.length === 0}
+              startIcon={
+                previewing ? <CircularProgress size={18} /> : undefined
+              }
+            >
+              Preview signup plan
+            </Button>
+          </Grid>
+        </Grid>
+      </Paper>
 
       {preview && (
-        <Stack spacing={2}>
-          <Typography variant="h5">Preview</Typography>
-          <Typography variant="body2" color="text.secondary">
-            Roster {preview.rosterID}, catalog revision{' '}
-            {preview.catalogRevision}, {preview.camperCount} campers.
-          </Typography>
-          {observedDraft && (
-            <Alert severity={matchesDraft ? 'info' : 'warning'}>
-              {matchesDraft
-                ? `Saved draft revision ${observedDraft.draftRevision} already uses these inputs and scores.`
-                : `Applying this preview will replace saved draft revision ${observedDraft.draftRevision}.`}
-            </Alert>
-          )}
-          {hasShortage && (
-            <Alert severity="warning">
-              This preview cannot be applied because the catalog is short by{' '}
-              {KINDS.filter((kind) => preview.categories[kind].shortage > 0)
-                .map((kind) => {
-                  const { shortage } = preview.categories[kind];
-                  return `${shortage} ${kind} position${
-                    shortage === 1 ? '' : 's'
-                  }`;
-                })
-                .join(', ')}
-              .
-            </Alert>
-          )}
+        <>
+          <Grid container spacing={2}>
+            {KINDS.map((kind) => {
+              const category = preview.categories[kind];
+              return (
+                <Grid item xs={12} md={4} key={kind}>
+                  <Paper sx={{ p: 2, height: '100%' }}>
+                    <Typography color="text.secondary">
+                      {CATEGORY_LABELS[kind]}
+                    </Typography>
+                    <Typography variant="h4">
+                      {category.selected} / {category.target}
+                    </Typography>
+                    <Typography
+                      color={category.shortage ? 'error.main' : 'success.main'}
+                    >
+                      {category.shortage
+                        ? `${category.shortage} slots missing from the catalog`
+                        : 'Capacity ready'}
+                    </Typography>
+                  </Paper>
+                </Grid>
+              );
+            })}
+          </Grid>
 
-          <TableContainer>
-            <Table size="small" aria-label="Chore plan category summary">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Category</TableCell>
-                  <TableCell align="right">Target</TableCell>
-                  <TableCell align="right">Selected</TableCell>
-                  <TableCell align="right">Shortage</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {KINDS.map((kind) => (
-                  <TableRow key={kind}>
-                    <TableCell sx={{ textTransform: 'capitalize' }}>
-                      {kind}
-                    </TableCell>
-                    <TableCell align="right">
-                      {preview.categories[kind].target}
-                    </TableCell>
-                    <TableCell align="right">
-                      {preview.categories[kind].selected}
-                    </TableCell>
-                    <TableCell align="right">
-                      {preview.categories[kind].shortage}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-
-          <TableContainer sx={{ maxHeight: 560 }}>
-            <Table stickyHeader size="small" aria-label="Chore plan shifts">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Day</TableCell>
-                  <TableCell>Category</TableCell>
-                  <TableCell>Schedule</TableCell>
-                  <TableCell>Period</TableCell>
-                  <TableCell>UTC interval</TableCell>
-                  <TableCell>Positions</TableCell>
-                  <TableCell align="right">Capacity</TableCell>
-                  <TableCell align="right">Score</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {preview.shifts.map((shift) => (
-                  <TableRow key={shift.stableKey}>
-                    <TableCell>{shift.displayDayLabel}</TableCell>
-                    <TableCell sx={{ textTransform: 'capitalize' }}>
-                      {shift.kind}
-                    </TableCell>
-                    <TableCell>{shift.scheduleName}</TableCell>
-                    <TableCell>{shift.timePeriodLabel}</TableCell>
-                    <TableCell>
-                      {shift.startTime}–{shift.endTime}
-                    </TableCell>
-                    <TableCell>
-                      {shift.slots
-                        .map(({ positionLabel }) => positionLabel)
-                        .join(', ')}
-                    </TableCell>
-                    <TableCell align="right">
-                      {shift.requiredParticipants}
-                    </TableCell>
-                    <TableCell align="right">{shift.totalScore}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-
-          <Box>
-            <Button
-              variant="contained"
-              color={replacesDraft ? 'warning' : 'primary'}
-              onClick={handleApply}
-              disabled={applying || hasShortage}
+          <Paper sx={{ p: 3 }}>
+            <Stack
+              direction={{ xs: 'column', md: 'row' }}
+              justifyContent="space-between"
+              alignItems={{ xs: 'stretch', md: 'center' }}
+              spacing={2}
+              sx={{ mb: 2 }}
             >
-              {applyButtonLabel}
-            </Button>
-          </Box>
-        </Stack>
+              <Box>
+                <Typography variant="h5">
+                  {selectedRoster?.year ?? preview.year} signup sheet preview
+                </Typography>
+                <Typography color="text.secondary">
+                  {preview.shifts.length} dated shifts · {preview.camperCount}{' '}
+                  prospective campers
+                </Typography>
+              </Box>
+              <Button
+                variant="contained"
+                color="secondary"
+                startIcon={<PlaylistAddCheckIcon />}
+                disabled={
+                  applying ||
+                  hasShortage ||
+                  Boolean(plan && plan.status !== 'draft')
+                }
+                onClick={handleApply}
+              >
+                {applyButtonLabel}
+              </Button>
+            </Stack>
+
+            {observedDraft && (
+              <Alert
+                severity={matchesDraft ? 'info' : 'warning'}
+                sx={{ mb: 2 }}
+              >
+                {matchesDraft
+                  ? `Saved draft revision ${observedDraft.draftRevision} already uses these inputs and scores.`
+                  : `Applying this preview will replace saved draft revision ${observedDraft.draftRevision}.`}
+              </Alert>
+            )}
+            {hasShortage && (
+              <Alert severity="warning" sx={{ mb: 2 }}>
+                Add more scored positions to the catalog before creating this
+                plan. The catalog is short by{' '}
+                {KINDS.filter((kind) => preview.categories[kind].shortage > 0)
+                  .map((kind) => {
+                    const { shortage } = preview.categories[kind];
+                    return `${shortage} ${kind} position${
+                      shortage === 1 ? '' : 's'
+                    }`;
+                  })
+                  .join(', ')}
+                .
+              </Alert>
+            )}
+
+            {KINDS.map((kind) => {
+              const shifts = preview.shifts
+                .filter((shift) => shift.kind === kind)
+                .map(signupSheetShift);
+              return (
+                <Accordion key={kind} defaultExpanded={kind === 'chore'}>
+                  <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                    <Stack direction="row" spacing={2} alignItems="center">
+                      <Typography variant="h6">
+                        {CATEGORY_LABELS[kind]}
+                      </Typography>
+                      <Chip label={`${shifts.length} shifts`} size="small" />
+                    </Stack>
+                  </AccordionSummary>
+                  <AccordionDetails>
+                    {shifts.length ? (
+                      <SignupSheetTable
+                        emptyCellContent={
+                          <span className="signup-sheet-no-slots">
+                            No slots
+                          </span>
+                        }
+                        kind={kind}
+                        shifts={shifts}
+                        renderShift={(shift) => (
+                          <PositionChips shift={shift.preview} />
+                        )}
+                      />
+                    ) : (
+                      <Typography color="text.secondary">
+                        No {CATEGORY_LABELS[kind].toLowerCase()} were generated.
+                      </Typography>
+                    )}
+                  </AccordionDetails>
+                </Accordion>
+              );
+            })}
+          </Paper>
+        </>
       )}
+
+      <Dialog
+        open={reviewingTransition}
+        onClose={() => {
+          if (!transitioning) {
+            setReviewingTransition(false);
+          }
+        }}
+      >
+        <DialogTitle>Review and {lifecycleAction} chore signups</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            {lifecycleAction === 'close'
+              ? 'Closing makes the current assignments read-only for members.'
+              : 'Opening lets verified roster members choose and change available shifts.'}
+          </DialogContentText>
+          {lifecycleAction === 'reopen' && (
+            <TextField
+              autoFocus
+              fullWidth
+              inputProps={{ maxLength: 500 }}
+              label="Reopening reason"
+              margin="normal"
+              multiline
+              onChange={(event) => setReopenReason(event.target.value)}
+              required
+              value={reopenReason}
+            />
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button
+            disabled={transitioning}
+            onClick={() => setReviewingTransition(false)}
+          >
+            Cancel
+          </Button>
+          <Button
+            disabled={
+              transitioning ||
+              (lifecycleAction === 'reopen' && reopenReason.trim().length === 0)
+            }
+            onClick={handleLifecycleTransition}
+            variant="contained"
+          >
+            {transitioning ? 'Saving…' : `${lifecycleAction} signups`}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Dialog
         open={confirmingReplacement}

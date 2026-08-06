@@ -138,6 +138,9 @@ test(
       const lifecycleController = new ChorePlanLifecycleController(database);
       const draftController = new ChorePlanDraftController(database);
 
+      assert.deepEqual(await lifecycleController.getByRosterID(roster.id), {
+        plan: null,
+      });
       await assert.rejects(
         lifecycleController.open(roster.id, opener.id),
         (error) => isLifecycleError(error, 404, /not found/i),
@@ -152,6 +155,18 @@ test(
         },
         opener.id,
       );
+      const loadedDraft = await lifecycleController.getByRosterID(roster.id);
+      assert(loadedDraft.plan);
+      assert.equal(loadedDraft.plan.status, 'draft');
+      assert.equal(loadedDraft.plan.planningYear, 2026);
+      assert.equal(loadedDraft.plan.camperCount, 1);
+      assert.deepEqual(loadedDraft.plan.requirements, {
+        chore: 1,
+        event: 1,
+        dinner: 1,
+      });
+      assert.equal(loadedDraft.plan.shiftCount, applied.draft.shiftCount);
+      assert.equal(loadedDraft.plan.slotCount, applied.draft.slotCount);
 
       await assert.rejects(
         lifecycleController.close(roster.id, closer.id),
@@ -169,6 +184,8 @@ test(
       assert.equal(opened.openedAt, opened.updatedAt);
       assert.equal(opened.closedAt, null);
       assert.equal(opened.closedByUserID, null);
+      assert.equal(opened.shiftCount, applied.draft.shiftCount);
+      assert.equal(opened.slotCount, applied.draft.slotCount);
       await assert.rejects(
         lifecycleController.open(roster.id, opener.id),
         (error) => isLifecycleError(error, 409, /draft chore plan/i),
