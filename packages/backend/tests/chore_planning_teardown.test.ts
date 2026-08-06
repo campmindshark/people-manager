@@ -8,6 +8,7 @@ import knexFactory, { Knex } from 'knex';
 const TEARDOWN_MIGRATION = '20260805010000_remove_chore_planning.ts';
 const RESET_MIGRATION = '20260805000000_reset_chore_planning_data.ts';
 const FOUNDATION_MIGRATION = '20260806000000_chore_planning_foundation.ts';
+const SCORE_AUDIT_MIGRATION = '20260806010000_chore_catalog_score_audit.ts';
 const TEST_DATABASE_URL = process.env.CHORE_TEARDOWN_TEST_DATABASE_URL;
 const POSTGRES_TEST_OPTIONS = {
   skip: TEST_DATABASE_URL
@@ -137,6 +138,7 @@ async function assertFoundationSchema(database: Knex): Promise<void> {
       'chore_catalog_definitions',
       'chore_catalog_scores',
       'chore_catalog_state',
+      'chore_catalog_score_audit_entries',
     ].map(async (tableName) => {
       assert.equal(await database.schema.hasTable(tableName), true);
     }),
@@ -368,7 +370,7 @@ test(
     let database: Knex | undefined;
 
     try {
-      await copyMigrations(migrationsDirectory, FOUNDATION_MIGRATION);
+      await copyMigrations(migrationsDirectory, SCORE_AUDIT_MIGRATION);
       database = await createSchemaDatabase(
         adminDatabase,
         databaseURL,
@@ -378,7 +380,7 @@ test(
         directory: migrationsDirectory,
         extension: 'ts',
       });
-      assert.equal(migrationNames.at(-1), FOUNDATION_MIGRATION);
+      assert.equal(migrationNames.at(-1), SCORE_AUDIT_MIGRATION);
       await assertFoundationSchema(database);
     } finally {
       await database?.destroy();

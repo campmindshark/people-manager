@@ -1,10 +1,11 @@
 import { execSync } from 'node:child_process';
 import { setTimeout as sleep } from 'node:timers/promises';
 
-function run(command) {
+function run(command, environment = {}) {
   execSync(command, {
     stdio: 'inherit',
     cwd: process.cwd(),
+    env: { ...process.env, ...environment },
   });
 }
 
@@ -104,7 +105,7 @@ async function runIntegrationTest() {
     );
 
     const chorePlanningResponse = await fetch(
-      'http://localhost:3001/api/chore-plans',
+      'http://localhost:3001/api/chore-plans/catalog',
       {
         headers: { cookie: sessionCookie },
       },
@@ -180,6 +181,131 @@ async function runIntegrationTest() {
       headers: { cookie: sessionCookie },
     });
     assert(rosterResponse.ok, 'Expected roster 2 to exist after seed step');
+
+    const standardLoginResponse = await fetch(
+      'http://localhost:3001/api/auth/dev/login/standard',
+      { redirect: 'manual' },
+    );
+    assert(
+      standardLoginResponse.status === 302 ||
+        standardLoginResponse.status === 303,
+      'Expected redirect response from standard-user dev login',
+    );
+    const standardCookieHeader = standardLoginResponse.headers.get('set-cookie');
+    assert(standardCookieHeader, 'Standard-user login did not return a cookie');
+    const standardCookie = standardCookieHeader.split(';')[0];
+    const standardAuthResponse = await fetch(
+      'http://localhost:3001/api/auth/login/success',
+      { headers: { cookie: standardCookie } },
+    );
+    assert(standardAuthResponse.ok, 'Standard-user auth check failed');
+    const standardAuth = await standardAuthResponse.json();
+    assert(standardAuth.user, 'Standard-user auth check omitted the user');
+
+    const verifyStandardResponse = await fetch(
+      `http://localhost:3001/api/users/verify/${standardAuth.user.id}`,
+      {
+        method: 'POST',
+        headers: { cookie: sessionCookie },
+      },
+    );
+    assert(verifyStandardResponse.ok, 'Could not verify the standard user');
+
+    run('docker compose up -d --force-recreate --no-deps backend', {
+      CHORE_PLANNING_ENABLED: 'true',
+    });
+    await waitFor('http://localhost:3001/api/health', 'enabled backend health', {
+      validate: (body) => body.includes('healthy'),
+    });
+
+    const enabledFeatureFlagsResponse = await fetch(
+      'http://localhost:3001/api/settings/features',
+      { headers: { cookie: sessionCookie } },
+    );
+    assert(enabledFeatureFlagsResponse.ok, 'Enabled feature flags request failed');
+    const enabledFeatureFlags = await enabledFeatureFlagsResponse.json();
+    assert(
+      enabledFeatureFlags.chorePlanning === true,
+      'Chore planning did not enable after backend restart',
+    );
+
+    const forbiddenCatalogResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/catalog',
+      { headers: { cookie: standardCookie } },
+    );
+    assert(
+      forbiddenCatalogResponse.status === 403,
+      'A verified standard user must not read the chore catalog',
+    );
+
+    const catalogResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/catalog',
+      { headers: { cookie: sessionCookie } },
+    );
+    const catalogBody = await catalogResponse.text();
+    assert(
+      catalogResponse.ok,
+      `Admin could not load the chore catalog (${catalogResponse.status}): ${catalogBody}`,
+    );
+    const catalog = JSON.parse(catalogBody);
+    assert(catalog.revision === '1', 'Fresh catalog revision must be 1');
+    assert(
+      catalog.definitions?.length === 326,
+      'Catalog must contain all 326 source definitions',
+    );
+    const firstDefinition = catalog.definitions[0];
+
+    const updateResponse = await fetch(
+      `http://localhost:3001/api/chore-plans/catalog/${firstDefinition.stableKey}/score`,
+      {
+        method: 'PUT',
+        headers: {
+          cookie: sessionCookie,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ score: 42.25, expectedRevision: '1' }),
+      },
+    );
+    assert(updateResponse.ok, 'Admin could not update a chore score');
+    const update = await updateResponse.json();
+    assert(update.revision === '2', 'A score change must advance the revision');
+    assert(update.definition.score === 42.25, 'The changed score was not returned');
+
+    const immutableFieldResponse = await fetch(
+      `http://localhost:3001/api/chore-plans/catalog/${firstDefinition.stableKey}/score`,
+      {
+        method: 'PUT',
+        headers: {
+          cookie: sessionCookie,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          score: 42.25,
+          expectedRevision: '2',
+          shiftLabel: 'Changed',
+        }),
+      },
+    );
+    assert(
+      immutableFieldResponse.status === 400,
+      'Catalog definition fields must be rejected by the score endpoint',
+    );
+
+    const staleUpdateResponse = await fetch(
+      `http://localhost:3001/api/chore-plans/catalog/${catalog.definitions[1].stableKey}/score`,
+      {
+        method: 'PUT',
+        headers: {
+          cookie: sessionCookie,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ score: 41, expectedRevision: '1' }),
+      },
+    );
+    assert(
+      staleUpdateResponse.status === 409,
+      'A stale catalog revision must be rejected',
+    );
 
     console.log('Integration smoke test passed.');
   } finally {
