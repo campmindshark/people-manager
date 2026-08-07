@@ -3,8 +3,12 @@ import test from 'node:test';
 import knexFactory, { Knex } from 'knex';
 import GroupController from '../controllers/group';
 import ShiftController from '../controllers/shift';
-import ShiftSignupError from '../utils/shiftSignupError';
+import ShiftSignupError, { parseShiftID } from '../utils/shiftSignupError';
 import { shiftTimeRangesOverlap } from '../utils/shiftTime';
+import {
+  down as restoreLegacyEventTimestamps,
+  up as normalizeEventTimestamps,
+} from '../migrations/20260805020000_normalize_event_timestamps';
 
 const TEST_DATABASE_URL = process.env.CHORE_TEARDOWN_TEST_DATABASE_URL;
 const POSTGRES_TEST_OPTIONS = {
@@ -37,6 +41,7 @@ function assertSafeTestDatabaseURL(databaseURL: string | undefined): string {
 
 async function createTestDatabase(
   databaseURL: string,
+  timestampsUseTimezone = true,
 ): Promise<{ adminDatabase: Knex; database: Knex; schemaName: string }> {
   const adminDatabase = knexFactory({
     client: 'postgresql',
@@ -77,14 +82,18 @@ async function createTestDatabase(
   await database.schema.createTable('shifts', (table) => {
     table.increments('id').primary();
     table.integer('scheduleID').notNullable();
-    table.timestamp('startTime', { useTz: false }).notNullable();
-    table.timestamp('endTime', { useTz: false }).notNullable();
+    table
+      .timestamp('startTime', { useTz: timestampsUseTimezone })
+      .notNullable();
+    table.timestamp('endTime', { useTz: timestampsUseTimezone }).notNullable();
     table.integer('requiredParticipants').notNullable();
   });
   await database.schema.createTable('groups', (table) => {
     table.increments('id').primary();
     table.integer('rosterID').notNullable();
-    table.timestamp('shiftSignupOpenDate', { useTz: false }).notNullable();
+    table
+      .timestamp('shiftSignupOpenDate', { useTz: timestampsUseTimezone })
+      .notNullable();
   });
   await database.schema.createTable('group_members', (table) => {
     table.integer('groupID').notNullable();
@@ -132,19 +141,19 @@ test(
           {
             rosterID: firstRoster.id,
             shiftSignupOpenDate: database.raw(
-              "timezone('UTC', CURRENT_TIMESTAMP) - interval '1 minute'",
+              "CURRENT_TIMESTAMP - interval '1 minute'",
             ),
           },
           {
             rosterID: secondRoster.id,
             shiftSignupOpenDate: database.raw(
-              "timezone('UTC', CURRENT_TIMESTAMP) + interval '1 hour'",
+              "CURRENT_TIMESTAMP + interval '1 hour'",
             ),
           },
           {
             rosterID: secondRoster.id,
             shiftSignupOpenDate: database.raw(
-              "timezone('UTC', CURRENT_TIMESTAMP) - interval '1 minute'",
+              "CURRENT_TIMESTAMP - interval '1 minute'",
             ),
           },
         ])
@@ -195,6 +204,82 @@ test(
 );
 
 test(
+  'timestamp migration preserves legacy UTC wall clocks as absolute instants',
+  POSTGRES_TEST_OPTIONS,
+  async () => {
+    const databaseURL = assertSafeTestDatabaseURL(TEST_DATABASE_URL);
+    const { adminDatabase, database, schemaName } = await createTestDatabase(
+      databaseURL,
+      false,
+    );
+
+    try {
+      const [roster] = (await database('rosters')
+        .insert({ year: 2026 })
+        .returning('id')) as IDRow[];
+      const [schedule] = (await database('schedules')
+        .insert({ rosterID: roster.id })
+        .returning('id')) as IDRow[];
+      await database('shifts').insert({
+        scheduleID: schedule.id,
+        startTime: database.raw("'2026-08-24 16:00:00'::timestamp"),
+        endTime: database.raw("'2026-08-24 17:00:00'::timestamp"),
+        requiredParticipants: 1,
+      });
+      await database('groups').insert({
+        rosterID: roster.id,
+        shiftSignupOpenDate: database.raw("'2026-01-15 17:00:00'::timestamp"),
+      });
+
+      await normalizeEventTimestamps(database);
+      const { shift, group } = await database.transaction(
+        async (transaction) => {
+          await transaction.raw("SET LOCAL TIME ZONE 'America/New_York'");
+          return {
+            shift: await transaction('shifts')
+              .select('startTime', 'endTime')
+              .first(),
+            group: await transaction('groups')
+              .select('shiftSignupOpenDate')
+              .first(),
+          };
+        },
+      );
+      assert.equal(
+        new Date(shift.startTime).toISOString(),
+        '2026-08-24T16:00:00.000Z',
+      );
+      assert.equal(
+        new Date(shift.endTime).toISOString(),
+        '2026-08-24T17:00:00.000Z',
+      );
+      assert.equal(
+        new Date(group.shiftSignupOpenDate).toISOString(),
+        '2026-01-15T17:00:00.000Z',
+      );
+
+      await restoreLegacyEventTimestamps(database);
+      const restoredShift = await database('shifts')
+        .select(
+          database.raw(
+            `to_char("startTime", 'YYYY-MM-DD HH24:MI:SS') AS "startTime"`,
+          ),
+          database.raw(
+            `to_char("endTime", 'YYYY-MM-DD HH24:MI:SS') AS "endTime"`,
+          ),
+        )
+        .first();
+      assert.deepEqual(restoredShift, {
+        startTime: '2026-08-24 16:00:00',
+        endTime: '2026-08-24 17:00:00',
+      });
+    } finally {
+      await destroyTestDatabase(adminDatabase, database, schemaName);
+    }
+  },
+);
+
+test(
   'ordinary signup serializes capacity and prevents duplicates and overlaps',
   POSTGRES_TEST_OPTIONS,
   async () => {
@@ -221,13 +306,13 @@ test(
           {
             rosterID: roster.id,
             shiftSignupOpenDate: database.raw(
-              "timezone('UTC', CURRENT_TIMESTAMP) - interval '1 minute'",
+              "CURRENT_TIMESTAMP - interval '1 minute'",
             ),
           },
           {
             rosterID: roster.id,
             shiftSignupOpenDate: database.raw(
-              "timezone('UTC', CURRENT_TIMESTAMP) + interval '1 hour'",
+              "CURRENT_TIMESTAMP + interval '1 hour'",
             ),
           },
         ])
@@ -371,7 +456,7 @@ test(
         .insert({
           rosterID: roster.id,
           shiftSignupOpenDate: database.raw(
-            "timezone('UTC', CURRENT_TIMESTAMP) - interval '1 minute'",
+            "CURRENT_TIMESTAMP - interval '1 minute'",
           ),
         })
         .returning('id')) as IDRow[];
@@ -491,5 +576,20 @@ test('overlap checks use absolute instants and allow adjacent shifts', () => {
         },
       ),
     /valid start and end times/,
+  );
+});
+
+test('shift IDs must be strict positive safe integers', () => {
+  assert.equal(parseShiftID('1'), 1);
+  assert.equal(parseShiftID('42'), 42);
+
+  ['1junk', '1.5', '1e2', '0', '-1', '', '9007199254740992'].forEach(
+    (value) => {
+      assert.throws(
+        () => parseShiftID(value),
+        (error: unknown) =>
+          error instanceof ShiftSignupError && error.status === 400,
+      );
+    },
   );
 });

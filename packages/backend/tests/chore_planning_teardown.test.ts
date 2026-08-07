@@ -6,7 +6,8 @@ import test from 'node:test';
 import knexFactory, { Knex } from 'knex';
 
 const TEARDOWN_MIGRATION = '20260805010000_remove_chore_planning.ts';
-const RESET_MIGRATION = '20260805000000_reset_chore_planning_data.ts';
+const EVENT_TIMESTAMP_MIGRATION =
+  '20260805020000_normalize_event_timestamps.ts';
 const TEST_DATABASE_URL = process.env.CHORE_TEARDOWN_TEST_DATABASE_URL;
 const POSTGRES_TEST_OPTIONS = {
   skip: TEST_DATABASE_URL
@@ -114,6 +115,24 @@ async function assertFinalSchema(
   );
   assert.equal(await database.schema.hasColumn('shifts', 'plannerKey'), false);
 
+  await Promise.all(
+    [
+      ['shifts', 'startTime'],
+      ['shifts', 'endTime'],
+      ['groups', 'shiftSignupOpenDate'],
+    ].map(async ([tableName, columnName]) => {
+      const column = await database('information_schema.columns')
+        .select('data_type as dataType')
+        .where({
+          column_name: columnName,
+          table_name: tableName,
+          table_schema: schemaName,
+        })
+        .first();
+      assert.equal(column?.dataType, 'timestamp with time zone');
+    }),
+  );
+
   const constraints = (await database('information_schema.table_constraints')
     .select('constraint_name as constraintName')
     .where({
@@ -152,7 +171,7 @@ test(
         extension: 'ts',
       });
       assert(migrationBatch > 0);
-      assert.equal(migrationNames.at(-1), RESET_MIGRATION);
+      assert.equal(migrationNames.at(-1), EVENT_TIMESTAMP_MIGRATION);
 
       const [ordinaryRoster] = (await database('rosters')
         .insert({ year: 2025 })
@@ -374,7 +393,7 @@ test(
         directory: migrationsDirectory,
         extension: 'ts',
       });
-      assert.equal(migrationNames.at(-1), TEARDOWN_MIGRATION);
+      assert.equal(migrationNames.at(-1), EVENT_TIMESTAMP_MIGRATION);
       await assertFinalSchema(database, schemaName);
     } finally {
       await database?.destroy();
