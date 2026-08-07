@@ -72,10 +72,13 @@ export default class ShiftController {
     shiftID: number,
     userID: number,
   ): Promise<boolean> {
-    const query = knex('shift_participants').insert({
-      shiftID,
-      userID,
-    });
+    const query = knex('shift_participants')
+      .insert({
+        shiftID,
+        userID,
+      })
+      .onConflict(['shiftID', 'userID'])
+      .ignore();
 
     await query;
 

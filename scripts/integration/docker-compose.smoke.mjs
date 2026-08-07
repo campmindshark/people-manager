@@ -119,6 +119,34 @@ async function runIntegrationTest() {
     });
     assert(rosterResponse.ok, 'Expected roster 2 to exist after seed step');
 
+    const shiftsResponse = await fetch('http://localhost:3001/api/shifts', {
+      headers: { cookie: sessionCookie },
+    });
+    assert(shiftsResponse.ok, 'Expected ordinary shifts after seed step');
+    const shifts = await shiftsResponse.json();
+    assert(shifts.length > 0, 'Expected at least one ordinary shift');
+
+    const signupURL = `http://localhost:3001/api/shifts/${shifts[0].id}/signup`;
+    const firstSignupResponse = await fetch(signupURL, {
+      headers: { cookie: sessionCookie },
+    });
+    assert(firstSignupResponse.ok, 'Initial ordinary shift signup failed');
+    const repeatedSignupResponse = await fetch(signupURL, {
+      headers: { cookie: sessionCookie },
+    });
+    assert(
+      repeatedSignupResponse.ok,
+      'Repeated ordinary shift signup must be idempotent',
+    );
+
+    const healthAfterSignupResponse = await fetch(
+      'http://localhost:3001/api/health',
+    );
+    assert(
+      healthAfterSignupResponse.ok,
+      'Backend became unhealthy after repeated ordinary shift signup',
+    );
+
     console.log('Integration smoke test passed.');
   } finally {
     run('docker compose down -v --remove-orphans');
