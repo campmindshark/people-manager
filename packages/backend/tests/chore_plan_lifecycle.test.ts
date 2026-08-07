@@ -324,6 +324,57 @@ test(
             'chore_plan_audit_entries_lifecycle_details_valid',
       );
 
+      await assert.rejects(
+        database('chore_plan_audit_entries').insert({
+          chorePlanID: applied.draft.id,
+          actorUserID: reopener.id,
+          action: 'plan_reopened',
+          details: {
+            fromStatus: 'closed',
+            toStatus: 'open',
+            reason: ' Padded reason',
+          },
+        }),
+        (error: { code?: string; constraint?: string }) =>
+          error.code === '23514' &&
+          error.constraint ===
+            'chore_plan_audit_entries_lifecycle_details_valid',
+      );
+
+      await assert.rejects(
+        database('chore_plan_audit_entries').insert({
+          chorePlanID: applied.draft.id,
+          actorUserID: reopener.id,
+          action: 'plan_reopened',
+          details: {
+            fromStatus: 'closed',
+            toStatus: 'open',
+            reason: '\t',
+          },
+        }),
+        (error: { code?: string; constraint?: string }) =>
+          error.code === '23514' &&
+          error.constraint ===
+            'chore_plan_audit_entries_lifecycle_details_valid',
+      );
+
+      await assert.rejects(
+        database('chore_plan_audit_entries').insert({
+          chorePlanID: applied.draft.id,
+          actorUserID: reopener.id,
+          action: 'plan_reopened',
+          details: {
+            fromStatus: 'closed',
+            toStatus: 'open',
+            reason: `${'x'.repeat(500)} `,
+          },
+        }),
+        (error: { code?: string; constraint?: string }) =>
+          error.code === '23514' &&
+          error.constraint ===
+            'chore_plan_audit_entries_lifecycle_details_valid',
+      );
+
       const planBeforeAuditFailure = await database('chore_plans')
         .where({ id: applied.draft.id })
         .first();

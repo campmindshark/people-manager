@@ -84,6 +84,25 @@ function requirementChip(
   };
 }
 
+function shiftViewErrorMessage(error: unknown): string {
+  if (error && typeof error === 'object' && 'response' in error) {
+    const { response } = error as {
+      response?: { data?: { error?: string }; status?: number };
+    };
+    if (response?.status === 403) {
+      return 'Chore plan shifts are available only to verified roster members.';
+    }
+    if (
+      response?.status !== undefined &&
+      response.status < 500 &&
+      response.data?.error
+    ) {
+      return response.data.error;
+    }
+  }
+  return 'The chore plan shifts could not be loaded. Please try again.';
+}
+
 function ReadOnlySignupSlots({ shift }: { shift: ChorePlanShiftViewItem }) {
   const slotCount = Math.max(shift.requiredParticipants, shift.slots.length);
   const assignedCount = Math.min(shift.assignedParticipantCount, slotCount);
@@ -146,11 +165,9 @@ export default function ChorePlanShiftView({
           setResponse(nextResponse);
         }
       })
-      .catch(() => {
+      .catch((loadError) => {
         if (active) {
-          setError(
-            'Chore plan shifts are available only to verified roster members.',
-          );
+          setError(shiftViewErrorMessage(loadError));
         }
       });
 
