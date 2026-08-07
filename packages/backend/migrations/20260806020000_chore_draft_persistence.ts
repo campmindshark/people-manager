@@ -180,7 +180,7 @@ export async function up(knex: Knex): Promise<void> {
           "kind" = 'event'
           AND "dayMode" = 'explicit'
           AND "dayNumber" IS NOT NULL
-          AND "dayNumber" BETWEEN 1 AND 7
+          AND "dayNumber" BETWEEN 1 AND 8
           AND "dayLabel" IS NOT NULL
           AND btrim("dayLabel") <> ''
           AND "periodOrder" IS NOT NULL
