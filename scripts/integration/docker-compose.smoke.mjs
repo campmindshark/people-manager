@@ -349,7 +349,7 @@ async function runIntegrationTest() {
       forbiddenOutsiderShiftViewResponse.status === 403,
       'A verified non-member must not read chore plan shifts',
     );
-    const adminRosterSignupResponse = await fetch(
+    const assignmentAdminRosterSignupResponse = await fetch(
       'http://localhost:3001/api/roster_participants/1',
       {
         method: 'POST',
@@ -367,7 +367,7 @@ async function runIntegrationTest() {
       },
     );
     assert(
-      adminRosterSignupResponse.ok,
+      assignmentAdminRosterSignupResponse.ok,
       'Could not add the admin as an assignment-test roster member',
     );
     const emptyShiftViewResponse = await fetch(
