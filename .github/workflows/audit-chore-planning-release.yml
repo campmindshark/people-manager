@@ -1,0 +1,160 @@
+name: Audit Chore Planning Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      roster_id:
+        description: Optional roster ID used to scope plan and audit counts
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: audit-chore-planning-release
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    name: Read-only production audit
+    if: github.ref_name == 'main'
+    runs-on: ubuntu-latest
+    environment: production
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout audit script
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-west-2
+
+      - name: Run read-only production audit
+        env:
+          ROSTER_ID: ${{ inputs.roster_id }}
+        run: |
+          set -euo pipefail
+
+          CLUSTER_NAME="people-manager-cluster"
+          SERVICE_NAME="people-manager-service"
+          APP_TASK_FAMILY="people-manager-task"
+          MIGRATION_TASK_FAMILY="people-manager-db-migration-task"
+          CONTAINER_NAME="people-manager-db-migration"
+          LOG_GROUP_NAME="people-manager"
+
+          if [ -n "$ROSTER_ID" ] && [[ ! "$ROSTER_ID" =~ ^[1-9][0-9]*$ ]]; then
+            echo "roster_id must be a positive integer"
+            exit 1
+          fi
+
+          SUBNETS=$(aws ecs describe-services \
+            --cluster "$CLUSTER_NAME" \
+            --services "$SERVICE_NAME" \
+            --query 'services[0].networkConfiguration.awsvpcConfiguration.subnets' \
+            --output text | tr '\t' ',')
+
+          SECURITY_GROUPS=$(aws ecs describe-services \
+            --cluster "$CLUSTER_NAME" \
+            --services "$SERVICE_NAME" \
+            --query 'services[0].networkConfiguration.awsvpcConfiguration.securityGroups' \
+            --output text | tr '\t' ',')
+
+          ASSIGN_PUBLIC_IP=$(aws ecs describe-services \
+            --cluster "$CLUSTER_NAME" \
+            --services "$SERVICE_NAME" \
+            --query 'services[0].networkConfiguration.awsvpcConfiguration.assignPublicIp' \
+            --output text)
+
+          echo "Deployed application image and feature flag:"
+          aws ecs describe-task-definition \
+            --task-definition "$APP_TASK_FAMILY" \
+            --query 'taskDefinition.containerDefinitions[0].{image:image,chorePlanning:environment[?name==`CHORE_PLANNING_ENABLED`]|[0].value}' \
+            --output json
+
+          echo "Audit task image:"
+          aws ecs describe-task-definition \
+            --task-definition "$MIGRATION_TASK_FAMILY" \
+            --query 'taskDefinition.containerDefinitions[0].image' \
+            --output text
+
+          AUDIT_SCRIPT_BASE64=$(base64 < scripts/production/chore-planning-release-audit.cjs | tr -d '\n')
+          OVERRIDES=$(jq -cn \
+            --arg container "$CONTAINER_NAME" \
+            --arg evaluator 'eval(Buffer.from(process.argv[1], "base64").toString("utf8"))' \
+            --arg script "$AUDIT_SCRIPT_BASE64" \
+            --arg roster "$ROSTER_ID" \
+            '{
+              containerOverrides: [
+                {
+                  name: $container,
+                  command: ["node", "-e", $evaluator, $script],
+                  environment: (
+                    if $roster == "" then []
+                    else [{name: "CHORE_RELEASE_ROSTER_ID", value: $roster}]
+                    end
+                  )
+                }
+              ]
+            }')
+
+          TASK_RESPONSE=$(aws ecs run-task \
+            --cluster "$CLUSTER_NAME" \
+            --launch-type FARGATE \
+            --task-definition "$MIGRATION_TASK_FAMILY" \
+            --network-configuration "awsvpcConfiguration={subnets=[$SUBNETS],securityGroups=[$SECURITY_GROUPS],assignPublicIp=$ASSIGN_PUBLIC_IP}" \
+            --overrides "$OVERRIDES" \
+            --count 1 \
+            --output json)
+
+          if [ "$(jq '.failures | length' <<< "$TASK_RESPONSE")" != "0" ]; then
+            echo "$TASK_RESPONSE"
+            exit 1
+          fi
+
+          TASK_ARN=$(jq -r '.tasks[0].taskArn' <<< "$TASK_RESPONSE")
+          TASK_ID=${TASK_ARN##*/}
+          LOG_STREAM_NAME="ecs/$CONTAINER_NAME/$TASK_ID"
+
+          echo "Started read-only audit task: $TASK_ARN"
+          aws ecs wait tasks-stopped \
+            --cluster "$CLUSTER_NAME" \
+            --tasks "$TASK_ARN"
+
+          EXIT_CODE=$(aws ecs describe-tasks \
+            --cluster "$CLUSTER_NAME" \
+            --tasks "$TASK_ARN" \
+            --query 'tasks[0].containers[0].exitCode' \
+            --output text)
+
+          for attempt in {1..12}; do
+            if aws logs get-log-events \
+              --log-group-name "$LOG_GROUP_NAME" \
+              --log-stream-name "$LOG_STREAM_NAME" \
+              --start-from-head \
+              --query 'events[].message' \
+              --output text > audit-output.txt 2>/dev/null && \
+              [ -s audit-output.txt ]; then
+              break
+            fi
+            sleep 5
+          done
+
+          if [ ! -s audit-output.txt ]; then
+            echo "No CloudWatch audit output was available from $LOG_STREAM_NAME"
+            exit 1
+          fi
+
+          tr '\t' '\n' < audit-output.txt
+
+          if [ "$EXIT_CODE" != "0" ]; then
+            echo "Read-only release audit failed with exit code: $EXIT_CODE"
+            exit 1
+          fi

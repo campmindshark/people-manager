@@ -413,12 +413,17 @@ The permission groups are deliberately separate:
 - readiness review;
 - ordinary self-service signup;
 - administrative assignment;
-- force assignment; and
-- audit read.
+- force assignment.
 
 Endpoints receive only the narrow permissions they need. Reading a preview does
 not imply permission to apply it; ordinary assignment permission does not imply
 force permission; and score editing does not imply definition editing.
+
+Production audit access is not an application permission or public API. It is
+provided by a manual, `main`-only GitHub Actions workflow protected by the
+production environment. The workflow runs an aggregate-only database audit in
+a read-only transaction and never returns participant identities or audit
+detail text to the application.
 
 ## Audit and failure behavior
 
@@ -432,3 +437,30 @@ unauthenticated is `401`, unauthorized is `403`, disabled or absent feature
 routes are `404`, stale revisions and lifecycle/capacity conflicts are `409`,
 and valid but unsatisfiable planning inputs are `422`. Responses must not expose
 database errors or stack traces.
+
+## Operational visibility
+
+The backend writes one-line JSON events to stdout for CloudWatch ingestion.
+Events contain stable identifiers, revisions, counts, operation names, and rule
+codes. They do not contain names, email addresses, request bodies, or the
+free-text reasons stored in immutable audit rows.
+
+- `chore_plan.preview_generated` records successful preview inputs, catalog
+  revision, generated shift count, and total shortage.
+- `chore_plan.draft_applied` records successful changed and no-op applies,
+  replacement state, revisions, and generated counts.
+- `chore_plan.lifecycle_changed` records each committed open, close, and reopen
+  transition.
+- `chore_plan.signup_rejected` records the self-service operation, status, and
+  stable rejection reason.
+- `chore_plan.capacity_conflict` records self-service or administrative
+  capacity conflicts. Administrative conflicts retain the stable shift rule.
+- `chore_plan.admin_force_completed` records the operation, changed state, and
+  exact bypassed rules, but not its free-text reason.
+
+These events are operational evidence, not the immutable business audit. Score
+changes, changed draft applies, lifecycle transitions, requirement overrides,
+and changed administrative assignments continue to commit their database audit
+records atomically. Self-service signup changes are not part of that database
+audit contract; their rejected attempts are observable through structured
+events.

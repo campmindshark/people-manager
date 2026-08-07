@@ -492,6 +492,7 @@ export default class ChorePlanAssignmentsController {
         throw new ChorePlanAssignmentError(
           conflictMessage(bypassedRules[0]),
           409,
+          bypassedRules,
         );
       }
 

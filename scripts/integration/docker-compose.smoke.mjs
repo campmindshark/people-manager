@@ -9,6 +9,24 @@ function run(command, environment = {}) {
   });
 }
 
+function output(command, environment = {}) {
+  return execSync(command, {
+    cwd: process.cwd(),
+    encoding: 'utf8',
+    env: { ...process.env, ...environment },
+  });
+}
+
+function operationalEvents(logs) {
+  return logs
+    .split('\n')
+    .flatMap((line) => {
+      const jsonStart = line.indexOf('{"timestamp"');
+      return jsonStart < 0 ? [] : [JSON.parse(line.slice(jsonStart))];
+    })
+    .filter(({ event }) => event?.startsWith('chore_plan.'));
+}
+
 async function waitFor(url, label, options = {}) {
   const { validate, timeoutMs = 180000, intervalMs = 2000 } = options;
   const started = Date.now();
@@ -1527,6 +1545,104 @@ async function runIntegrationTest() {
     assert(
       reopenedFinalAssignmentsResponse.status === 409,
       'Reopened plans must stop exposing final assignments',
+    );
+
+    const releaseAuditOutput = output(
+      'node scripts/production/chore-planning-release-audit.cjs',
+      {
+        CHORE_RELEASE_ROSTER_ID: '1',
+        NODE_ENV: 'development',
+        POSTGRES_CONNECTION_URL:
+          'postgresql://citizix_user:S3cret@127.0.0.1:5432/citizix_db',
+      },
+    );
+    assert(
+      releaseAuditOutput.includes(
+        'CHORE RELEASE AUDIT - COMPLETE (READ ONLY)',
+      ) &&
+        releaseAuditOutput.includes('"action":"draft_applied"') &&
+        releaseAuditOutput.includes('"action":"plan_opened"') &&
+        releaseAuditOutput.includes('"action":"plan_closed"') &&
+        releaseAuditOutput.includes('"action":"plan_reopened"') &&
+        releaseAuditOutput.includes('"action":"admin_assignment_mutated"'),
+      'The read-only release audit omitted expected migration or audit state',
+    );
+
+    const backendEvents = operationalEvents(
+      output('docker compose logs --no-color backend'),
+    );
+    const eventNames = new Set(backendEvents.map(({ event }) => event));
+    [
+      'chore_plan.preview_generated',
+      'chore_plan.draft_applied',
+      'chore_plan.lifecycle_changed',
+      'chore_plan.signup_rejected',
+      'chore_plan.capacity_conflict',
+      'chore_plan.admin_force_completed',
+    ].forEach((eventName) => {
+      assert(
+        eventNames.has(eventName),
+        `Backend logs omitted the ${eventName} operational event`,
+      );
+    });
+    assert(
+      backendEvents.some(
+        ({ event, action }) =>
+          event === 'chore_plan.lifecycle_changed' && action === 'open',
+      ) &&
+        backendEvents.some(
+          ({ event, action }) =>
+            event === 'chore_plan.lifecycle_changed' && action === 'close',
+        ) &&
+        backendEvents.some(
+          ({ event, action }) =>
+            event === 'chore_plan.lifecycle_changed' && action === 'reopen',
+        ),
+      'Backend logs omitted a lifecycle transition',
+    );
+    assert(
+      backendEvents.some(
+        ({ event, source, conflictRule }) =>
+          event === 'chore_plan.capacity_conflict' &&
+          source === 'admin_assignment' &&
+          conflictRule === `capacity:shift:${adminDestination.id}`,
+      ),
+      'Backend logs omitted the stable administrative capacity rule',
+    );
+    assert(
+      backendEvents.some(
+        ({ event, operation, bypassedRules }) =>
+          event === 'chore_plan.admin_force_completed' &&
+          operation === 'move' &&
+          bypassedRules?.includes(`capacity:shift:${adminDestination.id}`),
+      ),
+      'Backend logs omitted the forced move and its bypassed rule',
+    );
+    assert(
+      backendEvents.some(
+        ({ event, reason }) =>
+          event === 'chore_plan.signup_rejected' &&
+          reason === 'invalid_request',
+      ) &&
+        backendEvents.some(
+          ({ event, reason }) =>
+            event === 'chore_plan.signup_rejected' &&
+            reason === 'plan_not_open',
+        ),
+      'Backend logs omitted stable signup rejection reasons',
+    );
+    assert(
+      backendEvents.some(
+        ({ event, changed }) =>
+          event === 'chore_plan.draft_applied' && changed === false,
+      ),
+      'Backend logs omitted the idempotent draft apply outcome',
+    );
+    const serializedBackendEvents = JSON.stringify(backendEvents);
+    assert(
+      !serializedBackendEvents.includes('Smoke-test capacity exception') &&
+        !serializedBackendEvents.includes('@localhost'),
+      'Operational events exposed free-text reasons or email addresses',
     );
 
     console.log('Integration smoke test passed.');
