@@ -2,6 +2,7 @@ import { Knex } from 'knex';
 import ChorePlan from '../models/chore_plan/chore_plan';
 import ChorePlanSignupError from '../utils/chorePlanSignupError';
 import { shiftTimeRangesOverlap, ShiftTimeRange } from '../utils/shiftTime';
+import { CHORE_PLAN_SIGNUP_RESTRICTION_MESSAGES } from '../view_models/chore_plan_shifts';
 import { ChorePlanSignupMutationResponse } from '../view_models/chore_plan_signup';
 
 type ChorePlanKind = 'chore' | 'event' | 'dinner';
@@ -36,6 +37,10 @@ interface MutationContext {
 
 interface CountRow {
   count: string;
+}
+
+interface KindCountRow extends CountRow {
+  kind: ChorePlanKind;
 }
 
 function requirementForKind(plan: PlanRow, kind: ChorePlanKind): number {
@@ -159,7 +164,7 @@ export default class ChorePlanSignupController {
         dateMilliseconds(participant.estimatedDepartureDate)
     ) {
       throw new ChorePlanSignupError(
-        'This shift is outside your roster attendance window.',
+        CHORE_PLAN_SIGNUP_RESTRICTION_MESSAGES.outsideAttendanceWindow,
         409,
       );
     }
@@ -188,10 +193,65 @@ export default class ChorePlanSignupController {
       )
     ) {
       throw new ChorePlanSignupError(
-        'You already have another assignment during this time block.',
+        CHORE_PLAN_SIGNUP_RESTRICTION_MESSAGES.existingShiftConflict,
         409,
       );
     }
+  }
+
+  private static validateNoTargetOverlap(targets: GeneratedShiftRow[]): void {
+    targets.forEach((target, index) => {
+      if (
+        targets
+          .slice(index + 1)
+          .some((otherTarget) => shiftTimeRangesOverlap(target, otherTarget))
+      ) {
+        throw new ChorePlanSignupError(
+          CHORE_PLAN_SIGNUP_RESTRICTION_MESSAGES.existingShiftConflict,
+          409,
+        );
+      }
+    });
+  }
+
+  private static async validateCategoryRequirements(
+    transaction: Knex.Transaction,
+    userID: number,
+    plan: PlanRow,
+    targets: GeneratedShiftRow[],
+  ): Promise<void> {
+    const existingCounts = (await transaction(
+      'shift_participants as assignment',
+    )
+      .innerJoin(
+        'chore_plan_generated_shifts as generated',
+        'generated.shiftID',
+        'assignment.shiftID',
+      )
+      .select('generated.kind')
+      .count('* as count')
+      .where('assignment.userID', userID)
+      .where('generated.chorePlanID', plan.id)
+      .groupBy('generated.kind')) as KindCountRow[];
+    const existingCountByKind = new Map(
+      existingCounts.map(({ kind, count }) => [kind, Number(count)]),
+    );
+    const targetCountByKind = new Map<ChorePlanKind, number>();
+    targets.forEach(({ kind }) => {
+      targetCountByKind.set(kind, (targetCountByKind.get(kind) ?? 0) + 1);
+    });
+
+    targetCountByKind.forEach((targetCount, kind) => {
+      if (
+        (existingCountByKind.get(kind) ?? 0) + targetCount >
+        requirementForKind(plan, kind)
+      ) {
+        throw new ChorePlanSignupError(
+          `You already have all required ${kind} assignments. Switch an existing assignment instead.`,
+          409,
+        );
+      }
+    });
   }
 
   private static async validateCategoryRequirement(
@@ -265,7 +325,7 @@ export default class ChorePlanSignupController {
 
   async signup(
     rosterID: number,
-    shiftID: number,
+    shiftIDs: number[],
     userID: number,
   ): Promise<ChorePlanSignupMutationResponse> {
     return this.getDatabase().transaction(async (transaction) => {
@@ -274,19 +334,23 @@ export default class ChorePlanSignupController {
         rosterID,
         userID,
       );
-      const [shift] = await ChorePlanSignupController.loadShifts(
+      const shifts = await ChorePlanSignupController.loadShifts(
         transaction,
         plan.id,
-        [shiftID],
+        shiftIDs,
       );
-      if (!shift) {
+      if (shifts.length !== shiftIDs.length) {
         throw new ChorePlanSignupError('Chore plan shift not found.', 404);
       }
-      const existing = await transaction('shift_participants')
-        .select('id')
-        .where({ shiftID, userID })
-        .first();
-      if (existing) {
+      const existingAssignments = await transaction('shift_participants')
+        .select('shiftID')
+        .where({ userID })
+        .whereIn('shiftID', shiftIDs);
+      const existingShiftIDs = new Set(
+        existingAssignments.map(({ shiftID }) => Number(shiftID)),
+      );
+      const newShifts = shifts.filter(({ id }) => !existingShiftIDs.has(id));
+      if (newShifts.length === 0) {
         return {
           changed: false,
           assignedShiftIDs: await ChorePlanSignupController.assignedShiftIDs(
@@ -297,20 +361,33 @@ export default class ChorePlanSignupController {
         };
       }
 
-      ChorePlanSignupController.validateAttendance(shift, participant);
-      await ChorePlanSignupController.validateNoOverlap(
-        transaction,
-        userID,
-        shift,
+      newShifts.forEach((shift) =>
+        ChorePlanSignupController.validateAttendance(shift, participant),
       );
-      await ChorePlanSignupController.validateCategoryRequirement(
+      await Promise.all(
+        newShifts.map((shift) =>
+          ChorePlanSignupController.validateNoOverlap(
+            transaction,
+            userID,
+            shift,
+          ),
+        ),
+      );
+      ChorePlanSignupController.validateNoTargetOverlap(newShifts);
+      await ChorePlanSignupController.validateCategoryRequirements(
         transaction,
         userID,
         plan,
-        shift,
+        newShifts,
       );
-      await ChorePlanSignupController.validateCapacity(transaction, shift);
-      await transaction('shift_participants').insert({ shiftID, userID });
+      await Promise.all(
+        newShifts.map((shift) =>
+          ChorePlanSignupController.validateCapacity(transaction, shift),
+        ),
+      );
+      await transaction('shift_participants').insert(
+        newShifts.map(({ id: shiftID }) => ({ shiftID, userID })),
+      );
       return {
         changed: true,
         assignedShiftIDs: await ChorePlanSignupController.assignedShiftIDs(
