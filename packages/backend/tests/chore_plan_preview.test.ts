@@ -256,6 +256,7 @@ test('closing Sunday event periods retain Saturday display grouping and actual t
       shiftLabel === 'Audio',
   );
   assert(closingGroup[0]);
+  assert.equal(closingGroup[0].dayNumber, 8);
   closingGroup[0].score = 100;
 
   const preview = build(
