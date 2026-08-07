@@ -379,6 +379,7 @@ test(
         await RosterController.UnregisterParticipantFromRoster(
           roster.id,
           users[4].id,
+          users[0].id,
           database,
         ),
         true,

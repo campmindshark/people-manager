@@ -2,21 +2,37 @@ import Knex, { Knex as KnexInstance } from 'knex';
 import knexConfig from '../knexfile';
 import { getConfig } from '../config/config';
 import User from '../models/user/user';
+import {
+  requirementsFromColumns,
+  ChorePlanRequirementColumns,
+} from '../utils/chorePlanRequirements';
 import RosterParticipantViewModel, {
   RosterParticipantViewModelWithPrivateFields,
 } from '../view_models/roster_participant';
 
 const knex = Knex(knexConfig[getConfig().Environment]);
+const ROSTER_REMOVAL_REQUIREMENT_CLEAR_REASON = 'Roster membership ended.';
+
+interface ChorePlanRow extends ChorePlanRequirementColumns {
+  id: number;
+}
+
+interface RequirementOverrideRow extends ChorePlanRequirementColumns {
+  userID: number;
+  reason: string;
+}
 
 export default class RosterController {
   public static async UnregisterParticipantFromRoster(
     rosterID: number,
     userID: number,
+    actorUserID: number,
     database: KnexInstance = knex,
   ): Promise<boolean> {
     const deleted = await this.UnregisterParticipantsFromRoster(
       rosterID,
       [userID],
+      actorUserID,
       database,
     );
 
@@ -26,6 +42,7 @@ export default class RosterController {
   public static async UnregisterParticipantsFromRoster(
     rosterID: number,
     userIDs: number[],
+    actorUserID: number,
     database: KnexInstance = knex,
   ): Promise<number> {
     const orderedUserIDs = [...new Set(userIDs)].sort(
@@ -71,15 +88,58 @@ export default class RosterController {
           .del();
       }
 
-      const chorePlan = await transaction('chore_plans')
-        .select('id')
-        .where({ rosterID })
-        .first();
+      const chorePlan = (await transaction<ChorePlanRow>('chore_plans')
+        .select(
+          'id',
+          'choreRequirement',
+          'eventRequirement',
+          'dinnerRequirement',
+        )
+        .where('rosterID', rosterID)
+        .first()) as ChorePlanRow | undefined;
       if (chorePlan) {
-        await transaction('chore_plan_requirement_overrides')
+        const overrides = (await transaction<RequirementOverrideRow>(
+          'chore_plan_requirement_overrides',
+        )
+          .select(
+            'userID',
+            'choreRequirement',
+            'eventRequirement',
+            'dinnerRequirement',
+            'reason',
+          )
           .where('chorePlanID', chorePlan.id)
           .whereIn('userID', participantUserIDs)
-          .del();
+          .orderBy('userID')
+          .forUpdate()) as RequirementOverrideRow[];
+        if (overrides.length > 0) {
+          await transaction('chore_plan_requirement_overrides')
+            .where('chorePlanID', chorePlan.id)
+            .whereIn(
+              'userID',
+              overrides.map(({ userID }) => userID),
+            )
+            .del();
+          const planRequirements = requirementsFromColumns(chorePlan);
+          await transaction('chore_plan_audit_entries').insert(
+            overrides.map((override) => ({
+              chorePlanID: chorePlan.id,
+              actorUserID,
+              action: 'participant_requirements_cleared',
+              details: {
+                participantUserID: override.userID,
+                previousRequirements: requirementsFromColumns(
+                  override,
+                  planRequirements,
+                ),
+                requirements: planRequirements,
+                previousReason: override.reason,
+                reason: ROSTER_REMOVAL_REQUIREMENT_CLEAR_REASON,
+                removedAssignments: [],
+              },
+            })),
+          );
+        }
       }
 
       const deleted = await transaction('roster_participants')

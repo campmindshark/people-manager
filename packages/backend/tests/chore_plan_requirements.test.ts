@@ -781,10 +781,55 @@ test(
         .first();
       assert(cleanupAudit);
 
+      await database.raw(`
+        CREATE FUNCTION reject_roster_requirement_audit()
+        RETURNS trigger AS $$
+        BEGIN
+          IF NEW.action = 'participant_requirements_cleared'
+            AND NEW.details ->> 'reason' = 'Roster membership ended.'
+          THEN
+            RAISE EXCEPTION 'forced roster requirement audit failure';
+          END IF;
+          RETURN NEW;
+        END;
+        $$ LANGUAGE plpgsql;
+
+        CREATE TRIGGER reject_roster_requirement_audit_trigger
+        BEFORE INSERT ON chore_plan_audit_entries
+        FOR EACH ROW EXECUTE FUNCTION reject_roster_requirement_audit();
+      `);
+      await assert.rejects(
+        RosterController.UnregisterParticipantFromRoster(
+          cleanupRoster.id,
+          users[2].id,
+          users[0].id,
+          database,
+        ),
+        /forced roster requirement audit failure/i,
+      );
+      assert(
+        await database('roster_participants')
+          .where({ rosterID: cleanupRoster.id, userID: users[2].id })
+          .first(),
+      );
+      assert(
+        await database('chore_plan_requirement_overrides')
+          .where({
+            chorePlanID: cleanupDraft.draft.id,
+            userID: users[2].id,
+          })
+          .first(),
+      );
+      await database.raw(
+        'DROP TRIGGER reject_roster_requirement_audit_trigger ON chore_plan_audit_entries',
+      );
+      await database.raw('DROP FUNCTION reject_roster_requirement_audit()');
+
       assert.equal(
         await RosterController.UnregisterParticipantFromRoster(
           cleanupRoster.id,
           users[2].id,
+          users[0].id,
           database,
         ),
         true,
@@ -803,6 +848,23 @@ test(
           .where({ id: cleanupAudit.id })
           .first(),
       );
+      const cleanupClearAudit = await database('chore_plan_audit_entries')
+        .where({
+          chorePlanID: cleanupDraft.draft.id,
+          action: 'participant_requirements_cleared',
+        })
+        .orderBy('id', 'desc')
+        .first();
+      assert(cleanupClearAudit);
+      assert.equal(cleanupClearAudit.actorUserID, users[0].id);
+      assert.deepEqual(cleanupClearAudit.details, {
+        participantUserID: users[2].id,
+        previousRequirements: { chore: 1, event: 1, dinner: 1 },
+        requirements: { chore: 2, event: 1, dinner: 1 },
+        previousReason: 'Temporary attendance accommodation',
+        reason: 'Roster membership ended.',
+        removedAssignments: [],
+      });
 
       await addParticipant(database, cleanupRoster.id, users[2].id);
       const rejoinedParticipant = (

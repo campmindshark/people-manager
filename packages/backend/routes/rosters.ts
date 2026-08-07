@@ -67,6 +67,7 @@ router.post('/:id/drop-out', async (req: Request, res: Response) => {
   const success = await RosterController.UnregisterParticipantFromRoster(
     Number(rosterID),
     user.id,
+    user.id,
   );
 
   if (!success) {
