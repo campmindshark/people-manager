@@ -188,62 +188,51 @@ export default function ChorePlanShiftView({
   }
 
   return (
-    <Stack spacing={2}>
-      <Alert severity={plan.status === 'open' ? 'success' : 'info'}>
-        {plan.status === 'open'
-          ? `Chore signups are open for ${plan.planningYear}.`
-          : `The ${plan.planningYear} chore plan is closed. Assignments are read-only.`}
-      </Alert>
-      <Paper sx={{ p: { xs: 1, sm: 3 } }}>
-        {response.shifts.length === 0 ? (
-          <Alert severity="warning">This plan has no generated shifts.</Alert>
-        ) : (
-          KINDS.map((kind) => {
-            const items = response.shifts.filter(
-              (shift) => shift.kind === kind,
-            );
-            const shifts = items.map(signupSheetShift);
-            const status = requirementChip(kind, plan, items);
-            return (
-              <Accordion key={kind} defaultExpanded={kind === 'chore'}>
-                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                  <Stack
-                    alignItems={{ xs: 'flex-start', sm: 'center' }}
-                    direction={{ xs: 'column', sm: 'row' }}
-                    spacing={{ xs: 0.5, sm: 2 }}
-                  >
-                    <Typography variant="h6">
-                      {CATEGORY_LABELS[kind]}
-                    </Typography>
-                    <Chip
-                      color={status.color}
-                      label={status.label}
-                      size="small"
-                    />
-                  </Stack>
-                </AccordionSummary>
-                <AccordionDetails sx={{ px: { xs: 0, sm: 2 } }}>
-                  {shifts.length ? (
-                    <SignupSheetTable
-                      emptyCellContent={null}
-                      kind={kind}
-                      shifts={shifts}
-                      renderShift={(shift) => (
-                        <ReadOnlySignupSlots shift={shift.item} />
-                      )}
-                    />
-                  ) : (
-                    <Typography color="text.secondary">
-                      No {CATEGORY_LABELS[kind].toLowerCase()} were generated.
-                    </Typography>
-                  )}
-                </AccordionDetails>
-              </Accordion>
-            );
-          })
-        )}
-      </Paper>
-    </Stack>
+    <Paper sx={{ p: { xs: 1, sm: 3 } }}>
+      {response.shifts.length === 0 ? (
+        <Alert severity="warning">This plan has no generated shifts.</Alert>
+      ) : (
+        KINDS.map((kind) => {
+          const items = response.shifts.filter((shift) => shift.kind === kind);
+          const shifts = items.map(signupSheetShift);
+          const status = requirementChip(kind, plan, items);
+          return (
+            <Accordion key={kind} defaultExpanded={kind === 'chore'}>
+              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                <Stack
+                  alignItems={{ xs: 'flex-start', sm: 'center' }}
+                  direction={{ xs: 'column', sm: 'row' }}
+                  spacing={{ xs: 0.5, sm: 2 }}
+                >
+                  <Typography variant="h6">{CATEGORY_LABELS[kind]}</Typography>
+                  <Chip
+                    color={status.color}
+                    label={status.label}
+                    size="small"
+                  />
+                </Stack>
+              </AccordionSummary>
+              <AccordionDetails sx={{ px: { xs: 0, sm: 2 } }}>
+                {shifts.length ? (
+                  <SignupSheetTable
+                    emptyCellContent={null}
+                    kind={kind}
+                    shifts={shifts}
+                    renderShift={(shift) => (
+                      <ReadOnlySignupSlots shift={shift.item} />
+                    )}
+                  />
+                ) : (
+                  <Typography color="text.secondary">
+                    No {CATEGORY_LABELS[kind].toLowerCase()} were generated.
+                  </Typography>
+                )}
+              </AccordionDetails>
+            </Accordion>
+          );
+        })
+      )}
+    </Paper>
   );
 }
 
