@@ -26,6 +26,7 @@ const shift: ChorePlanShiftViewItem = {
   currentUserAssigned: true,
   signupRestrictionReason: null,
   signupConflictShiftIDs: [],
+  signupConflicts: [],
   assignments: [{ displayName: 'Moonbeam', currentUser: true }],
   slots: [
     {
@@ -343,6 +344,17 @@ test.each([
       reason === CHORE_PLAN_SIGNUP_RESTRICTION_MESSAGES.existingShiftConflict
         ? [99]
         : [],
+    signupConflicts:
+      reason === CHORE_PLAN_SIGNUP_RESTRICTION_MESSAGES.existingShiftConflict
+        ? [
+            {
+              shiftID: 99,
+              scheduleName: 'Kitchen prep',
+              startTime: '2026-08-30T18:30:00.000Z',
+              endTime: '2026-08-30T19:30:00.000Z',
+            },
+          ]
+        : [],
   };
   render(
     <ChorePlanShiftView
@@ -357,7 +369,13 @@ test.each([
   expect(openSpot).toBeDisabled();
 
   fireEvent.mouseOver(openSpot.parentElement as HTMLElement);
-  expect(await screen.findByRole('tooltip')).toHaveTextContent(reason);
+  const tooltip = await screen.findByRole('tooltip');
+  expect(tooltip).toHaveTextContent(reason);
+  if (reason === CHORE_PLAN_SIGNUP_RESTRICTION_MESSAGES.existingShiftConflict) {
+    expect(tooltip).toHaveTextContent(
+      'Conflicting assignment: Kitchen prep (11:30 AM to 12:30 PM).',
+    );
+  }
 });
 
 test('enables an overlapping replacement only when its conflict is selected for removal', async () => {
@@ -373,6 +391,14 @@ test('enables an overlapping replacement only when its conflict is selected for 
     signupRestrictionReason:
       CHORE_PLAN_SIGNUP_RESTRICTION_MESSAGES.existingShiftConflict,
     signupConflictShiftIDs: [shift.id],
+    signupConflicts: [
+      {
+        shiftID: shift.id,
+        scheduleName: shift.scheduleName,
+        startTime: shift.startTime,
+        endTime: shift.endTime,
+      },
+    ],
   };
   render(
     <ChorePlanShiftView

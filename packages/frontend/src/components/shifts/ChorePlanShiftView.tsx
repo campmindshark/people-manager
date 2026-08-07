@@ -29,6 +29,7 @@ import {
 } from 'backend/view_models/chore_plan_signup';
 import BackendChorePlanClient from '../../api/chore_plans/client';
 import { getFrontendConfig } from '../../config/config';
+import { TimeOfDayFormatter } from '../../utils/datetime/formatter';
 import SignupSheetTable, { SignupSheetShift } from './SignupSheetTable';
 
 export interface ChorePlanShiftClient {
@@ -133,6 +134,30 @@ function mutationErrorMessage(error: unknown): string {
     }
   }
   return 'Could not update your chore assignment. Please try again.';
+}
+
+function signupRestrictionTooltip(
+  shift: ChorePlanShiftViewItem,
+  fallback: string | null,
+): string | null {
+  if (
+    fallback !== CHORE_PLAN_SIGNUP_RESTRICTION_MESSAGES.existingShiftConflict ||
+    shift.signupConflicts.length === 0
+  ) {
+    return fallback;
+  }
+
+  const conflicts = shift.signupConflicts
+    .map(
+      ({ scheduleName, startTime, endTime }) =>
+        `${scheduleName} (${TimeOfDayFormatter.format(
+          new Date(startTime),
+        )} to ${TimeOfDayFormatter.format(new Date(endTime))})`,
+    )
+    .join('; ');
+  const label =
+    shift.signupConflicts.length === 1 ? 'assignment' : 'assignments';
+  return `${fallback} Conflicting ${label}: ${conflicts}.`;
 }
 
 function SignupSlots({
@@ -433,7 +458,10 @@ function SignupCategory({
               }}
               removalSelected={selectedRemovalShiftID === item.id}
               selectionDisabled={selectionDisabledReason !== null}
-              selectionDisabledReason={selectionDisabledReason}
+              selectionDisabledReason={signupRestrictionTooltip(
+                item,
+                selectionDisabledReason,
+              )}
               shift={item}
               signupSelected={selected}
               submitting={submitting}
