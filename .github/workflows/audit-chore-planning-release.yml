@@ -85,17 +85,14 @@ jobs:
             --query 'taskDefinition.containerDefinitions[0].image' \
             --output text
 
-          AUDIT_SCRIPT_BASE64=$(base64 < scripts/production/chore-planning-release-audit.cjs | tr -d '\n')
           OVERRIDES=$(jq -cn \
             --arg container "$CONTAINER_NAME" \
-            --arg evaluator 'eval(Buffer.from(process.argv[1], "base64").toString("utf8"))' \
-            --arg script "$AUDIT_SCRIPT_BASE64" \
             --arg roster "$ROSTER_ID" \
             '{
               containerOverrides: [
                 {
                   name: $container,
-                  command: ["node", "-e", $evaluator, $script],
+                  command: ["node", "scripts/production/chore-planning-release-audit.cjs"],
                   environment: (
                     if $roster == "" then []
                     else [{name: "CHORE_RELEASE_ROSTER_ID", value: $roster}]

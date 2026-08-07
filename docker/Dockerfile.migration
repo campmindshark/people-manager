@@ -18,5 +18,7 @@ RUN yarn install --frozen-lockfile
 
 # Migrations are TypeScript and run via knex CLI, which needs ts-node +
 # typescript at runtime, so we keep all deps. We only need the backend's
-# source however; the frontend source is never executed here.
+# source and the read-only release audit however; the frontend source is never
+# executed here.
 COPY packages/backend ./packages/backend
+COPY scripts/production/chore-planning-release-audit.cjs ./scripts/production/chore-planning-release-audit.cjs
