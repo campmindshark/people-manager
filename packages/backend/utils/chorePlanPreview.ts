@@ -124,13 +124,14 @@ function validateDefinition(
       );
     }
   } else {
+    const maximumDayNumber = definition.kind === 'event' ? 8 : 7;
     if (
       definition.dayMode !== 'explicit' ||
       !Number.isInteger(definition.dayNumber) ||
       definition.dayNumber === null ||
       definition.dayNumber < 1 ||
-      definition.dayNumber > 7 ||
-      definition.dayLabel !== DAY_LABELS[definition.dayNumber - 1]
+      definition.dayNumber > maximumDayNumber ||
+      definition.dayLabel !== DAY_LABELS[(definition.dayNumber - 1) % 7]
     ) {
       invalidCatalog(
         `definition ${definition.stableKey} has invalid day metadata.`,
