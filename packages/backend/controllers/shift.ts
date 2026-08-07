@@ -21,6 +21,13 @@ interface ShiftSignupRow extends ShiftTimeRange {
   rosterID: number;
 }
 
+interface RosterParticipantAttendanceRow {
+  rosterID: number;
+  userID: number;
+  estimatedArrivalDate: Date | string;
+  estimatedDepartureDate: Date | string;
+}
+
 function shiftSignupAccessMessage(access: ShiftSignupAccess): string {
   return access.hasGroup
     ? 'Shift signup is not open for your priority group yet.'
@@ -153,6 +160,31 @@ export default class ShiftController {
       }
 
       await requireShiftSignupAccess(userID, shift.rosterID, transaction);
+
+      const participant = (await transaction<RosterParticipantAttendanceRow>(
+        'roster_participants',
+      )
+        .select('estimatedArrivalDate', 'estimatedDepartureDate')
+        .where({ rosterID: shift.rosterID, userID })
+        .forUpdate()
+        .first()) as RosterParticipantAttendanceRow | undefined;
+      if (!participant) {
+        throw new ShiftSignupError(
+          'Shift signup is available only to roster members.',
+          403,
+        );
+      }
+
+      const shiftStart = new Date(shift.startTime).getTime();
+      const shiftEnd = new Date(shift.endTime).getTime();
+      const arrival = new Date(participant.estimatedArrivalDate).getTime();
+      const departure = new Date(participant.estimatedDepartureDate).getTime();
+      if (shiftStart < arrival || shiftEnd > departure) {
+        throw new ShiftSignupError(
+          'This shift is outside your roster attendance window.',
+          409,
+        );
+      }
 
       const existingSignup = await transaction('shift_participants')
         .where({ shiftID, userID })
