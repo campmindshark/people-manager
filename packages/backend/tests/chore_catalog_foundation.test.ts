@@ -13,14 +13,14 @@ const POSTGRES_TEST_OPTIONS = {
   timeout: 120_000,
 };
 const STABLE_KEY_SHA256 =
-  'f3d351821a204531152f119f9c5fb61615631dde1b30193d4bea9687b58bfddf';
-const SOURCE_SHA256 = {
+  '5655583579eebf5dbf174cae314772ac945eac9c7451cca64d69f136a2ff447f';
+const CATALOG_SHA256 = {
   chore: '78533d7bef2de145afd20be3e3d8376d116405e947558db6b097b13a50a87c99',
-  event: 'b4b71cf171823ddd4aac697c0c1d38c51150ee5e8abdb75a1a4d4b5701792de5',
+  event: 'fdfa5ddfc67b46f5aa1ee1e82c82396664bbb2c7f20f4e564b78d92d13668c2a',
   dinner: '4fb719a8549e81bed82b968b709b7335032e9de288464e62ab83f8eff06e3b42',
 } as const;
 
-type CatalogKind = keyof typeof SOURCE_SHA256;
+type CatalogKind = keyof typeof CATALOG_SHA256;
 
 interface CatalogRow {
   stableKey: string;
@@ -196,11 +196,11 @@ test(
           'score.score',
         )) as CatalogRow[];
 
-      assert.equal(catalog.length, 326);
+      assert.equal(catalog.length, 302);
       (
         [
           ['chore', 32],
-          ['event', 240],
+          ['event', 216],
           ['dinner', 54],
         ] as const
       ).forEach(([kind, expectedCount]) => {
@@ -212,7 +212,7 @@ test(
           rows.map(({ sourceOrder }) => sourceOrder),
           Array.from({ length: expectedCount }, (_value, index) => index),
         );
-        assert.equal(sha256(sourceCSV(kind, rows)), SOURCE_SHA256[kind]);
+        assert.equal(sha256(sourceCSV(kind, rows)), CATALOG_SHA256[kind]);
       });
 
       assert.equal(
@@ -266,9 +266,9 @@ test(
         },
       );
       assert.deepEqual(
-        catalog.find(({ stableKey }) => stableKey === 'event-39-audio-manager'),
+        catalog.find(({ stableKey }) => stableKey === 'event-33-audio-manager'),
         {
-          stableKey: 'event-39-audio-manager',
+          stableKey: 'event-33-audio-manager',
           kind: 'event',
           shiftLabel: 'Audio',
           positionLabel: 'Manager',
@@ -276,11 +276,11 @@ test(
           dayNumber: 8,
           dayLabel: 'Sunday',
           timePeriodLabel: '12a-3a',
-          periodOrder: 39,
+          periodOrder: 33,
           startLocalTime: '00:00:00',
           endLocalTime: '03:00:00',
           endDayOffset: 0,
-          sourceOrder: 230,
+          sourceOrder: 206,
           score: '100',
         },
       );
@@ -333,6 +333,23 @@ test(
         sourceOrder: _eventSourceOrder,
         ...firstEventDefinition
       } = catalog.find(({ kind }) => kind === 'event') as CatalogRow;
+      await assert.rejects(
+        database('chore_catalog_definitions').insert({
+          ...firstEventDefinition,
+          stableKey: 'event-camp-excluded-period',
+          timePeriodLabel: '3 am - 6 am',
+          startLocalTime: '03:00:00',
+          endLocalTime: '06:00:00',
+          periodOrder: 999,
+          sourceOrder: 999,
+        }),
+        (error) =>
+          isConstraint(
+            error,
+            '23514',
+            'chore_catalog_definitions_event_period_valid',
+          ),
+      );
       await assert.rejects(
         database('chore_catalog_definitions').insert({
           ...firstEventDefinition,

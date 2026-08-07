@@ -27,7 +27,7 @@ const definition: ChoreCatalogDefinitionView = {
 };
 
 const closingSundayDefinition: ChoreCatalogDefinitionView = {
-  stableKey: 'event-39-audio-manager',
+  stableKey: 'event-33-audio-manager',
   kind: 'event',
   shiftLabel: 'Audio',
   positionLabel: 'Manager',
@@ -35,11 +35,11 @@ const closingSundayDefinition: ChoreCatalogDefinitionView = {
   dayNumber: 8,
   dayLabel: 'Sunday',
   timePeriodLabel: '12a-3a',
-  periodOrder: 39,
+  periodOrder: 33,
   startLocalTime: '00:00:00',
   endLocalTime: '03:00:00',
   endDayOffset: 0,
-  sourceOrder: 230,
+  sourceOrder: 206,
   score: 100,
 };
 
@@ -96,7 +96,7 @@ test('describes the closing Sunday event period as day eight', async () => {
 
   expect(screen.getByText('Sunday (day 8)')).toBeVisible();
   expect(screen.getByText('12a-3a')).toBeVisible();
-  expect(screen.getByText('39')).toBeVisible();
+  expect(screen.getByText('33')).toBeVisible();
 });
 
 test('updates only score with the displayed catalog revision', async () => {

@@ -371,8 +371,8 @@ async function runIntegrationTest() {
     const catalog = JSON.parse(catalogBody);
     assert(catalog.revision === '1', 'Fresh catalog revision must be 1');
     assert(
-      catalog.definitions?.length === 326,
-      'Catalog must contain all 326 source definitions',
+      catalog.definitions?.length === 302,
+      'Catalog must contain all 302 approved definitions',
     );
     const firstDefinition = catalog.definitions[0];
 

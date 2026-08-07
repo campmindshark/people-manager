@@ -90,6 +90,16 @@ export async function up(knex: Knex): Promise<void> {
       AND btrim("positionLabel") <> ''
       AND btrim("timePeriodLabel") <> ''
     ),
+    ADD CONSTRAINT "chore_catalog_definitions_event_period_valid"
+    CHECK (
+      "kind" <> 'event'
+      OR regexp_replace(
+        lower("timePeriodLabel"),
+        '[[:space:]m]',
+        '',
+        'g'
+      ) <> '3a-6a'
+    ),
     ADD CONSTRAINT "chore_catalog_definitions_day_valid"
     CHECK (
       (

@@ -78,14 +78,19 @@ edited through an API. Stable keys are never reused for a different semantic
 definition. A catalog migration must assert the exact key set and deterministic
 order.
 
-Catalog v1 contains 326 reviewed definitions: 32 chore template positions, 240
-explicit event positions, and 54 explicit dinner positions. The snapshot was
-verified on 2026-08-05 against workbook
+Catalog v1 contains 302 approved definitions: 32 chore template positions, 216
+explicit event positions, and 54 explicit dinner positions. The source was
+reviewed on 2026-08-05 against workbook
 `12QBFgX_jb9vdli-txNK4M2nkMt7TZ_FCHtX_gbEG9BM`, using `Chore template (One
-day)`, `Event scores table (Week)`, and `Dinner scores table (Week)`. The
-migration records each source tab's SHA-256 hash, and the PostgreSQL migration
-test reconstructs the source CSVs from installed rows and requires exact hash
-matches.
+day)`, `Event scores table (Week)`, and `Dinner scores table (Week)`. Camp has
+decided that the workbook's zero-score `3a-6a` event period is not a valid shift
+period. Those 24 positions are excluded from the installed catalog, contribute
+no planning capacity, and are rejected if reintroduced. The migration retains
+the raw event-tab SHA-256 for provenance and separately records the accepted,
+filtered event-catalog hash. The PostgreSQL migration test reconstructs the
+installed catalog CSVs and requires exact accepted hashes. A guarded forward
+migration applies the exclusion to databases that installed the earlier stack;
+it refuses to rewrite the catalog after plans or score-audit history exist.
 
 Stable keys are lowercase semantic identifiers. Chore keys identify the shift
 and position, dinner keys identify the explicit day, shift, and position, and

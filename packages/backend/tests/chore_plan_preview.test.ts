@@ -235,7 +235,7 @@ test('preview reports exact shortages at maximum input capacity', () => {
   });
   assert.deepEqual(preview.categories, {
     chore: { target: 4000, selected: 224, shortage: 3776 },
-    event: { target: 4000, selected: 240, shortage: 3760 },
+    event: { target: 4000, selected: 216, shortage: 3784 },
     dinner: { target: 4000, selected: 54, shortage: 3946 },
   });
 });
@@ -267,7 +267,7 @@ test('closing Sunday event periods retain Saturday display grouping and actual t
     definitions,
   );
   assert.deepEqual(preview.shifts[0], {
-    stableKey: 'event|8|event-39-audio-manager',
+    stableKey: 'event|8|event-33-audio-manager',
     scheduleKey: 'event|Audio',
     kind: 'event',
     scheduleName: 'Audio',
@@ -275,14 +275,14 @@ test('closing Sunday event periods retain Saturday display grouping and actual t
     displayDayLabel: 'Saturday, Sep 5',
     calendarDay: 8,
     timePeriodLabel: '12a-3a',
-    periodOrder: 39,
+    periodOrder: 33,
     startTime: '2026-09-06T07:00:00.000Z',
     endTime: '2026-09-06T10:00:00.000Z',
     requiredParticipants: 1,
     totalScore: 100,
     slots: [
       {
-        definitionKey: 'event-39-audio-manager',
+        definitionKey: 'event-33-audio-manager',
         positionLabel: 'Manager',
         score: 100,
       },
@@ -324,6 +324,20 @@ test('pure preview rejects incomplete or internally invalid stored catalogs', ()
   assert.throws(
     () => build(DEFAULT_REQUEST, invalidPeriodOrder),
     (error) => isPreviewError(error, 500, /contiguous from 1/i),
+  );
+
+  const excludedEventPeriod = catalogDefinitions();
+  const firstEventIndex = excludedEventPeriod.findIndex(
+    ({ kind }) => kind === 'event',
+  );
+  assert.notEqual(firstEventIndex, -1);
+  excludedEventPeriod[firstEventIndex] = {
+    ...excludedEventPeriod[firstEventIndex],
+    timePeriodLabel: '3 am - 6 am',
+  };
+  assert.throws(
+    () => build(DEFAULT_REQUEST, excludedEventPeriod),
+    (error) => isPreviewError(error, 500, /camp-excluded 3a-6a/i),
   );
 });
 

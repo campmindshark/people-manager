@@ -138,7 +138,7 @@ test(
 
       const initial = await controller.getCatalog();
       assert.equal(initial.revision, '1');
-      assert.equal(initial.definitions.length, 326);
+      assert.equal(initial.definitions.length, 302);
       assert.deepEqual(
         initial.definitions.slice(0, 3).map(({ stableKey }) => stableKey),
         [
@@ -149,7 +149,7 @@ test(
       );
       assert.equal(initial.definitions[31].kind, 'chore');
       assert.equal(initial.definitions[32].kind, 'event');
-      assert.equal(initial.definitions[272].kind, 'dinner');
+      assert.equal(initial.definitions[248].kind, 'dinner');
 
       const firstKey = initial.definitions[0].stableKey;
       const changed = await controller.updateScore(
