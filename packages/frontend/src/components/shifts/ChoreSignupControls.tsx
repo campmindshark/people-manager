@@ -40,7 +40,6 @@ interface ChoreSignupControlState {
   plan: ChorePlanLifecycleState | null;
   loading: boolean;
   error: string | null;
-  success: string | null;
   reviewingReopen: boolean;
   setReviewingReopen: (reviewing: boolean) => void;
   toggleSignups: () => Promise<void>;
@@ -78,14 +77,12 @@ export function useChoreSignupLifecycle({
   const [plan, setPlan] = useState<ChorePlanLifecycleState | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
   const [reviewingReopen, setReviewingReopen] = useState(false);
 
   useEffect(() => {
     if (!canManageChorePlans) {
       setPlan(null);
       setError(null);
-      setSuccess(null);
       setReviewingReopen(false);
       return undefined;
     }
@@ -94,7 +91,6 @@ export function useChoreSignupLifecycle({
     setPlan(null);
     setLoading(true);
     setError(null);
-    setSuccess(null);
     planClient
       .GetLifecycle(rosterID)
       .then((response) => {
@@ -124,16 +120,12 @@ export function useChoreSignupLifecycle({
     }
     setLoading(true);
     setError(null);
-    setSuccess(null);
     try {
       const updatedPlan =
         plan.status === 'open'
           ? await planClient.Close(rosterID)
           : await planClient.Open(rosterID);
       setPlan(updatedPlan);
-      setSuccess(
-        `Chore signups are now ${updatedPlan.status} for ${updatedPlan.planningYear}.`,
-      );
     } catch (toggleError) {
       setError(requestErrorMessage(toggleError));
     } finally {
@@ -147,12 +139,10 @@ export function useChoreSignupLifecycle({
     }
     setLoading(true);
     setError(null);
-    setSuccess(null);
     try {
       const updatedPlan = await planClient.Reopen(rosterID, reason.trim());
       setPlan(updatedPlan);
       setReviewingReopen(false);
-      setSuccess(`Chore signups are now open for ${updatedPlan.planningYear}.`);
     } catch (reopenError) {
       setError(requestErrorMessage(reopenError));
     } finally {
@@ -166,7 +156,6 @@ export function useChoreSignupLifecycle({
     plan,
     loading,
     error,
-    success,
     reviewingReopen,
     setReviewingReopen,
     toggleSignups,
@@ -250,7 +239,6 @@ interface ChoreSignupControlsProps {
   plan: ChorePlanLifecycleState | null;
   loading: boolean;
   error: string | null;
-  success: string | null;
   rosterYear: number;
 }
 
@@ -259,7 +247,6 @@ export default function ChoreSignupControls({
   plan,
   loading,
   error,
-  success,
   rosterYear,
 }: ChoreSignupControlsProps) {
   if (!canManageChorePlans) {
@@ -269,7 +256,6 @@ export default function ChoreSignupControls({
   return (
     <Stack spacing={2} sx={{ mb: 2 }}>
       {error && <Alert severity="error">{error}</Alert>}
-      {success && <Alert severity="success">{success}</Alert>}
       {loading && !plan && (
         <Alert severity="info" icon={<CircularProgress size={20} />}>
           Loading chore signup status…

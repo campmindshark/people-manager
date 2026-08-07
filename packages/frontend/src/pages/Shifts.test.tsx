@@ -60,7 +60,6 @@ jest.mock('src/components/shifts/ChoreSignupControls', () => ({
     plan: { status: 'draft' },
     loading: false,
     error: null,
-    success: null,
     reviewingReopen: false,
     setReviewingReopen: jest.fn(),
     toggleSignups: jest.fn(),

@@ -67,7 +67,6 @@ function LifecycleHarness({
         loading={controls.loading}
         plan={controls.plan}
         rosterYear={2026}
-        success={controls.success}
       />
       <ChoreSignupReopenDialog
         loading={controls.loading}
@@ -98,6 +97,7 @@ test('places draft opening controls with the shift signup status', async () => {
   expect(
     await screen.findByText('Chore signups are open for 2026.'),
   ).toBeVisible();
+  expect(screen.getAllByRole('alert')).toHaveLength(1);
   expect(
     screen.getByRole('button', { name: 'Close Chore Signups' }),
   ).toBeVisible();
@@ -137,11 +137,12 @@ test('requires and trims the audited reason when reopening closed signups', asyn
     expect(planClient.Reopen).toHaveBeenCalledWith(2, 'Scheduling correction'),
   );
   expect(
-    await screen.findByText('Chore signups are now open for 2026.'),
+    await screen.findByText('Chore signups are open for 2026.'),
   ).toBeVisible();
   await waitFor(() =>
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument(),
   );
+  expect(screen.getAllByRole('alert')).toHaveLength(1);
 });
 
 test('keeps reopening unavailable without the separate permission', async () => {
