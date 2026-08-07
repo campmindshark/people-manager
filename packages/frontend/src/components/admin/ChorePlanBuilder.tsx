@@ -343,7 +343,7 @@ export default function ChorePlanBuilder({
   );
 
   const applyPreview = async () => {
-    if (!preview || hasShortage) {
+    if (!preview || hasShortage || inputsDisabled) {
       return;
     }
     setApplying(true);
@@ -384,6 +384,9 @@ export default function ChorePlanBuilder({
   };
 
   const handleApply = () => {
+    if (!preview || hasShortage || inputsDisabled) {
+      return;
+    }
     if (replacesDraft) {
       setConfirmingReplacement(true);
       return;
@@ -507,7 +510,7 @@ export default function ChorePlanBuilder({
                 variant="contained"
                 color="secondary"
                 startIcon={<PlaylistAddCheckIcon />}
-                disabled={applying || hasShortage}
+                disabled={inputsDisabled || hasShortage}
                 onClick={handleApply}
               >
                 {applyButtonLabel}

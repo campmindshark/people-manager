@@ -214,6 +214,33 @@ test('disables planning inputs while preview and apply requests are pending', as
   expect(camperInput).not.toBeDisabled();
   expect(rosterInput).not.toHaveAttribute('aria-disabled', 'true');
   expect(previewButton).not.toBeDisabled();
+
+  const refreshedPreviewRequest = deferred<ChorePlanPreview>();
+  const refreshedDraftRequest = deferred<{
+    draft: ChorePlanDraftSummary | null;
+  }>();
+  (planClient.Preview as jest.Mock).mockReturnValue(
+    refreshedPreviewRequest.promise,
+  );
+  (planClient.GetDraft as jest.Mock).mockReturnValue(
+    refreshedDraftRequest.promise,
+  );
+  userEvent.click(previewButton);
+
+  await waitFor(() => expect(planClient.Preview).toHaveBeenCalledTimes(2));
+  expect(applyButton).toBeDisabled();
+  expect(planClient.Apply).not.toHaveBeenCalled();
+
+  await act(async () => {
+    refreshedPreviewRequest.resolve(generated);
+    refreshedDraftRequest.resolve({ draft: null });
+    await Promise.all([
+      refreshedPreviewRequest.promise,
+      refreshedDraftRequest.promise,
+    ]);
+  });
+
+  expect(applyButton).not.toBeDisabled();
   userEvent.click(applyButton);
 
   await waitFor(() => expect(planClient.Apply).toHaveBeenCalledTimes(1));
