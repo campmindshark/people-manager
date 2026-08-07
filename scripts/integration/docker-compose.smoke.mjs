@@ -425,6 +425,36 @@ async function runIntegrationTest() {
       'Could not read ordinary shifts before applying a draft',
     );
     const ordinaryShiftsBefore = await ordinaryShiftsBeforeResponse.json();
+    assert(
+      ordinarySchedulesBefore.every(
+        (schedule) =>
+          !Object.hasOwn(schedule, 'chorePlanID') &&
+          !Object.hasOwn(schedule, 'plannerKey'),
+      ),
+      'Ordinary schedules exposed internal ownership fields',
+    );
+    assert(
+      ordinaryShiftsBefore.every(
+        (shift) => !Object.hasOwn(shift, 'plannerKey'),
+      ),
+      'Ordinary shifts exposed internal ownership fields',
+    );
+
+    const ordinaryScheduleShiftsResponse = await fetch(
+      'http://localhost:3001/api/schedules/1/shifts',
+      { headers: { cookie: sessionCookie } },
+    );
+    assert(
+      ordinaryScheduleShiftsResponse.ok,
+      'Could not read ordinary schedule shift view models',
+    );
+    const ordinaryScheduleShifts = await ordinaryScheduleShiftsResponse.json();
+    assert(
+      ordinaryScheduleShifts.every(
+        ({ shift }) => !Object.hasOwn(shift, 'plannerKey'),
+      ),
+      'Ordinary shift view models exposed internal ownership fields',
+    );
 
     const forbiddenApplyResponse = await fetch(
       'http://localhost:3001/api/chore-plans/apply',

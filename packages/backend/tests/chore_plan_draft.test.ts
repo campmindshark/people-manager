@@ -141,6 +141,23 @@ test(
         .returning('id')) as IDRow[];
       const controller = new ChorePlanDraftController(database);
 
+      await seedSchedulesAndShifts(database);
+      await database.raw(`
+        SELECT setval(
+          pg_get_serial_sequence('schedules', 'id'),
+          1,
+          false
+        )
+      `);
+      await database.raw(`
+        SELECT setval(
+          pg_get_serial_sequence('shifts', 'id'),
+          1,
+          false
+        )
+      `);
+      await seedSchedulesAndShifts(database);
+
       await assert.rejects(
         controller.apply(
           applyRequest(shortageRoster.id, {

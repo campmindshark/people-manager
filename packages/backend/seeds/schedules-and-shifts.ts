@@ -134,5 +134,24 @@ export async function seed(knex: Knex): Promise<void> {
         upsertFixtureShift(transaction, iceScheduleID, shift),
       ),
     );
+
+    // Older versions inserted these fixtures with explicit IDs. Keep both
+    // sequences above every preserved row before application inserts resume.
+    await transaction.raw(`
+      SELECT setval(
+        pg_get_serial_sequence('schedules', 'id'),
+        COALESCE(MAX("id"), 1),
+        MAX("id") IS NOT NULL
+      )
+      FROM "schedules"
+    `);
+    await transaction.raw(`
+      SELECT setval(
+        pg_get_serial_sequence('shifts', 'id'),
+        COALESCE(MAX("id"), 1),
+        MAX("id") IS NOT NULL
+      )
+      FROM "shifts"
+    `);
   });
 }
