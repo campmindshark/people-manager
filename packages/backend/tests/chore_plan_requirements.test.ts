@@ -421,7 +421,7 @@ test(
       );
       assert(thirdShift);
       await assert.rejects(
-        signupController.signup(roster.id, firstShift.id, users[1].id),
+        signupController.signup(roster.id, [firstShift.id], users[1].id),
         (error) =>
           error instanceof ChorePlanSignupError &&
           error.status === 409 &&
@@ -503,10 +503,10 @@ test(
         ).changed,
         false,
       );
-      await signupController.signup(roster.id, firstShift.id, users[1].id);
-      await signupController.signup(roster.id, secondShift.id, users[1].id);
+      await signupController.signup(roster.id, [firstShift.id], users[1].id);
+      await signupController.signup(roster.id, [secondShift.id], users[1].id);
       await assert.rejects(
-        signupController.signup(roster.id, thirdShift.id, users[1].id),
+        signupController.signup(roster.id, [thirdShift.id], users[1].id),
         (error) =>
           error instanceof ChorePlanSignupError &&
           error.status === 409 &&
