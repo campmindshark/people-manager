@@ -45,7 +45,6 @@ jobs:
 
           CLUSTER_NAME="people-manager-cluster"
           SERVICE_NAME="people-manager-service"
-          APP_TASK_FAMILY="people-manager-task"
           MIGRATION_TASK_FAMILY="people-manager-db-migration-task"
           CONTAINER_NAME="people-manager-db-migration"
           LOG_GROUP_NAME="people-manager"
@@ -73,9 +72,15 @@ jobs:
             --query 'services[0].networkConfiguration.awsvpcConfiguration.assignPublicIp' \
             --output text)
 
+          APP_TASK_DEFINITION=$(aws ecs describe-services \
+            --cluster "$CLUSTER_NAME" \
+            --services "$SERVICE_NAME" \
+            --query 'services[0].taskDefinition' \
+            --output text)
+
           echo "Deployed application image and feature flag:"
           aws ecs describe-task-definition \
-            --task-definition "$APP_TASK_FAMILY" \
+            --task-definition "$APP_TASK_DEFINITION" \
             --query 'taskDefinition.containerDefinitions[0].{image:image,chorePlanning:environment[?name==`CHORE_PLANNING_ENABLED`]|[0].value}' \
             --output json
 

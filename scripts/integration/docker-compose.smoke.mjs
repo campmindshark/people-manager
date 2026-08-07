@@ -1641,8 +1641,9 @@ async function runIntegrationTest() {
     const serializedBackendEvents = JSON.stringify(backendEvents);
     assert(
       !serializedBackendEvents.includes('Smoke-test capacity exception') &&
-        !serializedBackendEvents.includes('@localhost'),
-      'Operational events exposed free-text reasons or email addresses',
+        !serializedBackendEvents.includes('@localhost') &&
+        !serializedBackendEvents.includes('"shiftIDs"'),
+      'Operational events exposed free-text reasons, email addresses, or attempted shift choices',
     );
 
     console.log('Integration smoke test passed.');

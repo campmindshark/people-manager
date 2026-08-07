@@ -117,14 +117,12 @@ function logSignupRejection(
   req: Request,
   error: unknown,
   operation: SignupOperation,
-  shiftIDs: number[],
 ): void {
   const reason = signupRejectionReason(error);
   const fields = {
     actorUserID: actorUserID(req),
     rosterID: operationalID(req.params.rosterID),
     operation,
-    shiftIDs,
     status: errorStatus(error),
     reason,
   };
@@ -359,11 +357,9 @@ router.post(
   '/:rosterID/signup',
   userIsVerified(),
   async (req: Request, res: Response) => {
-    const shiftIDs: number[] = [];
     try {
       const user = req.user as User;
       const input = parseChorePlanSignupRequest(req.body);
-      shiftIDs.push(...input.shiftIDs);
       res.json(
         await signupController.signup(
           parseChorePlanRosterID(req.params.rosterID),
@@ -372,7 +368,7 @@ router.post(
         ),
       );
     } catch (error) {
-      logSignupRejection(req, error, 'signup', shiftIDs);
+      logSignupRejection(req, error, 'signup');
       sendError(error, res, 'sign up for the chore plan shift');
     }
   },
@@ -382,12 +378,10 @@ router.delete(
   '/:rosterID/signup/:shiftID',
   userIsVerified(),
   async (req: Request, res: Response) => {
-    const shiftIDs: number[] = [];
     try {
       parseEmptyChorePlanSignupRequest(req.body);
       const user = req.user as User;
       const shiftID = parseChorePlanShiftID(req.params.shiftID);
-      shiftIDs.push(shiftID);
       res.json(
         await signupController.remove(
           parseChorePlanRosterID(req.params.rosterID),
@@ -396,7 +390,7 @@ router.delete(
         ),
       );
     } catch (error) {
-      logSignupRejection(req, error, 'remove', shiftIDs);
+      logSignupRejection(req, error, 'remove');
       sendError(error, res, 'remove the chore plan signup');
     }
   },
@@ -406,11 +400,9 @@ router.post(
   '/:rosterID/switch',
   userIsVerified(),
   async (req: Request, res: Response) => {
-    const shiftIDs: number[] = [];
     try {
       const user = req.user as User;
       const input = parseChorePlanSwitchRequest(req.body);
-      shiftIDs.push(input.fromShiftID, input.toShiftID);
       res.json(
         await signupController.switch(
           parseChorePlanRosterID(req.params.rosterID),
@@ -420,7 +412,7 @@ router.post(
         ),
       );
     } catch (error) {
-      logSignupRejection(req, error, 'switch', shiftIDs);
+      logSignupRejection(req, error, 'switch');
       sendError(error, res, 'switch chore plan shifts');
     }
   },
