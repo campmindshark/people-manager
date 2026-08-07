@@ -233,6 +233,18 @@ async function runIntegrationTest() {
     );
     assert(unregisterResponse.ok, 'Ordinary shift removal failed');
 
+    const rosterCleanupResponse = await fetch(
+      `http://localhost:3001/api/roster_participants/1/users/${authCheck.user.id}`,
+      {
+        method: 'DELETE',
+        headers: { cookie: sessionCookie },
+      },
+    );
+    assert(
+      rosterCleanupResponse.ok,
+      'Could not remove the smoke-test roster participant',
+    );
+
     const rosterResponse = await fetch('http://localhost:3001/api/rosters/2', {
       headers: { cookie: sessionCookie },
     });
