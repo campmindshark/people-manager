@@ -48,7 +48,7 @@ The lifecycle states are `draft`, `open`, and `closed`:
 - The plan row represents current state. Immutable audit entries preserve every
   lifecycle transition, actor, reason, and timestamp.
 
-Lifecycle operations lock the plan row and use PostgreSQL's transaction time.
+Lifecycle operations lock the plan row and then capture PostgreSQL's clock time.
 Opening accepts only `draft`, closing accepts only `open`, and reopening accepts
 only `closed`; every other attempted transition returns `409`. Reopening starts
 a new open interval by replacing the current open actor/time and clearing the

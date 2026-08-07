@@ -218,7 +218,7 @@ export default class ChorePlanLifecycleController {
       }
 
       const timeResult = (await transaction.raw(
-        'SELECT CURRENT_TIMESTAMP AS "transitionedAt"',
+        'SELECT clock_timestamp() AS "transitionedAt"',
       )) as { rows: TransitionTimeRow[] };
       const transitionedAt = new Date(timeResult.rows[0].transitionedAt);
       const update = {
