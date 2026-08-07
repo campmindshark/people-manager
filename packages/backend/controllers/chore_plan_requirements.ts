@@ -61,6 +61,18 @@ function requirementsEqual(
   );
 }
 
+function uniqueParticipants(participants: ParticipantRow[]): ParticipantRow[] {
+  // The legacy schema permits duplicate membership rows. The user identity and
+  // profile fields are shared, so retain the first row from the sorted query.
+  const byUserID = new Map<number, ParticipantRow>();
+  participants.forEach((participant) => {
+    if (!byUserID.has(participant.userID)) {
+      byUserID.set(participant.userID, participant);
+    }
+  });
+  return [...byUserID.values()];
+}
+
 function participantView(
   participant: ParticipantRow,
   plan: PlanRow,
@@ -160,7 +172,7 @@ export default class ChorePlanRequirementsController {
           requirements: planRequirements,
         },
         mutationsAllowed: plan.status !== 'closed',
-        participants: participants.map((participant) =>
+        participants: uniqueParticipants(participants).map((participant) =>
           participantView(
             participant,
             plan,
@@ -177,17 +189,6 @@ export default class ChorePlanRequirementsController {
     userID: number,
     actorUserID: number,
   ): Promise<MutationContext> {
-    const actor = await transaction('users')
-      .select('id')
-      .where({ id: actorUserID })
-      // Audit entries acquire this same lock through their actor foreign key.
-      // Take it before plan and participant locks to avoid signup deadlocks.
-      .forKeyShare()
-      .first();
-    if (!actor) {
-      throw new ChorePlanRequirementError('User not found.', 404);
-    }
-
     const roster = await transaction('rosters')
       .select('id')
       .where({ id: rosterID })
@@ -214,6 +215,17 @@ export default class ChorePlanRequirementsController {
         'Participant requirements cannot change while the plan is closed.',
         409,
       );
+    }
+
+    // Signup and lifecycle transitions lock the plan before user rows. Keep
+    // that order here while taking the audit foreign key's FOR KEY SHARE lock.
+    const actor = await transaction('users')
+      .select('id')
+      .where({ id: actorUserID })
+      .forKeyShare()
+      .first();
+    if (!actor) {
+      throw new ChorePlanRequirementError('User not found.', 404);
     }
 
     const participant = (await transaction('roster_participants as participant')

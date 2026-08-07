@@ -76,15 +76,18 @@ async function addParticipant(
   database: Knex,
   rosterID: number,
   userID: number,
-): Promise<void> {
-  await database('roster_participants').insert({
-    rosterID,
-    userID,
-    probabilityOfAttending: 100,
-    estimatedArrivalDate: new Date('2026-08-20T00:00:00.000Z'),
-    estimatedDepartureDate: new Date('2026-09-10T00:00:00.000Z'),
-    sleepingArrangement: 'Test fixture',
-  });
+): Promise<number> {
+  const [participant] = (await database('roster_participants')
+    .insert({
+      rosterID,
+      userID,
+      probabilityOfAttending: 100,
+      estimatedArrivalDate: new Date('2026-08-20T00:00:00.000Z'),
+      estimatedDepartureDate: new Date('2026-09-10T00:00:00.000Z'),
+      sleepingArrangement: 'Test fixture',
+    })
+    .returning('id')) as IDRow[];
+  return participant.id;
 }
 
 test('requirement override input is exact, bounded, and always reasoned', () => {
@@ -261,6 +264,20 @@ test(
           },
         ],
       });
+      const duplicateParticipantID = await addParticipant(
+        database,
+        roster.id,
+        users[1].id,
+      );
+      assert.deepEqual(
+        (await requirementController.getView(roster.id)).participants.map(
+          ({ userID }) => userID,
+        ),
+        [users[1].id, users[2].id],
+      );
+      await database('roster_participants')
+        .where({ id: duplicateParticipantID })
+        .del();
       await assert.rejects(
         requirementController.getView(roster.id + 1000),
         (error) => isRequirementError(error, 404, /roster not found/i),
@@ -435,6 +452,38 @@ test(
             new Date(secondShift.endTime).getTime(),
       );
       assert(thirdShift);
+
+      let resolvePlanLock: (() => void) | undefined;
+      const planLocked = new Promise<void>((resolve) => {
+        resolvePlanLock = resolve;
+      });
+      const signupLockOrder = database.transaction(async (transaction) => {
+        await transaction('chore_plans')
+          .select('id')
+          .where({ id: applied.draft.id })
+          .forShare()
+          .first();
+        resolvePlanLock?.();
+        await sleep(250);
+        await transaction('users')
+          .select('id')
+          .where({ id: users[2].id })
+          .forUpdate()
+          .first();
+      });
+      await planLocked;
+      await Promise.all([
+        requirementController.setOverride(
+          roster.id,
+          users[1].id,
+          {
+            requirements: { chore: 0, event: 1, dinner: 1 },
+            reason: 'Signup-first concurrency lock test',
+          },
+          users[2].id,
+        ),
+        signupLockOrder,
+      ]);
 
       await database.raw(`
         CREATE FUNCTION delay_requirement_actor_audit() RETURNS trigger AS $$
