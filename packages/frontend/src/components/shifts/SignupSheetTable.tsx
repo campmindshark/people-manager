@@ -29,6 +29,14 @@ const DAY_LABELS = [
   'Saturday',
 ] as const;
 const DAYS = DAY_LABELS.length;
+const EVENT_PERIODS = [
+  { key: '12p-3p', label: '12 pm - 3 pm' },
+  { key: '3p-6p', label: '3 pm - 6 pm' },
+  { key: '6p-9p', label: '6 pm - 9 pm' },
+  { key: '9p-12a', label: '9 pm - 12 am' },
+  { key: '12a-3a', label: '12 am - 3 am' },
+] as const;
+const EVENT_PERIOD_KEYS = new Set<string>(EVENT_PERIODS.map(({ key }) => key));
 
 const SignupSheetShell = styled(Paper)(({ theme }) => ({
   '--signup-sheet-divider': theme.palette.divider,
@@ -62,16 +70,14 @@ const SignupSheetShell = styled(Paper)(({ theme }) => ({
   '--signup-sheet-admin-selection': theme.palette.secondary.main,
 }));
 
-function formatTimePeriod(value: string): string {
-  const match = value.trim().match(/^(\d{1,2})(a|p)-(\d{1,2})(a|p)$/i);
+function eventPeriodKey(value: string): string {
+  const match = value
+    .trim()
+    .match(/^(\d{1,2})\s*([ap])(?:m)?\s*-\s*(\d{1,2})\s*([ap])(?:m)?$/i);
   if (!match) {
-    return value || 'Any time';
+    return value.trim().toLowerCase();
   }
-  const meridiem = (marker: string) =>
-    marker.toLowerCase() === 'a' ? 'AM' : 'PM';
-  return `${match[1]} ${meridiem(match[2])} - ${match[3]} ${meridiem(
-    match[4],
-  )}`;
+  return `${Number(match[1])}${match[2].toLowerCase()}-${Number(match[3])}${match[4].toLowerCase()}`;
 }
 
 function parseClockTime(value: string): { label: string; minutes: number } {
@@ -176,25 +182,20 @@ function EventScheduleTable<ShiftType extends SignupSheetShift>({
   renderShift: (shift: ShiftType) => React.ReactNode;
   emptyCellContent: React.ReactNode;
 }) {
+  const displayedShifts = shifts.filter((shift) =>
+    EVENT_PERIOD_KEYS.has(eventPeriodKey(shift.timePeriod)),
+  );
   const cells = new Map(
-    shifts.map((shift) => [
-      `${shift.day}|${shift.periodOrder}|${shift.timePeriod}|${shift.scheduleName}`,
+    displayedShifts.map((shift) => [
+      `${shift.day}|${eventPeriodKey(shift.timePeriod)}|${shift.scheduleName}`,
       shift,
     ]),
   );
   const eventShiftNames = [
     ...new Map(
-      shifts.map((shift) => [shift.scheduleName, shift.scheduleName]),
+      displayedShifts.map((shift) => [shift.scheduleName, shift.scheduleName]),
     ).values(),
   ];
-  const periods = [
-    ...new Map(
-      shifts.map((shift) => [
-        `${shift.periodOrder}|${shift.timePeriod}`,
-        { periodOrder: shift.periodOrder, timePeriod: shift.timePeriod },
-      ]),
-    ).values(),
-  ].sort((first, second) => first.periodOrder - second.periodOrder);
 
   return (
     <SignupSheetShell
@@ -210,12 +211,9 @@ function EventScheduleTable<ShiftType extends SignupSheetShift>({
             <th className="signup-sheet-event-shift-heading" scope="col">
               Shift
             </th>
-            {periods.map((period) => (
-              <th
-                scope="col"
-                key={`${period.periodOrder}|${period.timePeriod}`}
-              >
-                {formatTimePeriod(period.timePeriod)}
+            {EVENT_PERIODS.map((period) => (
+              <th scope="col" key={period.key}>
+                {period.label}
               </th>
             ))}
           </tr>
@@ -242,12 +240,12 @@ function EventScheduleTable<ShiftType extends SignupSheetShift>({
                   <th className="signup-sheet-event-shift-cell" scope="row">
                     {shiftName}
                   </th>
-                  {periods.map((period) => {
+                  {EVENT_PERIODS.map((period) => {
                     const shift = cells.get(
-                      `${day}|${period.periodOrder}|${period.timePeriod}|${shiftName}`,
+                      `${day}|${period.key}|${shiftName}`,
                     );
                     return (
-                      <td key={`${period.periodOrder}|${period.timePeriod}`}>
+                      <td key={period.key}>
                         {shift ? renderShift(shift) : emptyCellContent}
                       </td>
                     );
