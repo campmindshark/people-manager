@@ -29,6 +29,8 @@ const DAY_LABELS = [
   'Saturday',
 ] as const;
 const DAYS = DAY_LABELS.length;
+// The catalog's zero-score 3a-6a period is deliberately omitted to preserve
+// PR #58's canonical five-period signup sheet.
 const EVENT_PERIODS = [
   { key: '12p-3p', label: '12 pm - 3 pm' },
   { key: '3p-6p', label: '3 pm - 6 pm' },

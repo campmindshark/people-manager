@@ -143,6 +143,14 @@ export default class ChorePlanLifecycleController {
         'SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY',
       );
 
+      const roster = await transaction('rosters')
+        .select('id')
+        .where({ id: rosterID })
+        .first();
+      if (!roster) {
+        throw new ChorePlanLifecycleError('Roster not found.', 404);
+      }
+
       const plan = (await transaction<ChorePlanLifecycleRow>('chore_plans')
         .where({ rosterID })
         .first()) as ChorePlanLifecycleRow | undefined;

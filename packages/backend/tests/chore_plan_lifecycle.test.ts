@@ -142,6 +142,10 @@ test(
         plan: null,
       });
       await assert.rejects(
+        lifecycleController.getByRosterID(roster.id + 1_000_000),
+        (error) => isLifecycleError(error, 404, /roster not found/i),
+      );
+      await assert.rejects(
         lifecycleController.open(roster.id, opener.id),
         (error) => isLifecycleError(error, 404, /not found/i),
       );
