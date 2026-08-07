@@ -4,6 +4,9 @@ import { RecoilRoot } from 'recoil';
 import { FeatureFlagsState } from '../state/features';
 import Shifts, { VerifiedShiftExperience } from './Shifts';
 
+let mockLifecycleStatus = 'draft';
+let mockShiftViewMountCount = 0;
+
 jest.mock('../layouts/dashboard/Dashboard', () => {
   function Dashboard({ children }: { children: React.ReactNode }) {
     return <div>{children}</div>;
@@ -36,9 +39,23 @@ jest.mock('../state/store', () => {
   };
 });
 
-jest.mock('src/components/shifts/ChorePlanShiftView', () => () => (
-  <div>Chore signup sheets</div>
-));
+jest.mock('src/components/shifts/ChorePlanShiftView', () => {
+  const ReactModule = jest.requireActual('react') as typeof import('react');
+
+  function ChorePlanShiftView() {
+    const [mountNumber] = ReactModule.useState(() => {
+      mockShiftViewMountCount += 1;
+      return mockShiftViewMountCount;
+    });
+    return (
+      <div>
+        <div>Chore signup sheets</div>
+        <div>Chore sheet mount {mountNumber}</div>
+      </div>
+    );
+  }
+  return ChorePlanShiftView;
+});
 jest.mock('src/components/shifts/ShiftDisplay', () => () => (
   <div>Legacy hourly shifts</div>
 ));
@@ -57,7 +74,7 @@ jest.mock('src/components/shifts/ChoreSignupControls', () => ({
   useChoreSignupControls: () => ({
     canManageChorePlans: true,
     canReopenChorePlans: true,
-    plan: { status: 'draft' },
+    plan: { id: 3, status: mockLifecycleStatus },
     loading: false,
     error: null,
     reviewingReopen: false,
@@ -66,6 +83,11 @@ jest.mock('src/components/shifts/ChoreSignupControls', () => ({
     reopenSignups: jest.fn(),
   }),
 }));
+
+beforeEach(() => {
+  mockLifecycleStatus = 'draft';
+  mockShiftViewMountCount = 0;
+});
 
 function renderExperience(chorePlanning: boolean) {
   render(
@@ -117,4 +139,24 @@ test('puts PR 58 lifecycle status and action before the signup sheets', () => {
   expect(status.compareDocumentPosition(shifts)).toBe(
     Node.DOCUMENT_POSITION_FOLLOWING,
   );
+});
+
+test('refreshes the signup sheets when lifecycle status changes', () => {
+  const shiftsPage = () => (
+    <RecoilRoot
+      initializeState={({ set }) => {
+        set(FeatureFlagsState, { chorePlanning: true });
+      }}
+    >
+      <Shifts />
+    </RecoilRoot>
+  );
+  const { rerender } = render(shiftsPage());
+
+  expect(screen.getByText('Chore sheet mount 1')).toBeVisible();
+
+  mockLifecycleStatus = 'open';
+  rerender(shiftsPage());
+
+  expect(screen.getByText('Chore sheet mount 2')).toBeVisible();
 });
