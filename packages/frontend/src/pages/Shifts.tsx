@@ -98,7 +98,12 @@ export default function Shifts() {
             rosterYear={currentRoster.year}
           />
           {userIsVerified ? (
-            <VerifiedShiftExperience rosterID={currentRoster.id} />
+            <VerifiedShiftExperience
+              key={`${chorePlan?.id ?? 'none'}:${
+                chorePlan?.status ?? 'loading'
+              }`}
+              rosterID={currentRoster.id}
+            />
           ) : (
             <Alert severity="info">
               Verify your account to view the shift signup sheets.
