@@ -45,5 +45,9 @@ export async function up(knex: Knex): Promise<void> {
 // Lifecycle audit rows are application data. Any future replacement must use
 // a separately reviewed forward migration.
 export function down(_knex: Knex): Promise<void> {
-  return Promise.resolve();
+  return Promise.reject(
+    new Error(
+      '20260806030000_chore_plan_lifecycle is forward-only because lifecycle audit rows are application data.',
+    ),
+  );
 }
