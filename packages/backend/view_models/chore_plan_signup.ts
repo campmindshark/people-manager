@@ -1,5 +1,7 @@
+export const MAX_CHORE_PLAN_SIGNUPS_PER_REQUEST = 3;
+
 export interface ChorePlanSignupRequest {
-  shiftID: number;
+  shiftIDs: number[];
 }
 
 export interface ChorePlanSwitchRequest {

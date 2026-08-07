@@ -1,7 +1,8 @@
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {
+  CHORE_PLAN_SIGNUP_RESTRICTION_MESSAGES,
   ChorePlanShiftViewItem,
   ChorePlanShiftViewResponse,
 } from 'backend/view_models/chore_plan_shifts';
@@ -20,17 +21,16 @@ const shift: ChorePlanShiftViewItem = {
   periodOrder: null,
   startTime: '2026-08-30T18:00:00.000Z',
   endTime: '2026-08-30T19:00:00.000Z',
-  requiredParticipants: 2,
+  requiredParticipants: 1,
   assignedParticipantCount: 1,
   currentUserAssigned: true,
+  signupRestrictionReason: null,
+  signupConflictShiftIDs: [],
+  assignments: [{ displayName: 'Moonbeam', currentUser: true }],
   slots: [
     {
       definitionKey: 'chore-am-chum-wench-first',
       positionLabel: 'First',
-    },
-    {
-      definitionKey: 'chore-am-chum-wench-second',
-      positionLabel: 'Second',
     },
   ],
 };
@@ -64,6 +64,7 @@ function client(result: ChorePlanShiftViewResponse): ChorePlanShiftClient {
 
 function openResponse(
   shifts: ChorePlanShiftViewItem[],
+  requirements = { chore: 1, event: 1, dinner: 1 },
 ): ChorePlanShiftViewResponse {
   return response({
     plan: {
@@ -71,7 +72,7 @@ function openResponse(
       rosterID: 2,
       status: 'open',
       planningYear: 2026,
-      requirements: { chore: 1, event: 1, dinner: 1 },
+      requirements,
       openedAt: '2026-08-06T12:00:00.000Z',
       closedAt: null,
     },
@@ -123,6 +124,7 @@ test('renders PR 58-style signup sheets and category requirements', async () => 
     kind: 'event' as const,
     scheduleName: 'Gate',
     currentUserAssigned: false,
+    assignments: [{ displayName: 'Alex R.', currentUser: false }],
   };
   const dinnerShift = {
     ...shift,
@@ -132,6 +134,7 @@ test('renders PR 58-style signup sheets and category requirements', async () => 
     kind: 'dinner' as const,
     scheduleName: 'Kitchen Dinner',
     currentUserAssigned: false,
+    assignments: [{ displayName: 'Taylor B.', currentUser: false }],
   };
   render(
     <ChorePlanShiftView
@@ -141,14 +144,107 @@ test('renders PR 58-style signup sheets and category requirements', async () => 
   );
 
   expect(await screen.findByText('AM Chum Wench')).toBeVisible();
-  expect(screen.getByText('Your signup')).toBeVisible();
+  expect(screen.getByText('Moonbeam')).toBeVisible();
   expect(screen.getByText('Requirement complete!')).toBeVisible();
   expect(screen.getAllByText('1 shift required!')).toHaveLength(2);
 
   userEvent.click(screen.getByRole('button', { name: /event crew/i }));
   expect(screen.getAllByText('Gate')).toHaveLength(7);
+  expect(screen.getByText('Alex R.')).toBeVisible();
   userEvent.click(screen.getByRole('button', { name: /dinner crew/i }));
   expect(screen.getByText('Kitchen Dinner')).toBeVisible();
+  expect(screen.getByText('Taylor B.')).toBeVisible();
+});
+
+test('lets any open spot select the next available position', async () => {
+  const threeSlotShift = {
+    ...shift,
+    assignedParticipantCount: 0,
+    currentUserAssigned: false,
+    requiredParticipants: 3,
+    assignments: [],
+    slots: [
+      ...shift.slots,
+      { definitionKey: 'chore-am-chum-wench-second', positionLabel: 'Second' },
+      { definitionKey: 'chore-am-chum-wench-third', positionLabel: 'Third' },
+    ],
+  };
+  render(
+    <ChorePlanShiftView
+      rosterID={2}
+      planClient={client(openResponse([threeSlotShift]))}
+    />,
+  );
+
+  const openSpots = await screen.findAllByRole('button', {
+    name: /select open spot for AM Chum Wench/i,
+  });
+  expect(openSpots).toHaveLength(3);
+  openSpots.forEach((openSpot) => expect(openSpot).toBeEnabled());
+
+  userEvent.click(openSpots[2]);
+
+  expect(
+    screen.getByRole('button', {
+      name: /deselect open spot for AM Chum Wench/i,
+    }),
+  ).toHaveTextContent('Selected');
+  screen
+    .getAllByRole('button', {
+      name: /^select open spot for AM Chum Wench/i,
+    })
+    .forEach((openSpot) => expect(openSpot).toBeDisabled());
+});
+
+test('selects and submits as many as three non-conflicting chores at once', async () => {
+  const dates = [
+    ['2026-08-30T18:00:00.000Z', '2026-08-30T19:00:00.000Z'],
+    ['2026-08-31T18:00:00.000Z', '2026-08-31T19:00:00.000Z'],
+    ['2026-09-01T18:00:00.000Z', '2026-09-01T19:00:00.000Z'],
+    ['2026-09-02T18:00:00.000Z', '2026-09-02T19:00:00.000Z'],
+  ];
+  const shifts = dates.map(([startTime, endTime], index) => ({
+    ...shift,
+    id: 11 + index,
+    stableKey: `chore|${index + 1}|job-${index + 1}`,
+    scheduleKey: `chore|job-${index + 1}`,
+    scheduleName: `Daily job ${index + 1}`,
+    displayDayNumber: index + 1,
+    startTime,
+    endTime,
+    assignedParticipantCount: 0,
+    currentUserAssigned: false,
+    assignments: [],
+  }));
+  const planClient = client(
+    openResponse(shifts, { chore: 4, event: 1, dinner: 1 }),
+  );
+  render(<ChorePlanShiftView rosterID={2} planClient={planClient} />);
+
+  const openSpot = (job: number) =>
+    screen.getByRole('button', {
+      name: new RegExp(`select open spot for Daily job ${job}`, 'i'),
+    });
+  userEvent.click(
+    await screen.findByRole('button', {
+      name: /select open spot for Daily job 1/i,
+    }),
+  );
+  expect(openSpot(2)).toBeEnabled();
+  userEvent.click(openSpot(2));
+  expect(openSpot(3)).toBeEnabled();
+  userEvent.click(openSpot(3));
+  expect(openSpot(4)).toBeDisabled();
+
+  userEvent.click(screen.getByRole('button', { name: 'Sign up (3)' }));
+  await waitFor(() =>
+    expect(planClient.Signup).toHaveBeenCalledWith(2, {
+      shiftIDs: [11, 12, 13],
+    }),
+  );
+  expect(
+    await screen.findByText(/signed up for 3 chore shifts/i),
+  ).toBeVisible();
 });
 
 test('selects signup-sheet slots before signup, removal, and switching', async () => {
@@ -160,11 +256,17 @@ test('selects signup-sheet slots before signup, removal, and switching', async (
     scheduleName: 'AM Ice Bitch',
     assignedParticipantCount: 0,
     currentUserAssigned: false,
+    assignments: [],
   };
 
   const signupClient = client(
     openResponse([
-      { ...shift, assignedParticipantCount: 0, currentUserAssigned: false },
+      {
+        ...shift,
+        assignedParticipantCount: 0,
+        currentUserAssigned: false,
+        assignments: [],
+      },
     ]),
   );
   const onParticipantStatusChanged = jest.fn();
@@ -182,9 +284,9 @@ test('selects signup-sheet slots before signup, removal, and switching', async (
   );
   userEvent.click(screen.getByRole('button', { name: 'Sign up (1)' }));
   await waitFor(() =>
-    expect(signupClient.Signup).toHaveBeenCalledWith(2, { shiftID: 11 }),
+    expect(signupClient.Signup).toHaveBeenCalledWith(2, { shiftIDs: [11] }),
   );
-  expect(await screen.findByText(/signed up for AM Chum Wench/i)).toBeVisible();
+  expect(await screen.findByText(/signed up for 1 chore shift/i)).toBeVisible();
   expect(signupClient.GetShifts).toHaveBeenCalledTimes(2);
   expect(onParticipantStatusChanged).toHaveBeenCalledTimes(1);
   signupRender.unmount();
@@ -225,10 +327,86 @@ test('selects signup-sheet slots before signup, removal, and switching', async (
   expect(await screen.findByText(/changed to AM Ice Bitch/i)).toBeVisible();
 });
 
+test.each([
+  [
+    'the attendance window',
+    CHORE_PLAN_SIGNUP_RESTRICTION_MESSAGES.outsideAttendanceWindow,
+  ],
+  [
+    'an existing assignment',
+    CHORE_PLAN_SIGNUP_RESTRICTION_MESSAGES.existingShiftConflict,
+  ],
+])('disables and explains spots blocked by %s', async (_label, reason) => {
+  const restrictedShift = {
+    ...shift,
+    assignedParticipantCount: 0,
+    currentUserAssigned: false,
+    assignments: [],
+    signupRestrictionReason: reason,
+    signupConflictShiftIDs:
+      reason === CHORE_PLAN_SIGNUP_RESTRICTION_MESSAGES.existingShiftConflict
+        ? [99]
+        : [],
+  };
+  render(
+    <ChorePlanShiftView
+      rosterID={2}
+      planClient={client(openResponse([restrictedShift]))}
+    />,
+  );
+
+  const openSpot = await screen.findByRole('button', {
+    name: /select open spot for AM Chum Wench/i,
+  });
+  expect(openSpot).toBeDisabled();
+
+  fireEvent.mouseOver(openSpot.parentElement as HTMLElement);
+  expect(await screen.findByRole('tooltip')).toHaveTextContent(reason);
+});
+
+test('enables an overlapping replacement only when its conflict is selected for removal', async () => {
+  const replacementShift = {
+    ...shift,
+    id: 12,
+    stableKey: 'chore|1|am-ice-bitch',
+    scheduleKey: 'chore|am-ice-bitch',
+    scheduleName: 'AM Ice Bitch',
+    assignedParticipantCount: 0,
+    currentUserAssigned: false,
+    assignments: [],
+    signupRestrictionReason:
+      CHORE_PLAN_SIGNUP_RESTRICTION_MESSAGES.existingShiftConflict,
+    signupConflictShiftIDs: [shift.id],
+  };
+  render(
+    <ChorePlanShiftView
+      rosterID={2}
+      planClient={client(openResponse([shift, replacementShift]))}
+    />,
+  );
+
+  const replacementSpot = await screen.findByRole('button', {
+    name: /select open spot for AM Ice Bitch/i,
+  });
+  expect(replacementSpot).toBeDisabled();
+
+  userEvent.click(
+    screen.getByRole('button', {
+      name: /remove your spot for AM Chum Wench/i,
+    }),
+  );
+  expect(replacementSpot).toBeEnabled();
+});
+
 test('shows authoritative backend signup conflicts', async () => {
   const planClient = client(
     openResponse([
-      { ...shift, assignedParticipantCount: 0, currentUserAssigned: false },
+      {
+        ...shift,
+        assignedParticipantCount: 0,
+        currentUserAssigned: false,
+        assignments: [],
+      },
     ]),
   );
   planClient.Signup = jest.fn().mockRejectedValue({

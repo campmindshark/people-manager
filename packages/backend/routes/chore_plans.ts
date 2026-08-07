@@ -263,7 +263,7 @@ router.post(
       res.json(
         await signupController.signup(
           parseChorePlanRosterID(req.params.rosterID),
-          input.shiftID,
+          input.shiftIDs,
           user.id,
         ),
       );
