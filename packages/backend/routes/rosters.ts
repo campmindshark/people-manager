@@ -7,6 +7,7 @@ import RosterParticipantViewModel from '../view_models/roster_participant';
 import RosterParticipant from '../models/roster_participant/roster_participant';
 import AnalysisController from '../controllers/analysis';
 import RosterController from '../controllers/roster';
+import RosterParticipantController from '../controllers/roster_participant';
 
 const router: Router = express.Router();
 
@@ -64,16 +65,16 @@ router.post('/:id/drop-out', async (req: Request, res: Response) => {
     } - ${user.displayName()} from roster ${rosterID}`,
   );
 
-  const success = await RosterController.UnregisterParticipantFromRoster(
+  const result = await RosterParticipantController.RemoveFromRoster(
     Number(rosterID),
-    user.id,
+    [user.id],
   );
 
-  if (!success) {
+  if (result.deletedCount === 0) {
     res.status(500).json({ error: 'Failed to drop out user from roster' });
     return;
   }
-  res.json({ success: true });
+  res.json({ success: true, ...result });
 });
 
 /* Get Participants. */

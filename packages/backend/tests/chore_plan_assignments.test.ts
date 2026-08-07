@@ -5,7 +5,7 @@ import knexFactory, { Knex } from 'knex';
 import ChorePlanAssignmentsController from '../controllers/chore_plan_assignments';
 import ChorePlanDraftController from '../controllers/chore_plan_draft';
 import ChorePlanLifecycleController from '../controllers/chore_plan_lifecycle';
-import RosterController from '../controllers/roster';
+import RosterParticipantController from '../controllers/roster_participant';
 import RoleConfigCollection from '../roles/role';
 import ChorePlanAssignmentError from '../utils/chorePlanAssignmentError';
 import {
@@ -399,16 +399,16 @@ test(
       );
       await actorKeyShareConfirmed;
       try {
-        assert.equal(
+        assert.deepEqual(
           await database.transaction(async (transaction) => {
             await transaction.raw("SET LOCAL lock_timeout = '250ms'");
-            return RosterController.UnregisterParticipantFromRoster(
+            return RosterParticipantController.RemoveFromRoster(
               roster.id,
-              users[4].id,
+              [users[4].id],
               transaction,
             );
           }),
-          true,
+          { deletedCount: 1, removedAssignmentCount: 2 },
         );
       } finally {
         releaseActorKeyShare();

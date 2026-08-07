@@ -1,11 +1,11 @@
 import express, { Request, Response, Router } from 'express';
 import { DateTime } from 'luxon';
 import { ValidationError } from 'objection';
-import RosterController from '../controllers/roster';
-import hasPermission from '../middleware/rbac';
+import RosterParticipantController from '../controllers/roster_participant';
 import User from '../models/user/user';
 import Roster from '../models/roster/roster';
 import RosterParticipant from '../models/roster_participant/roster_participant';
+import hasPermission from '../middleware/rbac';
 import { assertYearsAtCampWithinRoster } from '../utils/campYears';
 import { parseRosterParticipantBulkRemovalInput } from '../utils/rosterParticipantInput';
 
@@ -141,17 +141,24 @@ router.delete(
       return;
     }
 
-    const success = await RosterController.UnregisterParticipantFromRoster(
-      parseInt(rosterId, 10),
-      parseInt(userId, 10),
+    const parsedRosterID = parseInt(rosterId, 10);
+    const parsedUserID = parseInt(userId, 10);
+    if (Number.isNaN(parsedRosterID) || Number.isNaN(parsedUserID)) {
+      res.status(400).json({ error: 'Roster ID and User ID must be valid' });
+      return;
+    }
+
+    const result = await RosterParticipantController.RemoveFromRoster(
+      parsedRosterID,
+      [parsedUserID],
     );
 
-    if (!success) {
+    if (result.deletedCount === 0) {
       res.status(404).json({ error: 'User not found in roster' });
       return;
     }
 
-    res.json({ success: true });
+    res.json({ success: true, ...result });
   },
 );
 
@@ -169,20 +176,19 @@ router.delete(
       return;
     }
 
-    const deletedCount =
-      await RosterController.UnregisterParticipantsFromRoster(
-        removal.rosterID,
-        removal.userIDs,
-      );
+    const result = await RosterParticipantController.RemoveFromRoster(
+      removal.rosterID,
+      removal.userIDs,
+    );
 
-    if (deletedCount === 0) {
+    if (result.deletedCount === 0) {
       res
         .status(404)
         .json({ error: 'No participants found for the given user IDs' });
       return;
     }
 
-    res.json({ success: true, deletedCount });
+    res.json({ success: true, ...result });
   },
 );
 

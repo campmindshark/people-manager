@@ -1,10 +1,12 @@
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import test from 'node:test';
+import { setTimeout as delay } from 'node:timers/promises';
 import knexFactory, { Knex } from 'knex';
 import ChorePlanDraftController from '../controllers/chore_plan_draft';
 import ChorePlanLifecycleController from '../controllers/chore_plan_lifecycle';
 import ChorePlanSignupController from '../controllers/chore_plan_signup';
+import RosterParticipantController from '../controllers/roster_participant';
 import ChorePlanSignupError from '../utils/chorePlanSignupError';
 import { shiftTimeRangesOverlap } from '../utils/shiftTime';
 import {
@@ -34,6 +36,10 @@ interface GeneratedShiftRow {
   requiredParticipants: number;
 }
 
+interface BlockedQueryRow {
+  blocked: boolean;
+}
+
 function assertSafeTestDatabaseURL(databaseURL: string | undefined): string {
   assert(databaseURL, 'CHORE_TEARDOWN_TEST_DATABASE_URL must be set.');
   const parsedURL = new URL(databaseURL);
@@ -58,6 +64,41 @@ function isSignupError(
     error instanceof ChorePlanSignupError &&
     error.status === status &&
     message.test(error.message)
+  );
+}
+
+async function waitForBlockedUserLock(
+  database: Knex,
+  applicationName: string,
+  attemptsRemaining = 100,
+): Promise<void> {
+  const result = (await database.raw(
+    `
+      SELECT EXISTS (
+        SELECT 1
+        FROM pg_stat_activity
+        WHERE datname = current_database()
+          AND pid <> pg_backend_pid()
+          AND application_name = ?
+          AND state = 'active'
+          AND wait_event_type = 'Lock'
+          AND query ILIKE '%from "users"%'
+          AND query ILIKE '%for update%'
+      ) AS "blocked"
+    `,
+    [applicationName],
+  )) as { rows: BlockedQueryRow[] };
+  if (result.rows[0]?.blocked) {
+    return;
+  }
+  if (attemptsRemaining <= 1) {
+    assert.fail('Timed out waiting for signup to block on its user row.');
+  }
+  await delay(20);
+  await waitForBlockedUserLock(
+    database,
+    applicationName,
+    attemptsRemaining - 1,
   );
 }
 
@@ -121,7 +162,7 @@ test('signup input accepts only narrow positive shift contracts', () => {
 });
 
 test(
-  'signup, removal, and switching enforce lifecycle and integrity atomically',
+  'signup, roster removal, and switching enforce lifecycle and integrity atomically',
   POSTGRES_TEST_OPTIONS,
   async () => {
     const databaseURL = assertSafeTestDatabaseURL(TEST_DATABASE_URL);
@@ -135,9 +176,11 @@ test(
 
     try {
       await adminDatabase.schema.createSchema(schemaName);
+      const testDatabaseURL = new URL(databaseURL);
+      testDatabaseURL.searchParams.set('application_name', schemaName);
       database = knexFactory({
         client: 'postgresql',
-        connection: databaseURL,
+        connection: testDatabaseURL.toString(),
         migrations: { extension: 'ts', tableName: 'knex_migrations' },
         pool: { max: 8, min: 0 },
         searchPath: [schemaName],
@@ -177,6 +220,10 @@ test(
       const draftController = new ChorePlanDraftController(database);
       const lifecycleController = new ChorePlanLifecycleController(database);
       const signupController = new ChorePlanSignupController(database);
+      await assert.rejects(
+        signupController.signup(roster.id, [1], users[5].id),
+        (error) => isSignupError(error, 403, /roster members/i),
+      );
       const applied = await draftController.apply(
         {
           rosterID: roster.id,
@@ -228,10 +275,62 @@ test(
       assert(overlappingShift);
 
       await assert.rejects(
+        signupController.signup(roster.id, [sourceShift.id], users[5].id),
+        (error) => isSignupError(error, 403, /roster members/i),
+      );
+      await assert.rejects(
         signupController.signup(roster.id, [sourceShift.id], users[0].id),
         (error) => isSignupError(error, 409, /plan is open/i),
       );
       await lifecycleController.open(roster.id, users[0].id);
+
+      let releaseUserLock = () => {};
+      const userLockRelease = new Promise<void>((resolve) => {
+        releaseUserLock = resolve;
+      });
+      let confirmUserLock = () => {};
+      const userLockConfirmed = new Promise<void>((resolve) => {
+        confirmUserLock = resolve;
+      });
+      const blockingTransaction = database.transaction(async (transaction) => {
+        await transaction('users')
+          .select('id')
+          .where({ id: users[0].id })
+          .forUpdate()
+          .first();
+        confirmUserLock();
+        await userLockRelease;
+      });
+      await userLockConfirmed;
+      const blockedSignup = signupController.signup(
+        roster.id,
+        [sourceShift.id],
+        users[0].id,
+      );
+      try {
+        await waitForBlockedUserLock(database, schemaName);
+        await assert.rejects(
+          database.transaction(async (transaction) => {
+            await transaction.raw("SET LOCAL lock_timeout = '250ms'");
+            await transaction('chore_plans')
+              .select('id')
+              .where({ id: applied.draft.id })
+              .forUpdate()
+              .first();
+          }),
+          (error: unknown) =>
+            typeof error === 'object' &&
+            error !== null &&
+            'code' in error &&
+            error.code === '55P03',
+        );
+      } finally {
+        releaseUserLock();
+        await blockingTransaction;
+        await blockedSignup;
+      }
+      await signupController.remove(roster.id, sourceShift.id, users[0].id);
+
       await assert.rejects(
         signupController.signup(roster.id, [sourceShift.id], users[5].id),
         (error) => isSignupError(error, 403, /roster members/i),
@@ -382,10 +481,31 @@ test(
       const capacityAssignment = await database('shift_participants')
         .where({ shiftID: capacityShift.id })
         .first();
-      await signupController.remove(
-        roster.id,
-        capacityShift.id,
-        Number(capacityAssignment.userID),
+      assert.deepEqual(
+        await RosterParticipantController.RemoveFromRoster(
+          roster.id,
+          [Number(capacityAssignment.userID)],
+          database,
+        ),
+        { deletedCount: 1, removedAssignmentCount: 1 },
+      );
+      assert.equal(
+        await database('shift_participants')
+          .where({
+            shiftID: capacityShift.id,
+            userID: Number(capacityAssignment.userID),
+          })
+          .first(),
+        undefined,
+      );
+      assert.equal(
+        await database('roster_participants')
+          .where({
+            rosterID: roster.id,
+            userID: Number(capacityAssignment.userID),
+          })
+          .first(),
+        undefined,
       );
       assert.deepEqual(
         await signupController.switch(
@@ -423,6 +543,10 @@ test(
 
       await signupController.signup(roster.id, [sourceShift.id], users[0].id);
       await lifecycleController.close(roster.id, users[0].id);
+      await assert.rejects(
+        signupController.remove(roster.id, sourceShift.id, users[5].id),
+        (error) => isSignupError(error, 403, /roster members/i),
+      );
       await assert.rejects(
         signupController.remove(roster.id, sourceShift.id, users[0].id),
         (error) => isSignupError(error, 409, /plan is open/i),
