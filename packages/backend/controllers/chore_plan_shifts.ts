@@ -5,6 +5,7 @@ import { shiftTimeRangesOverlap, ShiftTimeRange } from '../utils/shiftTime';
 import {
   CHORE_PLAN_SIGNUP_RESTRICTION_MESSAGES,
   ChorePlanShiftViewAssignment,
+  ChorePlanShiftViewConflict,
   ChorePlanShiftViewItem,
   ChorePlanShiftViewPlan,
   ChorePlanShiftViewResponse,
@@ -62,6 +63,7 @@ interface ParticipantRow {
 
 interface ExistingAssignmentRow extends ShiftTimeRange {
   shiftID: number;
+  scheduleName: string;
 }
 
 function dateMilliseconds(value: Date | string): number {
@@ -239,8 +241,16 @@ export default class ChorePlanShiftsController {
         'shift_participants as assignment',
       )
         .innerJoin('shifts as shift', 'shift.id', 'assignment.shiftID')
-        .select('assignment.shiftID', 'shift.startTime', 'shift.endTime')
-        .where('assignment.userID', userID)) as ExistingAssignmentRow[];
+        .innerJoin('schedules as schedule', 'schedule.id', 'shift.scheduleID')
+        .select(
+          'assignment.shiftID',
+          'schedule.name as scheduleName',
+          'shift.startTime',
+          'shift.endTime',
+        )
+        .where('assignment.userID', userID)
+        .orderBy('shift.startTime')
+        .orderBy('assignment.shiftID')) as ExistingAssignmentRow[];
 
       const slotsByShiftID = new Map<number, ChorePlanShiftViewSlot[]>();
       slotRows.forEach((slot) => {
@@ -271,19 +281,28 @@ export default class ChorePlanShiftsController {
         );
         let signupRestrictionReason: string | null = null;
         let signupConflictShiftIDs: number[] = [];
+        let signupConflicts: ChorePlanShiftViewConflict[] = [];
         if (!currentUserAssigned) {
           if (!attendanceWindowContains(participant, shift)) {
             signupRestrictionReason =
               CHORE_PLAN_SIGNUP_RESTRICTION_MESSAGES.outsideAttendanceWindow;
           } else {
-            signupConflictShiftIDs = existingAssignments
+            signupConflicts = existingAssignments
               .filter(
                 (existingAssignment) =>
                   existingAssignment.shiftID !== shift.shiftID &&
                   shiftTimeRangesOverlap(shift, existingAssignment),
               )
-              .map(({ shiftID }) => Number(shiftID));
-            if (signupConflictShiftIDs.length > 0) {
+              .map(({ shiftID, scheduleName, startTime, endTime }) => ({
+                shiftID: Number(shiftID),
+                scheduleName,
+                startTime: new Date(startTime).toISOString(),
+                endTime: new Date(endTime).toISOString(),
+              }));
+            signupConflictShiftIDs = signupConflicts.map(
+              ({ shiftID }) => shiftID,
+            );
+            if (signupConflicts.length > 0) {
               signupRestrictionReason =
                 CHORE_PLAN_SIGNUP_RESTRICTION_MESSAGES.existingShiftConflict;
             }
@@ -307,6 +326,7 @@ export default class ChorePlanShiftsController {
           currentUserAssigned,
           signupRestrictionReason,
           signupConflictShiftIDs,
+          signupConflicts,
           assignments,
           slots: slotsByShiftID.get(shift.shiftID) ?? [],
         };
