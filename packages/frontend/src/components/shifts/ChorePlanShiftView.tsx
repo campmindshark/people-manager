@@ -1,4 +1,10 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import {
   Accordion,
@@ -530,35 +536,50 @@ export default function ChorePlanShiftView({
     null,
   );
   const [error, setError] = useState<string | null>(null);
+  const latestLoadRequestID = useRef(0);
+  const currentLoadScope = useRef({ client, rosterID });
+  currentLoadScope.current = { client, rosterID };
 
-  const loadShifts = async () => {
-    setResponse(await client.GetShifts(rosterID));
-  };
+  const loadShifts = useCallback(async () => {
+    const requestID = latestLoadRequestID.current + 1;
+    latestLoadRequestID.current = requestID;
+    const requestedClient = client;
+    const requestedRosterID = rosterID;
+    const requestIsCurrent = () =>
+      latestLoadRequestID.current === requestID &&
+      currentLoadScope.current.client === requestedClient &&
+      currentLoadScope.current.rosterID === requestedRosterID;
+
+    try {
+      const nextResponse = await requestedClient.GetShifts(requestedRosterID);
+      if (requestIsCurrent()) {
+        setResponse(nextResponse);
+      }
+    } catch (loadFailure) {
+      if (requestIsCurrent()) {
+        throw loadFailure;
+      }
+    }
+  }, [client, rosterID]);
 
   useEffect(() => {
     let active = true;
     setResponse(null);
     setError(null);
 
-    client
-      .GetShifts(rosterID)
-      .then((nextResponse) => {
-        if (active) {
-          setResponse(nextResponse);
-        }
-      })
-      .catch(() => {
-        if (active) {
-          setError(
-            'Chore plan shifts are available only to verified roster members.',
-          );
-        }
-      });
+    loadShifts().catch(() => {
+      if (active) {
+        setError(
+          'Chore plan shifts are available only to verified roster members.',
+        );
+      }
+    });
 
     return () => {
       active = false;
+      latestLoadRequestID.current += 1;
     };
-  }, [client, rosterID]);
+  }, [loadShifts]);
 
   if (error) {
     return <Alert severity="error">{error}</Alert>;
