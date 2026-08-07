@@ -198,6 +198,7 @@ test(
         .insert({ year: 2026 })
         .returning('id')) as IDRow[];
       await addParticipant(database, roster.id, users[1].id);
+      await addParticipant(database, roster.id, users[1].id);
       await addParticipant(database, roster.id, users[2].id);
       await addParticipant(
         database,

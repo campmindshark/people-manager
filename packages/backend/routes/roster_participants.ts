@@ -7,6 +7,7 @@ import User from '../models/user/user';
 import Roster from '../models/roster/roster';
 import RosterParticipant from '../models/roster_participant/roster_participant';
 import { assertYearsAtCampWithinRoster } from '../utils/campYears';
+import { parseRosterParticipantBulkRemovalInput } from '../utils/rosterParticipantInput';
 
 const router: Router = express.Router();
 
@@ -162,17 +163,16 @@ router.delete(
     const { rosterId } = req.params;
     const { userIds } = req.body;
 
-    if (!rosterId || !userIds || !Array.isArray(userIds)) {
-      res
-        .status(400)
-        .json({ error: 'Roster ID and user IDs array are required' });
+    const removal = parseRosterParticipantBulkRemovalInput(rosterId, userIds);
+    if (!removal) {
+      res.status(400).json({ error: 'Valid roster and user IDs are required' });
       return;
     }
 
     const deletedCount =
       await RosterController.UnregisterParticipantsFromRoster(
-        parseInt(rosterId, 10),
-        userIds.map((userID) => Number(userID)),
+        removal.rosterID,
+        removal.userIDs,
       );
 
     if (deletedCount === 0) {
