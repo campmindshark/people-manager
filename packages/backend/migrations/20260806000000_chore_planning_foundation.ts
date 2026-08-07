@@ -194,5 +194,9 @@ export async function up(knex: Knex): Promise<void> {
 // This migration becomes an application data boundary as soon as scores are
 // edited. A future removal must use a separately reviewed forward migration.
 export function down(_knex: Knex): Promise<void> {
-  return Promise.resolve();
+  return Promise.reject(
+    new Error(
+      '20260806000000_chore_planning_foundation is forward-only because the catalog becomes application data.',
+    ),
+  );
 }

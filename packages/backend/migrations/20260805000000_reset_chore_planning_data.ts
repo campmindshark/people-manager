@@ -14,6 +14,9 @@ export async function up(knex: Knex): Promise<void> {
 }
 
 export function down(_knex: Knex): Promise<void> {
-  // Deleted planning data cannot be reconstructed during a rollback.
-  return Promise.resolve();
+  return Promise.reject(
+    new Error(
+      '20260805000000_reset_chore_planning_data is forward-only because deleted planning data cannot be reconstructed.',
+    ),
+  );
 }
