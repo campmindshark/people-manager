@@ -1,10 +1,11 @@
 import express, { Request, Response, Router } from 'express';
 import { DateTime } from 'luxon';
 import { ValidationError } from 'objection';
+import RosterController from '../controllers/roster';
+import hasPermission from '../middleware/rbac';
 import User from '../models/user/user';
 import Roster from '../models/roster/roster';
 import RosterParticipant from '../models/roster_participant/roster_participant';
-import hasPermission from '../middleware/rbac';
 import { assertYearsAtCampWithinRoster } from '../utils/campYears';
 
 const router: Router = express.Router();
@@ -139,22 +140,13 @@ router.delete(
       return;
     }
 
-    const participant = await RosterParticipant.query()
-      .where({
-        userID: parseInt(userId, 10),
-        rosterID: parseInt(rosterId, 10),
-      })
-      .first();
-
-    if (!participant) {
-      res.status(404).json({ error: 'User not found in roster' });
-      return;
-    }
-
-    const success = await RosterParticipant.query().deleteById(participant.id);
+    const success = await RosterController.UnregisterParticipantFromRoster(
+      parseInt(rosterId, 10),
+      parseInt(userId, 10),
+    );
 
     if (!success) {
-      res.status(500).json({ error: 'Failed to remove user from roster' });
+      res.status(404).json({ error: 'User not found in roster' });
       return;
     }
 
@@ -177,23 +169,18 @@ router.delete(
       return;
     }
 
-    const participants = await RosterParticipant.query()
-      .where({
-        rosterID: parseInt(rosterId, 10),
-      })
-      .whereIn('userID', userIds);
+    const deletedCount =
+      await RosterController.UnregisterParticipantsFromRoster(
+        parseInt(rosterId, 10),
+        userIds.map((userID) => Number(userID)),
+      );
 
-    if (participants.length === 0) {
+    if (deletedCount === 0) {
       res
         .status(404)
         .json({ error: 'No participants found for the given user IDs' });
       return;
     }
-
-    const participantIds = participants.map((p) => p.id);
-    const deletedCount = await RosterParticipant.query()
-      .whereIn('id', participantIds)
-      .delete();
 
     res.json({ success: true, deletedCount });
   },

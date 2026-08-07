@@ -304,3 +304,31 @@ test('surfaces authoritative backend conflicts without refreshing', async () => 
   expect(await screen.findByText(/exceeds shift capacity/i)).toBeVisible();
   expect(client.GetAdminAssignments).toHaveBeenCalledTimes(1);
 });
+
+test('reports a saved mutation when the follow-up refresh fails', async () => {
+  const client = planClient();
+  client.GetAdminAssignments = jest
+    .fn()
+    .mockResolvedValueOnce(assignmentView())
+    .mockRejectedValueOnce(new Error('refresh failed'));
+  render(<ChorePlanAssignmentManager planClient={client} rosterID={2} />);
+
+  userEvent.click(
+    await screen.findByRole('button', {
+      name: /Select Alpha Camper \(A\).*for admin shift editing/,
+    }),
+  );
+  userEvent.click(
+    screen.getByRole('button', {
+      name: /Select PM Chum Wench.*as move destination/,
+    }),
+  );
+  userEvent.click(screen.getByRole('button', { name: 'Move person' }));
+
+  expect(await screen.findByText(/Alpha Camper \(A\) was moved/)).toBeVisible();
+  expect(
+    await screen.findByText(/assignment change was saved.*refresh the page/i),
+  ).toBeVisible();
+  expect(client.MutateAdminAssignments).toHaveBeenCalledTimes(1);
+  expect(client.GetAdminAssignments).toHaveBeenCalledTimes(2);
+});

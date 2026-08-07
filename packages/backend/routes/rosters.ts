@@ -64,7 +64,10 @@ router.post('/:id/drop-out', async (req: Request, res: Response) => {
     } - ${user.displayName()} from roster ${rosterID}`,
   );
 
-  const success = await RosterParticipant.query().deleteById(participant.id);
+  const success = await RosterController.UnregisterParticipantFromRoster(
+    Number(rosterID),
+    user.id,
+  );
 
   if (!success) {
     res.status(500).json({ error: 'Failed to drop out user from roster' });
