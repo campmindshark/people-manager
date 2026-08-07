@@ -44,5 +44,9 @@ export async function up(knex: Knex): Promise<void> {
 // Score history is application audit data. Remove or replace this schema only
 // through a separately reviewed forward migration.
 export function down(_knex: Knex): Promise<void> {
-  return Promise.resolve();
+  return Promise.reject(
+    new Error(
+      '20260806010000_chore_catalog_score_audit is forward-only because score history is application audit data.',
+    ),
+  );
 }

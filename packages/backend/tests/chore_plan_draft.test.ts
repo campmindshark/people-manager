@@ -4,6 +4,7 @@ import test from 'node:test';
 import knexFactory, { Knex } from 'knex';
 import ChoreCatalogController from '../controllers/chore_catalog';
 import ChorePlanDraftController from '../controllers/chore_plan_draft';
+import { seed as seedSchedulesAndShifts } from '../seeds/schedules-and-shifts';
 import ChorePlanPreviewError from '../utils/chorePlanPreviewError';
 import { ChorePlanApplyRequest } from '../view_models/chore_plan_preview';
 
@@ -68,6 +69,35 @@ async function countRows(database: Knex, tableName: string): Promise<number> {
   const result = (await database(tableName).count('* as count').first()) as
     CountRow | undefined;
   return Number(result?.count ?? 0);
+}
+
+async function persistedPlanState(database: Knex, chorePlanID: number) {
+  const generatedShiftIDs = (
+    await database('chore_plan_generated_shifts')
+      .where({ chorePlanID })
+      .orderBy('shiftID')
+      .pluck('shiftID')
+  ).map(Number);
+
+  return {
+    plan: await database('chore_plans').where({ id: chorePlanID }).first(),
+    schedules: await database('schedules').where({ chorePlanID }).orderBy('id'),
+    shifts: await database('shifts')
+      .whereIn('id', generatedShiftIDs)
+      .orderBy('id'),
+    generatedShifts: await database('chore_plan_generated_shifts')
+      .where({ chorePlanID })
+      .orderBy('shiftID'),
+    slotSnapshots: await database('chore_plan_slot_snapshots')
+      .whereIn('shiftID', generatedShiftIDs)
+      .orderBy(['shiftID', 'slotOrder']),
+    assignments: await database('shift_participants')
+      .whereIn('shiftID', generatedShiftIDs)
+      .orderBy('id'),
+    auditEntries: await database('chore_plan_audit_entries')
+      .where({ chorePlanID })
+      .orderBy('id'),
+  };
 }
 
 test(
@@ -331,6 +361,29 @@ test(
         shiftID: assignedShift.shiftID,
         userID: participant.id,
       });
+      const planStateBeforeSeed = await persistedPlanState(
+        database,
+        first.draft.id,
+      );
+      await seedSchedulesAndShifts(database);
+      const fixtureCountsAfterFirstSeed = {
+        schedules: await countRows(database, 'schedules'),
+        shifts: await countRows(database, 'shifts'),
+      };
+      await seedSchedulesAndShifts(database);
+      assert.deepEqual(
+        await persistedPlanState(database, first.draft.id),
+        planStateBeforeSeed,
+        'repeat seeding must preserve the plan, generated rows, assignment, snapshots, and audit history',
+      );
+      assert.deepEqual(
+        {
+          schedules: await countRows(database, 'schedules'),
+          shifts: await countRows(database, 'shifts'),
+        },
+        fixtureCountsAfterFirstSeed,
+        'fixture seeding must be idempotent',
+      );
       await assert.rejects(
         controller.apply(
           applyRequest(roster.id, {
