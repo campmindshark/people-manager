@@ -2,6 +2,7 @@ import { Knex } from 'knex';
 import ChorePlan from '../models/chore_plan/chore_plan';
 import ChorePlanSignupError from '../utils/chorePlanSignupError';
 import { shiftTimeRangesOverlap, ShiftTimeRange } from '../utils/shiftTime';
+import { CHORE_PLAN_SIGNUP_RESTRICTION_MESSAGES } from '../view_models/chore_plan_shifts';
 import { ChorePlanSignupMutationResponse } from '../view_models/chore_plan_signup';
 
 type ChorePlanKind = 'chore' | 'event' | 'dinner';
@@ -159,7 +160,7 @@ export default class ChorePlanSignupController {
         dateMilliseconds(participant.estimatedDepartureDate)
     ) {
       throw new ChorePlanSignupError(
-        'This shift is outside your roster attendance window.',
+        CHORE_PLAN_SIGNUP_RESTRICTION_MESSAGES.outsideAttendanceWindow,
         409,
       );
     }
@@ -188,7 +189,7 @@ export default class ChorePlanSignupController {
       )
     ) {
       throw new ChorePlanSignupError(
-        'You already have another assignment during this time block.',
+        CHORE_PLAN_SIGNUP_RESTRICTION_MESSAGES.existingShiftConflict,
         409,
       );
     }

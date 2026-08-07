@@ -10,10 +10,12 @@ import {
   CircularProgress,
   Paper,
   Stack,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import { ChoreCatalogKind } from 'backend/view_models/chore_catalog';
 import {
+  CHORE_PLAN_SIGNUP_RESTRICTION_MESSAGES,
   ChorePlanShiftViewItem,
   ChorePlanShiftViewPlan,
   ChorePlanShiftViewResponse,
@@ -137,6 +139,7 @@ function SignupSlots({
   signupSelected,
   removalSelected,
   selectionDisabled,
+  selectionDisabledReason,
   submitting,
   onToggleSignup,
   onToggleRemoval,
@@ -146,6 +149,7 @@ function SignupSlots({
   signupSelected: boolean;
   removalSelected: boolean;
   selectionDisabled: boolean;
+  selectionDisabledReason: string | null;
   submitting: boolean;
   onToggleSignup: () => void;
   onToggleRemoval: () => void;
@@ -202,23 +206,30 @@ function SignupSlots({
         const firstOpenSlot = index === assignedCount;
         if (firstOpenSlot && mutationsAllowed) {
           return (
-            <button
-              aria-label={`${
-                signupSelected ? 'Deselect' : 'Select'
-              } open spot for ${shift.scheduleName}, day ${
-                shift.displayDayNumber
-              }, ${shift.timePeriodLabel}`}
-              aria-pressed={signupSelected}
-              className={`signup-sheet-slot signup-sheet-slot-button ${
-                signupSelected ? 'selected' : 'open'
-              }`}
-              disabled={submitting || selectionDisabled}
+            <Tooltip
+              describeChild
               key={`${shift.stableKey}|slot-${index}`}
-              onClick={onToggleSignup}
-              type="button"
+              title={selectionDisabled ? (selectionDisabledReason ?? '') : ''}
             >
-              {signupSelected ? 'Selected' : 'Open spot'}
-            </button>
+              <span className="signup-sheet-slot-tooltip">
+                <button
+                  aria-label={`${
+                    signupSelected ? 'Deselect' : 'Select'
+                  } open spot for ${shift.scheduleName}, day ${
+                    shift.displayDayNumber
+                  }, ${shift.timePeriodLabel}`}
+                  aria-pressed={signupSelected}
+                  className={`signup-sheet-slot signup-sheet-slot-button ${
+                    signupSelected ? 'selected' : 'open'
+                  }`}
+                  disabled={submitting || selectionDisabled}
+                  onClick={onToggleSignup}
+                  type="button"
+                >
+                  {signupSelected ? 'Selected' : 'Open spot'}
+                </button>
+              </span>
+            </Tooltip>
           );
         }
         return (
@@ -343,11 +354,37 @@ function SignupCategory({
         shifts={shifts.map(signupSheetShift)}
         renderShift={({ item }) => {
           const selected = selectedShiftID === item.id;
-          const selectionDisabled =
+          const unresolvedSignupConflict = item.signupConflictShiftIDs.some(
+            (conflictingShiftID) =>
+              conflictingShiftID !== selectedRemovalShiftID,
+          );
+          const signupRestrictionResolvedByChange =
+            item.signupRestrictionReason ===
+              CHORE_PLAN_SIGNUP_RESTRICTION_MESSAGES.existingShiftConflict &&
+            item.signupConflictShiftIDs.length > 0 &&
+            !unresolvedSignupConflict;
+          let selectionDisabledReason: string | null = null;
+          if (!selected && item.currentUserAssigned) {
+            selectionDisabledReason =
+              'You are already signed up for this shift.';
+          } else if (
             !selected &&
-            (item.currentUserAssigned ||
-              (selectedRemovalShiftID === null &&
-                (remainingSignupCount === 0 || selectedShiftID !== null)));
+            item.signupRestrictionReason &&
+            !signupRestrictionResolvedByChange
+          ) {
+            selectionDisabledReason = item.signupRestrictionReason;
+          } else if (!selected && selectedShiftID !== null) {
+            selectionDisabledReason = 'Select one open shift at a time.';
+          } else if (
+            !selected &&
+            selectedRemovalShiftID === null &&
+            remainingSignupCount === 0
+          ) {
+            selectionDisabledReason =
+              requirement === 0
+                ? `No ${kind} shifts are required for you.`
+                : `You already have all required ${kind} assignments. Select one of your current shifts to choose a replacement.`;
+          }
           return (
             <SignupSlots
               mutationsAllowed={mutationsAllowed}
@@ -366,7 +403,8 @@ function SignupCategory({
                 );
               }}
               removalSelected={selectedRemovalShiftID === item.id}
-              selectionDisabled={selectionDisabled}
+              selectionDisabled={selectionDisabledReason !== null}
+              selectionDisabledReason={selectionDisabledReason}
               shift={item}
               signupSelected={selected}
               submitting={submitting}

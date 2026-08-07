@@ -6,6 +6,7 @@ import ChorePlanDraftController from '../controllers/chore_plan_draft';
 import ChorePlanLifecycleController from '../controllers/chore_plan_lifecycle';
 import ChorePlanShiftsController from '../controllers/chore_plan_shifts';
 import ChorePlanShiftViewError from '../utils/chorePlanShiftViewError';
+import { CHORE_PLAN_SIGNUP_RESTRICTION_MESSAGES } from '../view_models/chore_plan_shifts';
 
 const TEST_DATABASE_URL = process.env.CHORE_TEARDOWN_TEST_DATABASE_URL;
 const POSTGRES_TEST_OPTIONS = {
@@ -196,6 +197,68 @@ test(
         )?.currentUserAssigned,
         false,
       );
+
+      const availableShift = openView.shifts.find(
+        ({ id, assignedParticipantCount, requiredParticipants }) =>
+          id !== generatedShift.shiftID &&
+          assignedParticipantCount < requiredParticipants,
+      );
+      assert(availableShift);
+      await database('roster_participants')
+        .where({ rosterID: roster.id, userID: unassignedMember.id })
+        .update({ estimatedArrivalDate: new Date(availableShift.endTime) });
+      const attendanceRestrictedView = await shiftsController.getForUser(
+        roster.id,
+        unassignedMember.id,
+      );
+      assert.equal(
+        attendanceRestrictedView.shifts.find(
+          ({ id }) => id === availableShift.id,
+        )?.signupRestrictionReason,
+        CHORE_PLAN_SIGNUP_RESTRICTION_MESSAGES.outsideAttendanceWindow,
+      );
+
+      await database('roster_participants')
+        .where({ rosterID: roster.id, userID: unassignedMember.id })
+        .update({
+          estimatedArrivalDate: new Date('2026-08-20T00:00:00.000Z'),
+        });
+      const [ordinarySchedule] = (await database('schedules')
+        .insert({
+          rosterID: roster.id,
+          name: 'Shift view overlap fixture',
+          description: 'Shift view overlap fixture',
+          chorePlanID: null,
+          plannerKey: null,
+        })
+        .returning('id')) as IDRow[];
+      const [ordinaryShift] = (await database('shifts')
+        .insert({
+          scheduleID: ordinarySchedule.id,
+          startTime: new Date(availableShift.startTime),
+          endTime: new Date(availableShift.endTime),
+          requiredParticipants: 10,
+          plannerKey: null,
+        })
+        .returning('id')) as IDRow[];
+      await database('shift_participants').insert({
+        shiftID: ordinaryShift.id,
+        userID: unassignedMember.id,
+      });
+      const overlapRestrictedView = await shiftsController.getForUser(
+        roster.id,
+        unassignedMember.id,
+      );
+      const overlapRestrictedShift = overlapRestrictedView.shifts.find(
+        ({ id }) => id === availableShift.id,
+      );
+      assert.equal(
+        overlapRestrictedShift?.signupRestrictionReason,
+        CHORE_PLAN_SIGNUP_RESTRICTION_MESSAGES.existingShiftConflict,
+      );
+      assert.deepEqual(overlapRestrictedShift?.signupConflictShiftIDs, [
+        ordinaryShift.id,
+      ]);
 
       await lifecycleController.close(roster.id, member.id);
       const closedView = await shiftsController.getForUser(

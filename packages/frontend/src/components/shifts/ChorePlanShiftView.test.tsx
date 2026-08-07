@@ -1,7 +1,8 @@
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {
+  CHORE_PLAN_SIGNUP_RESTRICTION_MESSAGES,
   ChorePlanShiftViewItem,
   ChorePlanShiftViewResponse,
 } from 'backend/view_models/chore_plan_shifts';
@@ -23,6 +24,8 @@ const shift: ChorePlanShiftViewItem = {
   requiredParticipants: 2,
   assignedParticipantCount: 1,
   currentUserAssigned: true,
+  signupRestrictionReason: null,
+  signupConflictShiftIDs: [],
   slots: [
     {
       definitionKey: 'chore-am-chum-wench-first',
@@ -217,6 +220,75 @@ test('selects signup-sheet slots before signup, removal, and switching', async (
     }),
   );
   expect(await screen.findByText(/changed to AM Ice Bitch/i)).toBeVisible();
+});
+
+test.each([
+  [
+    'the attendance window',
+    CHORE_PLAN_SIGNUP_RESTRICTION_MESSAGES.outsideAttendanceWindow,
+  ],
+  [
+    'an existing assignment',
+    CHORE_PLAN_SIGNUP_RESTRICTION_MESSAGES.existingShiftConflict,
+  ],
+])('disables and explains spots blocked by %s', async (_label, reason) => {
+  const restrictedShift = {
+    ...shift,
+    assignedParticipantCount: 0,
+    currentUserAssigned: false,
+    signupRestrictionReason: reason,
+    signupConflictShiftIDs:
+      reason === CHORE_PLAN_SIGNUP_RESTRICTION_MESSAGES.existingShiftConflict
+        ? [99]
+        : [],
+  };
+  render(
+    <ChorePlanShiftView
+      rosterID={2}
+      planClient={client(openResponse([restrictedShift]))}
+    />,
+  );
+
+  const openSpot = await screen.findByRole('button', {
+    name: /select open spot for AM Chum Wench/i,
+  });
+  expect(openSpot).toBeDisabled();
+
+  fireEvent.mouseOver(openSpot.parentElement as HTMLElement);
+  expect(await screen.findByRole('tooltip')).toHaveTextContent(reason);
+});
+
+test('enables an overlapping replacement only when its conflict is selected for removal', async () => {
+  const replacementShift = {
+    ...shift,
+    id: 12,
+    stableKey: 'chore|1|am-ice-bitch',
+    scheduleKey: 'chore|am-ice-bitch',
+    scheduleName: 'AM Ice Bitch',
+    assignedParticipantCount: 0,
+    currentUserAssigned: false,
+    signupRestrictionReason:
+      CHORE_PLAN_SIGNUP_RESTRICTION_MESSAGES.existingShiftConflict,
+    signupConflictShiftIDs: [shift.id],
+  };
+  render(
+    <ChorePlanShiftView
+      rosterID={2}
+      planClient={client(openResponse([shift, replacementShift]))}
+    />,
+  );
+
+  const replacementSpot = await screen.findByRole('button', {
+    name: /select open spot for AM Ice Bitch/i,
+  });
+  expect(replacementSpot).toBeDisabled();
+
+  userEvent.click(
+    screen.getByRole('button', {
+      name: /remove your spot for AM Chum Wench/i,
+    }),
+  );
+  expect(replacementSpot).toBeEnabled();
 });
 
 test('shows authoritative backend signup conflicts', async () => {
