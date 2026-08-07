@@ -154,6 +154,9 @@ export default function Shifts() {
             <VerifiedShiftExperience
               adminEditMode={adminEditMode}
               canForceAssignments={canForceAssignments}
+              key={`${chorePlan?.id ?? 'none'}:${
+                chorePlan?.status ?? 'loading'
+              }`}
               rosterID={currentRoster.id}
             />
           ) : (

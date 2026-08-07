@@ -4,6 +4,9 @@ import { RecoilRoot } from 'recoil';
 import { FeatureFlagsState } from '../state/features';
 import Shifts, { VerifiedShiftExperience } from './Shifts';
 
+let mockLifecycleStatus = 'draft';
+let mockShiftViewMountCount = 0;
+
 jest.mock('../layouts/dashboard/Dashboard', () => {
   function Dashboard({ children }: { children: React.ReactNode }) {
     return <div>{children}</div>;
@@ -45,6 +48,8 @@ jest.mock('../state/store', () => {
 });
 
 jest.mock('src/components/shifts/ChorePlanShiftView', () => {
+  const ReactModule = jest.requireActual('react') as typeof import('react');
+
   function ChorePlanShiftView({
     adminEditMode,
     canForceAssignments,
@@ -52,10 +57,17 @@ jest.mock('src/components/shifts/ChorePlanShiftView', () => {
     adminEditMode: boolean;
     canForceAssignments: boolean;
   }) {
+    const [mountNumber] = ReactModule.useState(() => {
+      mockShiftViewMountCount += 1;
+      return mockShiftViewMountCount;
+    });
     return (
       <div>
-        Chore signup sheets — {adminEditMode ? 'admin' : 'member'} —{' '}
-        {canForceAssignments ? 'force allowed' : 'safe edits only'}
+        <div>
+          Chore signup sheets — {adminEditMode ? 'admin' : 'member'} —{' '}
+          {canForceAssignments ? 'force allowed' : 'safe edits only'}
+        </div>
+        <div>Chore sheet mount {mountNumber}</div>
       </div>
     );
   }
@@ -82,7 +94,7 @@ jest.mock('src/components/shifts/ChoreSignupControls', () => ({
   useChoreSignupControls: () => ({
     canManageChorePlans: true,
     canReopenChorePlans: true,
-    plan: { status: 'draft' },
+    plan: { id: 3, status: mockLifecycleStatus },
     loading: false,
     error: null,
     reviewingReopen: false,
@@ -91,6 +103,11 @@ jest.mock('src/components/shifts/ChoreSignupControls', () => ({
     reopenSignups: jest.fn(),
   }),
 }));
+
+beforeEach(() => {
+  mockLifecycleStatus = 'draft';
+  mockShiftViewMountCount = 0;
+});
 
 function renderExperience(
   chorePlanning: boolean,
@@ -164,4 +181,24 @@ test('keeps PR 58 lifecycle and Admin Edit controls above signup sheets', () => 
   expect(status.compareDocumentPosition(shifts)).toBe(
     Node.DOCUMENT_POSITION_FOLLOWING,
   );
+});
+
+test('refreshes the signup sheets when lifecycle status changes', () => {
+  const shiftsPage = () => (
+    <RecoilRoot
+      initializeState={({ set }) => {
+        set(FeatureFlagsState, { chorePlanning: true });
+      }}
+    >
+      <Shifts />
+    </RecoilRoot>
+  );
+  const { rerender } = render(shiftsPage());
+
+  expect(screen.getByText('Chore sheet mount 1')).toBeVisible();
+
+  mockLifecycleStatus = 'open';
+  rerender(shiftsPage());
+
+  expect(screen.getByText('Chore sheet mount 2')).toBeVisible();
 });
