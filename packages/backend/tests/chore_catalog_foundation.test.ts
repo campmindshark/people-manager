@@ -251,6 +251,25 @@ test(
           score: '90',
         },
       );
+      assert.deepEqual(
+        catalog.find(({ stableKey }) => stableKey === 'event-39-audio-manager'),
+        {
+          stableKey: 'event-39-audio-manager',
+          kind: 'event',
+          shiftLabel: 'Audio',
+          positionLabel: 'Manager',
+          dayMode: 'explicit',
+          dayNumber: 8,
+          dayLabel: 'Sunday',
+          timePeriodLabel: '12a-3a',
+          periodOrder: 39,
+          startLocalTime: '00:00:00',
+          endLocalTime: '03:00:00',
+          endDayOffset: 0,
+          sourceOrder: 230,
+          score: '100',
+        },
+      );
 
       const scoreKey = 'chore-am-chum-wench-first';
       await assert.rejects(
