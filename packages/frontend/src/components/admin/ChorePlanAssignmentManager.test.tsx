@@ -88,14 +88,14 @@ async function choosePerson(option: string | RegExp): Promise<void> {
   userEvent.click(await screen.findByRole('option', { name: option }));
 }
 
-test('renders PR 58 signup sheets with participant identities', async () => {
+test('renders PR 58 signup sheets without repeating lifecycle status', async () => {
   const client = planClient();
   render(<ChorePlanAssignmentManager planClient={client} rosterID={2} />);
 
+  expect(await screen.findByLabelText('Person needing shifts')).toBeEnabled();
   expect(
-    await screen.findByText('Chore signups are open for 2026.'),
-  ).toBeVisible();
-  expect(screen.getByLabelText('Person needing shifts')).toBeEnabled();
+    screen.queryByText('Chore signups are open for 2026.'),
+  ).not.toBeInTheDocument();
   expect(screen.getByText('Alpha Camper (A)')).toBeVisible();
   expect(screen.getByText('Beta Camper')).toBeVisible();
   expect(screen.getAllByText('Open spot')).toHaveLength(2);
@@ -105,7 +105,7 @@ test('assigns a selected person by clicking an open signup-sheet spot', async ()
   const client = planClient();
   render(<ChorePlanAssignmentManager planClient={client} rosterID={2} />);
 
-  await screen.findByText('Chore signups are open for 2026.');
+  await screen.findByLabelText('Person needing shifts');
   await choosePerson(/Alpha Camper \(A\).*needs/);
   userEvent.click(
     screen.getByRole('button', {
@@ -216,8 +216,8 @@ test('keeps closed assignments visible and read-only', async () => {
   );
   render(<ChorePlanAssignmentManager planClient={client} rosterID={2} />);
 
-  expect(await screen.findByText(/chore plan is closed/i)).toBeVisible();
-  expect(screen.getByText('Alpha Camper (A)')).toBeVisible();
+  expect(await screen.findByText('Alpha Camper (A)')).toBeVisible();
+  expect(screen.queryByText(/chore plan is closed/i)).not.toBeInTheDocument();
   expect(screen.getByText('Beta Camper')).toBeVisible();
   expect(screen.getByLabelText('Person needing shifts')).toHaveAttribute(
     'aria-disabled',
@@ -236,7 +236,7 @@ test('surfaces authoritative backend conflicts without refreshing', async () => 
   });
   render(<ChorePlanAssignmentManager planClient={client} rosterID={2} />);
 
-  await screen.findByText('Chore signups are open for 2026.');
+  await screen.findByLabelText('Person needing shifts');
   await choosePerson(/Alpha Camper \(A\).*needs/);
   userEvent.click(
     screen.getByRole('button', {

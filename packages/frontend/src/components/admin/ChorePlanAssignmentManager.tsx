@@ -554,11 +554,6 @@ export default function ChorePlanAssignmentManager({
 
   return (
     <Stack spacing={2}>
-      <Alert severity={view.mutationsAllowed ? 'success' : 'info'}>
-        {view.plan.status === 'open'
-          ? `Chore signups are open for ${view.plan.planningYear}.`
-          : `The ${view.plan.planningYear} chore plan is ${view.plan.status}. Reopen signups before changing assignments.`}
-      </Alert>
       <Paper sx={{ p: { xs: 1, sm: 3 } }}>
         <Stack spacing={2}>
           <Alert severity={force ? 'warning' : 'info'}>
