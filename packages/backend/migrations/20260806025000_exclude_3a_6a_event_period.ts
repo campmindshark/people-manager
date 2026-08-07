@@ -62,10 +62,14 @@ export async function up(knex: Knex): Promise<void> {
       score,
     })),
   );
-  await knex('chore_catalog_state').where({ id: 1 }).update({
-    revision: 1,
-    updatedAt: knex.fn.now(),
-  });
+  await knex('chore_catalog_state')
+    .where({ id: 1 })
+    .update({
+      ...(definitionCount === 326
+        ? { revision: knex.raw('"revision" + 1') }
+        : {}),
+      updatedAt: knex.fn.now(),
+    });
 
   await knex.raw(`
     ALTER TABLE "chore_catalog_definitions"

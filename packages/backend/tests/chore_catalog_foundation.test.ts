@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import path from 'node:path';
 import test from 'node:test';
 import knexFactory, { Knex } from 'knex';
+import { up as excludeThreeToSixEventPeriod } from '../migrations/20260806025000_exclude_3a_6a_event_period';
 
 const CURRENT_MIGRATION = '20260806030000_chore_plan_lifecycle.ts';
 const TEST_DATABASE_URL = process.env.CHORE_TEARDOWN_TEST_DATABASE_URL;
@@ -46,6 +47,45 @@ interface DatabaseError {
 
 interface IDRow {
   id: number;
+}
+
+const LEGACY_EXCLUDED_EVENT_PERIODS = [
+  { dayLabel: 'Monday', dayNumber: 2, stablePeriodOrder: 4 },
+  { dayLabel: 'Tuesday', dayNumber: 3, stablePeriodOrder: 10 },
+  { dayLabel: 'Wednesday', dayNumber: 4, stablePeriodOrder: 16 },
+  { dayLabel: 'Thursday', dayNumber: 5, stablePeriodOrder: 22 },
+  { dayLabel: 'Friday', dayNumber: 6, stablePeriodOrder: 28 },
+  { dayLabel: 'Saturday', dayNumber: 7, stablePeriodOrder: 34 },
+] as const;
+const LEGACY_EXCLUDED_EVENT_POSITIONS = [
+  'Manager',
+  'Bartender',
+  'Bouncer',
+  'Float',
+] as const;
+
+function legacyExcludedEventDefinitions() {
+  return LEGACY_EXCLUDED_EVENT_PERIODS.flatMap(
+    ({ dayLabel, dayNumber, stablePeriodOrder }, dayIndex) =>
+      LEGACY_EXCLUDED_EVENT_POSITIONS.map((positionLabel, positionIndex) => ({
+        stableKey: `event-${String(stablePeriodOrder).padStart(2, '0')}-bar-${positionLabel.toLowerCase()}`,
+        kind: 'event',
+        shiftLabel: 'Bar',
+        positionLabel,
+        dayMode: 'explicit',
+        dayNumber,
+        dayLabel,
+        timePeriodLabel: '3a-6a',
+        periodOrder: stablePeriodOrder,
+        startLocalTime: '03:00:00',
+        endLocalTime: '06:00:00',
+        endDayOffset: 0,
+        sourceOrder:
+          216 +
+          dayIndex * LEGACY_EXCLUDED_EVENT_POSITIONS.length +
+          positionIndex,
+      })),
+  );
 }
 
 function validPlanInput(rosterID: number) {
@@ -448,6 +488,81 @@ test(
           }),
         (error) =>
           isConstraint(error, '23514', 'chore_plans_lifecycle_consistent'),
+      );
+    } finally {
+      await database?.destroy();
+      await adminDatabase.schema.dropSchemaIfExists(schemaName, true);
+      await adminDatabase.destroy();
+    }
+  },
+);
+
+test(
+  'excluding the legacy event period advances the catalog revision',
+  POSTGRES_TEST_OPTIONS,
+  async () => {
+    const databaseURL = assertSafeTestDatabaseURL(TEST_DATABASE_URL);
+    const adminDatabase = knexFactory({
+      client: 'postgresql',
+      connection: databaseURL,
+      pool: { max: 2, min: 0 },
+    });
+    const schemaName = `chore_catalog_exclusion_${Date.now()}`;
+    let database: Knex | undefined;
+
+    try {
+      await adminDatabase.schema.createSchema(schemaName);
+      database = knexFactory({
+        client: 'postgresql',
+        connection: databaseURL,
+        migrations: { extension: 'ts', tableName: 'knex_migrations' },
+        pool: { max: 2, min: 0 },
+        searchPath: [schemaName],
+      });
+      await database.migrate.latest({
+        directory: path.resolve(__dirname, '../migrations'),
+        extension: 'ts',
+      });
+
+      await database.raw(`
+        ALTER TABLE "chore_catalog_definitions"
+        DROP CONSTRAINT "chore_catalog_definitions_event_period_valid"
+      `);
+      const legacyDefinitions = legacyExcludedEventDefinitions();
+      await database('chore_catalog_definitions').insert(legacyDefinitions);
+      await database('chore_catalog_scores').insert(
+        legacyDefinitions.map(({ stableKey }) => ({
+          definitionKey: stableKey,
+          score: 0,
+        })),
+      );
+
+      assert.equal(
+        (await database('chore_catalog_definitions').select('stableKey'))
+          .length,
+        326,
+      );
+      assert.deepEqual(
+        await database('chore_catalog_state').select('id', 'revision').first(),
+        { id: 1, revision: '1' },
+      );
+
+      await excludeThreeToSixEventPeriod(database);
+
+      assert.equal(
+        (await database('chore_catalog_definitions').select('stableKey'))
+          .length,
+        302,
+      );
+      assert.equal(
+        await database('chore_catalog_definitions')
+          .where({ stableKey: 'event-04-bar-manager' })
+          .first(),
+        undefined,
+      );
+      assert.deepEqual(
+        await database('chore_catalog_state').select('id', 'revision').first(),
+        { id: 1, revision: '2' },
       );
     } finally {
       await database?.destroy();
