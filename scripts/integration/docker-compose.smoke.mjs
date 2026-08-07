@@ -124,6 +124,28 @@ async function runIntegrationTest() {
     );
     assert(verificationResponse.ok, 'Could not verify the smoke-test user');
 
+    const rosterSignupResponse = await fetch(
+      'http://localhost:3001/api/roster_participants/1',
+      {
+        method: 'POST',
+        headers: {
+          cookie: sessionCookie,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          probabilityOfAttending: 100,
+          estimatedArrivalDate: '2024-08-20T00:00:00.000Z',
+          estimatedDepartureDate: '2024-09-10T00:00:00.000Z',
+          sleepingArrangement: 'Smoke-test fixture',
+          yearsAtCamp: [],
+        }),
+      },
+    );
+    assert(
+      rosterSignupResponse.ok,
+      'Could not create the smoke-test roster participant',
+    );
+
     const groupResponse = await fetch('http://localhost:3001/api/groups', {
       method: 'POST',
       headers: {
