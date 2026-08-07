@@ -56,7 +56,7 @@ export default class ChoreCatalogDefinition extends Model {
       shiftLabel: { type: 'string', minLength: 1 },
       positionLabel: { type: 'string', minLength: 1 },
       dayMode: { enum: ['template', 'explicit'] },
-      dayNumber: { type: ['integer', 'null'], minimum: 1, maximum: 7 },
+      dayNumber: { type: ['integer', 'null'], minimum: 1, maximum: 8 },
       dayLabel: { type: ['string', 'null'] },
       timePeriodLabel: { type: 'string', minLength: 1 },
       periodOrder: { type: ['integer', 'null'], minimum: 1 },
