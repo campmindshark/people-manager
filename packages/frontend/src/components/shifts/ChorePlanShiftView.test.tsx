@@ -93,6 +93,8 @@ test('renders open generated shifts without mutation controls', async () => {
     scheduleKey: 'event|gate',
     kind: 'event' as const,
     scheduleName: 'Gate',
+    timePeriodLabel: '6p-9p',
+    periodOrder: 1,
     currentUserAssigned: false,
   };
   const dinnerShift = {
