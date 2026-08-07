@@ -42,6 +42,7 @@ interface GeneratedShiftRow {
 }
 
 interface DatabaseError {
+  code?: string;
   constraint?: string;
 }
 
@@ -406,6 +407,65 @@ test(
           .update({ eventRequirement: 0 }),
         (error: DatabaseError) =>
           error.constraint === 'chore_plans_requirement_override_maxima_v2',
+      );
+
+      const [concurrencyRoster] = (await database('rosters')
+        .insert({ year: 2026 })
+        .returning('id')) as IDRow[];
+      const [concurrencyPlan] = (await database('chore_plans')
+        .insert({
+          rosterID: concurrencyRoster.id,
+          status: 'draft',
+          planningYear: 2026,
+          camperCount: 1,
+          choreRequirement: 2,
+          eventRequirement: 1,
+          dinnerRequirement: 1,
+          catalogRevision: 1,
+          generationHash: 'f'.repeat(64),
+        })
+        .returning('id')) as IDRow[];
+      let resolvePlanUpdate: (() => void) | undefined;
+      const planUpdated = new Promise<void>((resolve) => {
+        resolvePlanUpdate = resolve;
+      });
+      let releasePlanUpdate: (() => void) | undefined;
+      const planUpdateRelease = new Promise<void>((resolve) => {
+        releasePlanUpdate = resolve;
+      });
+      const concurrentPlanUpdate = database.transaction(async (transaction) => {
+        await transaction('chore_plans')
+          .where({ id: concurrencyPlan.id })
+          .update({ choreRequirement: 0 });
+        resolvePlanUpdate?.();
+        await planUpdateRelease;
+      });
+      await planUpdated;
+      const concurrentOverrideResult = database
+        .transaction(async (transaction) => {
+          await transaction.raw(`SET LOCAL lock_timeout = '250ms'`);
+          await transaction('chore_plan_requirement_overrides').insert({
+            chorePlanID: concurrencyPlan.id,
+            userID: users[2].id,
+            choreRequirement: 1,
+            eventRequirement: 1,
+            dinnerRequirement: 1,
+            reason: 'Concurrent direct write',
+          });
+        })
+        .then(
+          () => undefined,
+          (error: DatabaseError) => error,
+        );
+      const concurrentOverrideError = await concurrentOverrideResult;
+      releasePlanUpdate?.();
+      await concurrentPlanUpdate;
+      assert.equal(concurrentOverrideError?.code, '55P03');
+      assert.equal(
+        await database('chore_plan_requirement_overrides')
+          .where({ chorePlanID: concurrencyPlan.id })
+          .first(),
+        undefined,
       );
 
       await requirementController.setOverride(

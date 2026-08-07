@@ -45,10 +45,12 @@ export async function up(knex: Knex): Promise<void> {
     DECLARE
       plan_record RECORD;
     BEGIN
+      -- Serialize direct plan and override writes on their shared plan row.
       SELECT "choreRequirement", "eventRequirement", "dinnerRequirement"
       INTO plan_record
       FROM "chore_plans"
-      WHERE "id" = NEW."chorePlanID";
+      WHERE "id" = NEW."chorePlanID"
+      FOR UPDATE;
 
       IF FOUND AND (
         NEW."choreRequirement" > plan_record."choreRequirement"
