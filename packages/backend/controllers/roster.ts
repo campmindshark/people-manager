@@ -40,7 +40,9 @@ export default class RosterController {
         .select('id')
         .whereIn('id', orderedUserIDs)
         .orderBy('id')
-        .forUpdate();
+        // Serialize roster and assignment changes without blocking foreign
+        // key checks when a concurrent operation writes an audit entry.
+        .forNoKeyUpdate();
 
       const participants = await transaction('roster_participants')
         .select('id', 'userID')
@@ -66,6 +68,17 @@ export default class RosterController {
         await transaction('shift_participants')
           .whereIn('userID', participantUserIDs)
           .whereIn('shiftID', shiftIDs)
+          .del();
+      }
+
+      const chorePlan = await transaction('chore_plans')
+        .select('id')
+        .where({ rosterID })
+        .first();
+      if (chorePlan) {
+        await transaction('chore_plan_requirement_overrides')
+          .where('chorePlanID', chorePlan.id)
+          .whereIn('userID', participantUserIDs)
           .del();
       }
 

@@ -266,6 +266,12 @@ assignment needs refresh after a change. The member shift response exposes only
 that member's effective vector, while the separate administrative assignment
 response exposes effective vectors without override reasons.
 
+Removing a participant from a roster deletes that participant's active
+requirement override in the same transaction as their assignments and roster
+membership. Existing override audit entries remain intact. If the participant
+later rejoins, they inherit the current plan defaults until an administrator
+records a new override.
+
 ## Signup and assignment integrity
 
 Time intervals are half-open: `[startTime, endTime)`. Adjacent shifts do not

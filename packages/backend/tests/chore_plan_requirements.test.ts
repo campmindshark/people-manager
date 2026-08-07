@@ -8,6 +8,7 @@ import ChorePlanLifecycleController from '../controllers/chore_plan_lifecycle';
 import ChorePlanRequirementsController from '../controllers/chore_plan_requirements';
 import ChorePlanShiftsController from '../controllers/chore_plan_shifts';
 import ChorePlanSignupController from '../controllers/chore_plan_signup';
+import RosterController from '../controllers/roster';
 import RoleConfigCollection from '../roles/role';
 import ChorePlanAssignmentError from '../utils/chorePlanAssignmentError';
 import ChorePlanPreviewError from '../utils/chorePlanPreviewError';
@@ -748,6 +749,91 @@ test(
         ),
         (error) => isRequirementError(error, 409, /plan is closed/i),
       );
+
+      const [cleanupRoster] = (await database('rosters')
+        .insert({ year: 2026 })
+        .returning('id')) as IDRow[];
+      await addParticipant(database, cleanupRoster.id, users[2].id);
+      const cleanupDraft = await draftController.apply(
+        {
+          rosterID: cleanupRoster.id,
+          camperCount: 1,
+          requirements: { chore: 2, event: 1, dinner: 1 },
+          expectedCatalogRevision: '1',
+          expectedDraftRevision: null,
+        },
+        users[0].id,
+      );
+      await requirementController.setOverride(
+        cleanupRoster.id,
+        users[2].id,
+        {
+          requirements: { chore: 1, event: 1, dinner: 1 },
+          reason: 'Temporary attendance accommodation',
+        },
+        users[0].id,
+      );
+      const cleanupAudit = await database('chore_plan_audit_entries')
+        .where({
+          chorePlanID: cleanupDraft.draft.id,
+          action: 'participant_requirements_overridden',
+        })
+        .first();
+      assert(cleanupAudit);
+
+      assert.equal(
+        await RosterController.UnregisterParticipantFromRoster(
+          cleanupRoster.id,
+          users[2].id,
+          database,
+        ),
+        true,
+      );
+      assert.equal(
+        await database('chore_plan_requirement_overrides')
+          .where({
+            chorePlanID: cleanupDraft.draft.id,
+            userID: users[2].id,
+          })
+          .first(),
+        undefined,
+      );
+      assert(
+        await database('chore_plan_audit_entries')
+          .where({ id: cleanupAudit.id })
+          .first(),
+      );
+
+      await addParticipant(database, cleanupRoster.id, users[2].id);
+      const rejoinedParticipant = (
+        await requirementController.getView(cleanupRoster.id)
+      ).participants.find(({ userID }) => userID === users[2].id);
+      assert.deepEqual(rejoinedParticipant, {
+        userID: users[2].id,
+        firstName: 'Beta',
+        lastName: 'Camper',
+        playaName: 'B',
+        requirements: { chore: 2, event: 1, dinner: 1 },
+        hasOverride: false,
+        overrideReason: null,
+      });
+
+      const reducedCleanupDraft = await draftController.apply(
+        {
+          rosterID: cleanupRoster.id,
+          camperCount: 1,
+          requirements: { chore: 0, event: 1, dinner: 1 },
+          expectedCatalogRevision: '1',
+          expectedDraftRevision: cleanupDraft.draft.draftRevision,
+        },
+        users[0].id,
+      );
+      assert.equal(reducedCleanupDraft.changed, true);
+      assert.deepEqual(reducedCleanupDraft.draft.requirements, {
+        chore: 0,
+        event: 1,
+        dinner: 1,
+      });
     } finally {
       await database?.destroy();
       await adminDatabase.schema.dropSchemaIfExists(schemaName, true);
