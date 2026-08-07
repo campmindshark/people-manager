@@ -68,6 +68,10 @@ interface EventPeriod {
   }>;
 }
 
+interface AcceptedEventPeriod extends EventPeriod {
+  stablePeriodOrder: number;
+}
+
 const DAY_NUMBERS: Record<DayLabel, number> = {
   Sunday: 1,
   Monday: 2,
@@ -155,6 +159,13 @@ const AFTER_MIDNIGHT_EVENT_POSITIONS = [
   { shiftLabel: 'LED', positionLabel: 'Manager', score: 50 },
   { shiftLabel: 'LED', positionLabel: 'Float', score: 25 },
 ] as const;
+
+const ZERO_EVENT_POSITIONS: PositionScore[] = [
+  { positionLabel: 'Manager', score: 0 },
+  { positionLabel: 'Bartender', score: 0 },
+  { positionLabel: 'Bouncer', score: 0 },
+  { positionLabel: 'Float', score: 0 },
+];
 
 const EVENT_WEEKDAYS: DayLabel[] = [
   'Monday',
@@ -260,20 +271,26 @@ function eventPeriod(
   return { dayNumber, dayLabel, timePeriodLabel, positions };
 }
 
-const EVENT_PERIODS: EventPeriod[] = [
+const EVENT_PERIODS: AcceptedEventPeriod[] = [
   eventPeriod('Sunday', '6p-9p', barPositions(DAY_EVENT_POSITIONS)),
   eventPeriod('Sunday', '9p-12a', NIGHT_EVENT_POSITIONS),
   ...EVENT_WEEKDAYS.flatMap((dayLabel) => [
     eventPeriod(dayLabel, '12a-3a', AFTER_MIDNIGHT_EVENT_POSITIONS),
-    // Camp has decided that 3a-6a is not a valid event shift period. It is
-    // intentionally absent from the fixed catalog and contributes no capacity.
+    eventPeriod(dayLabel, '3a-6a', barPositions(ZERO_EVENT_POSITIONS)),
     eventPeriod(dayLabel, '12p-3p', barPositions(DAY_EVENT_POSITIONS)),
     eventPeriod(dayLabel, '3p-6p', barPositions(DAY_EVENT_POSITIONS)),
     eventPeriod(dayLabel, '6p-9p', barPositions(DAY_EVENT_POSITIONS)),
     eventPeriod(dayLabel, '9p-12a', NIGHT_EVENT_POSITIONS),
   ]),
   eventPeriod('Sunday', '12a-3a', AFTER_MIDNIGHT_EVENT_POSITIONS, 8),
-];
+]
+  .map((period, periodIndex) => ({
+    ...period,
+    stablePeriodOrder: periodIndex + 1,
+  }))
+  // Keep excluded periods in the identity sequence so surviving stable keys
+  // retain their original meaning. Accepted periodOrder values stay contiguous.
+  .filter(({ timePeriodLabel }) => timePeriodLabel !== '3a-6a');
 
 const choreRows: ChoreCatalogSeedRow[] = POSITION_LABELS.flatMap(
   (positionLabel, positionIndex) =>
@@ -297,7 +314,7 @@ const eventRows: ChoreCatalogSeedRow[] = EVENT_PERIODS.flatMap(
   (period, periodIndex) =>
     period.positions.map(({ shiftLabel, positionLabel, score }) => ({
       stableKey:
-        `event-${String(periodIndex + 1).padStart(2, '0')}-` +
+        `event-${String(period.stablePeriodOrder).padStart(2, '0')}-` +
         `${slug(shiftLabel)}-${slug(positionLabel)}`,
       kind: 'event' as const,
       shiftLabel,

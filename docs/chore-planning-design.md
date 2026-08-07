@@ -94,9 +94,12 @@ it refuses to rewrite the catalog after plans or score-audit history exist.
 
 Stable keys are lowercase semantic identifiers. Chore keys identify the shift
 and position, dinner keys identify the explicit day, shift, and position, and
-event keys identify the period order, shift, and position. Period order is part
-of event identity because the same shift and position recur throughout the
-week. The migration pins the complete key set with a separate SHA-256 assertion.
+event keys identify the original workbook period, shift, and position. The
+period ordinal is part of event identity because the same shift and position
+recur throughout the week. Stable-key ordinals retain that original identity
+when an excluded period is removed, while the accepted catalog uses a separate,
+contiguous period order for scheduling. The migration pins the complete key set
+with a separate SHA-256 assertion.
 
 Fixed definitions and editable scores use separate tables. Definition identity
 and source order are unique at the database boundary. The score table accepts

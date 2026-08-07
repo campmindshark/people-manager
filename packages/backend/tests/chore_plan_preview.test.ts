@@ -171,6 +171,33 @@ test('apply input accepts only preview inputs and both observed revisions', () =
   );
 });
 
+test('filtered event periods preserve surviving stable identities', () => {
+  const definitions = catalogDefinitions();
+  assert.equal(
+    definitions.find(({ stableKey }) => stableKey === 'event-04-bar-manager'),
+    undefined,
+  );
+  assert.deepEqual(
+    definitions.find(({ stableKey }) => stableKey === 'event-05-bar-manager'),
+    {
+      stableKey: 'event-05-bar-manager',
+      kind: 'event',
+      shiftLabel: 'Bar',
+      positionLabel: 'Manager',
+      dayMode: 'explicit',
+      dayNumber: 2,
+      dayLabel: 'Monday',
+      timePeriodLabel: '12p-3p',
+      periodOrder: 4,
+      startLocalTime: '12:00:00',
+      endLocalTime: '15:00:00',
+      endDayOffset: 0,
+      sourceOrder: 24,
+      score: 100,
+    },
+  );
+});
+
 test('pure preview is deterministic, ordered, offline, and identifies every slot', async () => {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async () => {
@@ -267,7 +294,7 @@ test('closing Sunday event periods retain Saturday display grouping and actual t
     definitions,
   );
   assert.deepEqual(preview.shifts[0], {
-    stableKey: 'event|8|event-33-audio-manager',
+    stableKey: 'event|8|event-39-audio-manager',
     scheduleKey: 'event|Audio',
     kind: 'event',
     scheduleName: 'Audio',
@@ -282,7 +309,7 @@ test('closing Sunday event periods retain Saturday display grouping and actual t
     totalScore: 100,
     slots: [
       {
-        definitionKey: 'event-33-audio-manager',
+        definitionKey: 'event-39-audio-manager',
         positionLabel: 'Manager',
         score: 100,
       },

@@ -13,7 +13,7 @@ const POSTGRES_TEST_OPTIONS = {
   timeout: 120_000,
 };
 const STABLE_KEY_SHA256 =
-  '5655583579eebf5dbf174cae314772ac945eac9c7451cca64d69f136a2ff447f';
+  '68a772f3853a7d7f9e6d2bf21457d35f14b304646c0a0ed1da1ab8bdd9fa3c78';
 const CATALOG_SHA256 = {
   chore: '78533d7bef2de145afd20be3e3d8376d116405e947558db6b097b13a50a87c99',
   event: 'fdfa5ddfc67b46f5aa1ee1e82c82396664bbb2c7f20f4e564b78d92d13668c2a',
@@ -265,10 +265,33 @@ test(
           score: '90',
         },
       );
+      assert.equal(
+        catalog.find(({ stableKey }) => stableKey === 'event-04-bar-manager'),
+        undefined,
+      );
       assert.deepEqual(
-        catalog.find(({ stableKey }) => stableKey === 'event-33-audio-manager'),
+        catalog.find(({ stableKey }) => stableKey === 'event-05-bar-manager'),
         {
-          stableKey: 'event-33-audio-manager',
+          stableKey: 'event-05-bar-manager',
+          kind: 'event',
+          shiftLabel: 'Bar',
+          positionLabel: 'Manager',
+          dayMode: 'explicit',
+          dayNumber: 2,
+          dayLabel: 'Monday',
+          timePeriodLabel: '12p-3p',
+          periodOrder: 4,
+          startLocalTime: '12:00:00',
+          endLocalTime: '15:00:00',
+          endDayOffset: 0,
+          sourceOrder: 24,
+          score: '100',
+        },
+      );
+      assert.deepEqual(
+        catalog.find(({ stableKey }) => stableKey === 'event-39-audio-manager'),
+        {
+          stableKey: 'event-39-audio-manager',
           kind: 'event',
           shiftLabel: 'Audio',
           positionLabel: 'Manager',
