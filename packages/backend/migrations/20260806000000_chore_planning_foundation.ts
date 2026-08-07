@@ -112,6 +112,11 @@ export async function up(knex: Knex): Promise<void> {
           OR ("dayNumber" = 5 AND "dayLabel" = 'Thursday')
           OR ("dayNumber" = 6 AND "dayLabel" = 'Friday')
           OR ("dayNumber" = 7 AND "dayLabel" = 'Saturday')
+          OR (
+            "kind" = 'event'
+            AND "dayNumber" = 8
+            AND "dayLabel" = 'Sunday'
+          )
         )
       )
     ),
