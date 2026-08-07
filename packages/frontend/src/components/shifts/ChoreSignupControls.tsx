@@ -144,6 +144,7 @@ export function useChoreSignupLifecycle({
       setPlan(updatedPlan);
       setReviewingReopen(false);
     } catch (reopenError) {
+      setReviewingReopen(false);
       setError(requestErrorMessage(reopenError));
     } finally {
       setLoading(false);

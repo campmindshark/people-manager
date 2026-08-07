@@ -138,16 +138,24 @@ export default class ChorePlanLifecycleController {
   }
 
   async getByRosterID(rosterID: number): Promise<ChorePlanLifecycleResponse> {
-    const database = this.getDatabase();
-    const plan = (await database<ChorePlanLifecycleRow>('chore_plans')
-      .where({ rosterID })
-      .first()) as ChorePlanLifecycleRow | undefined;
-    if (!plan) {
-      return { plan: null };
-    }
-    return {
-      plan: lifecycleState(plan, await loadLifecycleCounts(database, plan.id)),
-    };
+    return this.getDatabase().transaction(async (transaction) => {
+      await transaction.raw(
+        'SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY',
+      );
+
+      const plan = (await transaction<ChorePlanLifecycleRow>('chore_plans')
+        .where({ rosterID })
+        .first()) as ChorePlanLifecycleRow | undefined;
+      if (!plan) {
+        return { plan: null };
+      }
+      return {
+        plan: lifecycleState(
+          plan,
+          await loadLifecycleCounts(transaction, plan.id),
+        ),
+      };
+    });
   }
 
   async open(
