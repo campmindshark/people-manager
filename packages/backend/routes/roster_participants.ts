@@ -74,8 +74,6 @@ router.post('/:id', async (req: Request, res: Response) => {
     rosterID,
   };
 
-  const checkCurrent = await RosterParticipant.query().where(signupScope);
-
   // Convert the dates to UTC while preserving the local time
   const parsedArrivalDate = DateTime.fromJSDate(
     new Date(proposedRosterParticipant.estimatedArrivalDate),
@@ -91,34 +89,78 @@ router.post('/:id', async (req: Request, res: Response) => {
     .toUTC()
     .toJSDate();
 
+  if (
+    !Number.isFinite(parsedArrivalDate.getTime()) ||
+    !Number.isFinite(parsedDepartureDate.getTime()) ||
+    parsedArrivalDate >= parsedDepartureDate
+  ) {
+    res.status(400).json({
+      error: 'Arrival and departure dates must define a valid time window.',
+    });
+    return;
+  }
+
   try {
-    if (checkCurrent.length > 0) {
-      delete req.body.id;
-      await RosterParticipant.query()
-        .where(signupScope)
-        .patch({
-          ...req.body,
+    const {
+      id: _id,
+      userID: _userId,
+      rosterID: _rosterId,
+      ...participantFields
+    } = req.body;
+    const { rosterParticipant, removedAssignmentCount } =
+      await RosterParticipant.knex().transaction(async (transaction) => {
+        await transaction('users')
+          .select('id')
+          .where('id', user.id)
+          .forUpdate()
+          .first();
+        const currentParticipants = await RosterParticipant.query(transaction)
+          .where(signupScope)
+          .orderBy('id')
+          .forUpdate();
+        const participantData = {
+          ...participantFields,
           estimatedArrivalDate: parsedArrivalDate,
           estimatedDepartureDate: parsedDepartureDate,
-        });
+        };
+        let savedParticipant: RosterParticipant;
+        if (currentParticipants.length > 0) {
+          await RosterParticipant.query(transaction)
+            .where(signupScope)
+            .patch(participantData);
+          const updatedParticipant = await RosterParticipant.query(
+            transaction,
+          ).findById(currentParticipants[0].id);
+          if (!updatedParticipant) {
+            throw new Error('Updated roster participant could not be loaded.');
+          }
+          savedParticipant = updatedParticipant;
+        } else {
+          savedParticipant = await RosterParticipant.query(transaction).insert({
+            ...participantData,
+            userID: user.id,
+            rosterID,
+          });
+        }
 
-      const rosterParticipant = await RosterParticipant.query().findById(
-        checkCurrent[0].id,
-      );
+        const removedCount =
+          await RosterParticipantController.ReconcileAttendanceWindow(
+            transaction,
+            rosterID,
+            user.id,
+            {
+              startTime: parsedArrivalDate,
+              endTime: parsedDepartureDate,
+            },
+          );
 
-      res.json(rosterParticipant);
-      return;
-    }
+        return {
+          rosterParticipant: savedParticipant,
+          removedAssignmentCount: removedCount,
+        };
+      });
 
-    const rosterParticipant = await RosterParticipant.query().insert({
-      ...req.body,
-      estimatedArrivalDate: parsedArrivalDate,
-      estimatedDepartureDate: parsedDepartureDate,
-      userID: user.id,
-      rosterID,
-    });
-
-    res.json(rosterParticipant);
+    res.json({ ...rosterParticipant, removedAssignmentCount });
   } catch (error) {
     if (error instanceof ValidationError) {
       res.status(400).json({ error: error.message, details: error.data });

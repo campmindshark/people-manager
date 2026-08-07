@@ -994,7 +994,110 @@ async function runIntegrationTest() {
     assert(
       postReopenSignup.changed === true &&
         postReopenSignup.assignedShiftIDs?.includes(signupSource.id),
-      'Dropout cleanup fixture did not create the requested assignment',
+      'Attendance cleanup fixture did not create the requested assignment',
+    );
+    const attendanceStartAfterShift = new Date(
+      new Date(signupSource.endTime).getTime() + 24 * 60 * 60 * 1000,
+    );
+    const attendanceEndAfterShift = new Date(
+      attendanceStartAfterShift.getTime() + 60 * 60 * 1000,
+    );
+    const invalidAttendanceResponse = await fetch(
+      'http://localhost:3001/api/roster_participants/1',
+      {
+        method: 'POST',
+        headers: {
+          cookie: standardCookie,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          probabilityOfAttending: 100,
+          yearsAtCamp: [],
+          estimatedArrivalDate: attendanceEndAfterShift.toISOString(),
+          estimatedDepartureDate: attendanceStartAfterShift.toISOString(),
+          sleepingArrangement: 'Attendance cleanup observer',
+        }),
+      },
+    );
+    assert(
+      invalidAttendanceResponse.status === 400,
+      'Invalid attendance windows must be rejected before reconciliation',
+    );
+    const attendanceCleanupResponse = await fetch(
+      'http://localhost:3001/api/roster_participants/1',
+      {
+        method: 'POST',
+        headers: {
+          cookie: standardCookie,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          probabilityOfAttending: 100,
+          yearsAtCamp: [],
+          estimatedArrivalDate: attendanceStartAfterShift.toISOString(),
+          estimatedDepartureDate: attendanceEndAfterShift.toISOString(),
+          sleepingArrangement: 'Attendance cleanup observer',
+        }),
+      },
+    );
+    assert(
+      attendanceCleanupResponse.ok &&
+        (await attendanceCleanupResponse.json()).removedAssignmentCount === 1,
+      'Attendance update did not report the removed assignment',
+    );
+    const postAttendanceShiftViewResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/1/shifts',
+      { headers: { cookie: standardCookie } },
+    );
+    assert(
+      postAttendanceShiftViewResponse.ok,
+      'Member could not inspect shifts after updating attendance',
+    );
+    const postAttendanceShiftView = await postAttendanceShiftViewResponse.json();
+    const postAttendanceSource = postAttendanceShiftView.shifts.find(
+      (shift) => shift.id === signupSource.id,
+    );
+    assert(
+      postAttendanceSource?.assignedParticipantCount === 0 &&
+        postAttendanceSource.currentUserAssigned === false,
+      'Attendance update left the incompatible assignment in place',
+    );
+    const restoreAttendanceResponse = await fetch(
+      'http://localhost:3001/api/roster_participants/1',
+      {
+        method: 'POST',
+        headers: {
+          cookie: standardCookie,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          probabilityOfAttending: 100,
+          yearsAtCamp: [],
+          estimatedArrivalDate: '2024-08-20T00:00:00.000Z',
+          estimatedDepartureDate: '2024-09-10T00:00:00.000Z',
+          sleepingArrangement: 'Dropout cleanup observer',
+        }),
+      },
+    );
+    assert(
+      restoreAttendanceResponse.ok,
+      'Could not restore attendance for the dropout cleanup fixture',
+    );
+    const dropoutSignupResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/1/signup',
+      {
+        method: 'POST',
+        headers: {
+          cookie: standardCookie,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ shiftIDs: [signupSource.id] }),
+      },
+    );
+    assert(
+      dropoutSignupResponse.ok &&
+        (await dropoutSignupResponse.json()).changed === true,
+      'Dropout cleanup fixture did not recreate the assignment',
     );
     const dropoutResponse = await fetch(
       'http://localhost:3001/api/rosters/1/drop-out',

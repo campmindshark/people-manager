@@ -271,7 +271,10 @@ Frontend controls appear only for an open read model and surface backend
 conflicts, but their visibility is never treated as authorization or integrity
 validation. Removing a participant from a roster removes that participant's
 assignments for the roster in the same transaction so departed members cannot
-continue consuming shift capacity.
+continue consuming shift capacity. Updating a participant's attendance window
+uses the same per-user lock and removes roster assignments that no longer fit
+inside the saved dates before the transaction commits; the roster form reports
+the number removed so the member can review the remaining schedule.
 
 Ordinary shifts share the generic attendance, overlap, capacity, and duplicate
 integrity rules. They do not inherit chore-plan lifecycle, category
