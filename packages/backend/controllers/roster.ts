@@ -40,7 +40,7 @@ export default class RosterController {
         .select('id')
         .whereIn('id', orderedUserIDs)
         .orderBy('id')
-        .forUpdate();
+        .forNoKeyUpdate();
 
       const participants = await transaction('roster_participants')
         .select('id', 'userID')
