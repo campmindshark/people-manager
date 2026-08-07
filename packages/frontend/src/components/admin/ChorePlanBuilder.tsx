@@ -245,6 +245,7 @@ export default function ChorePlanBuilder({
   const [confirmingReplacement, setConfirmingReplacement] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const inputsDisabled = previewing || applying;
 
   useEffect(() => {
     let active = true;
@@ -419,6 +420,7 @@ export default function ChorePlanBuilder({
                 labelId="planner-roster-label"
                 label="Camp year"
                 value={values.rosterID}
+                disabled={inputsDisabled}
                 onChange={handleRosterChange}
               >
                 {rosters.map((roster) => (
@@ -435,6 +437,7 @@ export default function ChorePlanBuilder({
               required
               type="number"
               label="Prospective campers"
+              disabled={inputsDisabled}
               inputProps={{ min: 1, max: 200, step: 1 }}
               value={values.camperCount}
               onChange={(event) => setField('camperCount', event.target.value)}
@@ -445,7 +448,7 @@ export default function ChorePlanBuilder({
             <Button
               type="submit"
               variant="contained"
-              disabled={previewing || rosters.length === 0}
+              disabled={inputsDisabled || rosters.length === 0}
               startIcon={
                 previewing ? <CircularProgress size={18} /> : undefined
               }
