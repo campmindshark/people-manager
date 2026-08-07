@@ -53,6 +53,7 @@ interface PositionScore {
 }
 
 interface EventPeriod {
+  dayNumber: number;
   dayLabel: DayLabel;
   timePeriodLabel: string;
   positions: ReadonlyArray<{
@@ -256,8 +257,9 @@ function eventPeriod(
   dayLabel: DayLabel,
   timePeriodLabel: string,
   positions: EventPeriod['positions'],
+  dayNumber = DAY_NUMBERS[dayLabel],
 ): EventPeriod {
-  return { dayLabel, timePeriodLabel, positions };
+  return { dayNumber, dayLabel, timePeriodLabel, positions };
 }
 
 const EVENT_PERIODS: EventPeriod[] = [
@@ -271,7 +273,7 @@ const EVENT_PERIODS: EventPeriod[] = [
     eventPeriod(dayLabel, '6p-9p', barPositions(DAY_EVENT_POSITIONS)),
     eventPeriod(dayLabel, '9p-12a', NIGHT_EVENT_POSITIONS),
   ]),
-  eventPeriod('Sunday', '12a-3a', AFTER_MIDNIGHT_EVENT_POSITIONS),
+  eventPeriod('Sunday', '12a-3a', AFTER_MIDNIGHT_EVENT_POSITIONS, 8),
 ];
 
 const choreRows: ChoreCatalogSeedRow[] = POSITION_LABELS.flatMap(
@@ -302,7 +304,7 @@ const eventRows: ChoreCatalogSeedRow[] = EVENT_PERIODS.flatMap(
       shiftLabel,
       positionLabel,
       dayMode: 'explicit' as const,
-      dayNumber: DAY_NUMBERS[period.dayLabel],
+      dayNumber: period.dayNumber,
       dayLabel: period.dayLabel,
       timePeriodLabel: period.timePeriodLabel,
       periodOrder: periodIndex + 1,
