@@ -683,6 +683,53 @@ test(
         }),
         /requirement_details_valid/i,
       );
+      const validRemovedAssignment = {
+        shiftID: secondShift.id,
+        stableKey: secondShift.stableKey,
+        kind: 'chore',
+      };
+      const validRequirementAuditDetails = {
+        participantUserID: users[1].id,
+        previousRequirements: { chore: 2, event: 1, dinner: 1 },
+        requirements: { chore: 1, event: 1, dinner: 1 },
+        previousReason: null,
+        reason: 'Invalid removed assignment',
+      };
+      const constraintDatabase = database;
+      await Promise.all(
+        [
+          [null],
+          [{ ...validRemovedAssignment, shiftID: String(secondShift.id) }],
+          [{ ...validRemovedAssignment, stableKey: 42 }],
+          [{ ...validRemovedAssignment, kind: 'other' }],
+          [{ ...validRemovedAssignment, unexpected: true }],
+        ].map((removedAssignments) =>
+          assert.rejects(
+            constraintDatabase('chore_plan_audit_entries').insert({
+              chorePlanID: applied.draft.id,
+              actorUserID: users[0].id,
+              action: 'participant_requirements_overridden',
+              details: {
+                ...validRequirementAuditDetails,
+                removedAssignments,
+              },
+            }),
+            /requirement_details_valid/i,
+          ),
+        ),
+      );
+      await assert.rejects(
+        database('chore_plan_audit_entries').insert({
+          chorePlanID: applied.draft.id,
+          actorUserID: users[0].id,
+          action: 'participant_requirements_cleared',
+          details: {
+            ...validRequirementAuditDetails,
+            removedAssignments: [validRemovedAssignment],
+          },
+        }),
+        /requirement_details_valid/i,
+      );
 
       await lifecycleController.close(roster.id, users[0].id);
       assert.equal(

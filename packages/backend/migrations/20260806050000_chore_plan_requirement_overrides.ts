@@ -105,6 +105,63 @@ export async function up(knex: Knex): Promise<void> {
   `);
 
   await knex.raw(`
+    CREATE FUNCTION validate_chore_plan_removed_assignments_v2(
+      audit_action text,
+      removed_assignments jsonb
+    )
+    RETURNS boolean AS $$
+    DECLARE
+      removed_assignment jsonb;
+    BEGIN
+      IF jsonb_typeof(removed_assignments) <> 'array' THEN
+        RETURN FALSE;
+      END IF;
+
+      IF audit_action = 'participant_requirements_cleared'
+        AND removed_assignments <> '[]'::jsonb
+      THEN
+        RETURN FALSE;
+      END IF;
+
+      FOR removed_assignment IN
+        SELECT value FROM jsonb_array_elements(removed_assignments)
+      LOOP
+        IF jsonb_typeof(removed_assignment) <> 'object' THEN
+          RETURN FALSE;
+        END IF;
+        IF NOT (
+          jsonb_exists(removed_assignment, 'shiftID')
+          AND jsonb_exists(removed_assignment, 'stableKey')
+          AND jsonb_exists(removed_assignment, 'kind')
+          AND removed_assignment - ARRAY[
+            'shiftID',
+            'stableKey',
+            'kind'
+          ]::text[] = '{}'::jsonb
+        ) THEN
+          RETURN FALSE;
+        END IF;
+        IF jsonb_typeof(removed_assignment -> 'shiftID') <> 'number'
+          OR (removed_assignment ->> 'shiftID') !~ '^[1-9][0-9]*$'
+          OR jsonb_typeof(removed_assignment -> 'stableKey') <> 'string'
+          OR btrim(removed_assignment ->> 'stableKey') = ''
+          OR jsonb_typeof(removed_assignment -> 'kind') <> 'string'
+          OR removed_assignment ->> 'kind' NOT IN (
+            'chore',
+            'event',
+            'dinner'
+          )
+        THEN
+          RETURN FALSE;
+        END IF;
+      END LOOP;
+
+      RETURN TRUE;
+    END;
+    $$ LANGUAGE plpgsql IMMUTABLE STRICT;
+  `);
+
+  await knex.raw(`
     ALTER TABLE "chore_plan_audit_entries"
     DROP CONSTRAINT "chore_plan_audit_entries_action_valid",
     ADD CONSTRAINT "chore_plan_audit_entries_action_valid"
@@ -195,7 +252,10 @@ export async function up(knex: Knex): Promise<void> {
         )
         AND jsonb_typeof("details" -> 'reason') = 'string'
         AND char_length(btrim("details" ->> 'reason')) BETWEEN 1 AND 500
-        AND jsonb_typeof("details" -> 'removedAssignments') = 'array'
+        AND validate_chore_plan_removed_assignments_v2(
+          "action",
+          "details" -> 'removedAssignments'
+        )
       )
     )
   `);
