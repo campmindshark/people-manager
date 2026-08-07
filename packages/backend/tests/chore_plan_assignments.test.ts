@@ -274,6 +274,53 @@ test(
         ),
       );
 
+      // Align both transactions at the audit insert so conflicting user locks
+      // reproduce the cross-actor deadlock deterministically.
+      await database.raw(`
+        CREATE FUNCTION delay_assignment_audit() RETURNS trigger AS $$
+        BEGIN
+          IF NEW.action = 'admin_assignment_mutated' THEN
+            PERFORM pg_sleep(0.5);
+          END IF;
+          RETURN NEW;
+        END;
+        $$ LANGUAGE plpgsql;
+        CREATE TRIGGER delay_assignment_audit_trigger
+        BEFORE INSERT ON chore_plan_audit_entries
+        FOR EACH ROW EXECUTE FUNCTION delay_assignment_audit();
+      `);
+      const crossActorAssignments = await Promise.all([
+        assignmentsController.mutate(roster.id, users[1].id, {
+          operation: 'assign',
+          userID: users[2].id,
+          shiftID: firstShift.id,
+        }),
+        assignmentsController.mutate(roster.id, users[2].id, {
+          operation: 'assign',
+          userID: users[1].id,
+          shiftID: secondShift.id,
+        }),
+      ]);
+      assert(
+        crossActorAssignments.every(
+          ({ changed, forced }) => changed && !forced,
+        ),
+      );
+      await database.raw(
+        'DROP TRIGGER delay_assignment_audit_trigger ON chore_plan_audit_entries',
+      );
+      await database.raw('DROP FUNCTION delay_assignment_audit()');
+      await assignmentsController.mutate(roster.id, users[0].id, {
+        operation: 'unassign',
+        userID: users[2].id,
+        shiftID: firstShift.id,
+      });
+      await assignmentsController.mutate(roster.id, users[0].id, {
+        operation: 'unassign',
+        userID: users[1].id,
+        shiftID: secondShift.id,
+      });
+
       assert.deepEqual(
         await assignmentsController.mutate(roster.id, users[0].id, {
           operation: 'assign',

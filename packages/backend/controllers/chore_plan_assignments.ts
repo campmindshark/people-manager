@@ -316,7 +316,9 @@ export default class ChorePlanAssignmentsController {
         .select('id')
         .whereIn('id', orderedUserIDs)
         .orderBy('id')
-        .forUpdate();
+        // Serialize assignment and roster-membership changes without blocking
+        // the audit foreign key's FOR KEY SHARE lock on an actor user.
+        .forNoKeyUpdate();
       if (users.length !== orderedUserIDs.length) {
         throw new ChorePlanAssignmentError('Participant not found.', 404);
       }
