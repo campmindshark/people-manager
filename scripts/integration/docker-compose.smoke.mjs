@@ -123,7 +123,7 @@ async function runIntegrationTest() {
     );
     assert(verificationResponse.ok, 'Could not verify the smoke-test user');
 
-    const rosterSignupResponse = await fetch(
+    const adminRosterSignupResponse = await fetch(
       'http://localhost:3001/api/roster_participants/1',
       {
         method: 'POST',
@@ -141,7 +141,7 @@ async function runIntegrationTest() {
       },
     );
     assert(
-      rosterSignupResponse.ok,
+      adminRosterSignupResponse.ok,
       'Could not create the smoke-test roster participant',
     );
 
