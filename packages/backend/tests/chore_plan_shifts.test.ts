@@ -282,6 +282,14 @@ test(
       assert.deepEqual(overlapRestrictedShift?.signupConflictShiftIDs, [
         ordinaryShift.id,
       ]);
+      assert.deepEqual(overlapRestrictedShift?.signupConflicts, [
+        {
+          shiftID: ordinaryShift.id,
+          scheduleName: 'Shift view overlap fixture',
+          startTime: availableShift.startTime,
+          endTime: availableShift.endTime,
+        },
+      ]);
 
       await lifecycleController.close(roster.id, member.id);
       const closedView = await shiftsController.getForUser(
