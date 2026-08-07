@@ -30,6 +30,7 @@ interface PlanRow extends ChorePlanRequirementColumns {
 }
 
 interface ParticipantRow {
+  id: number;
   rosterID: number;
   userID: number;
   firstName: string | null;
@@ -158,6 +159,7 @@ export default class ChorePlanAssignmentsController {
       )
         .innerJoin('users as user', 'user.id', 'participant.userID')
         .select(
+          'participant.id',
           'participant.userID',
           'user.firstName',
           'user.lastName',
@@ -168,7 +170,10 @@ export default class ChorePlanAssignmentsController {
         .where('participant.rosterID', rosterID)
         .orderByRaw('lower(coalesce("user"."lastName", \'\'))')
         .orderByRaw('lower(coalesce("user"."firstName", \'\'))')
-        .orderBy('participant.userID')) as ParticipantRow[];
+        .orderBy('participant.userID')
+        .orderBy('participant.id')) as ParticipantRow[];
+      const uniqueParticipants =
+        ChorePlanAssignmentsController.uniqueParticipants(participants);
 
       const plan = (await transaction<PlanRow>('chore_plans')
         .select(
@@ -260,7 +265,7 @@ export default class ChorePlanAssignmentsController {
           },
         },
         mutationsAllowed: plan.status === 'open',
-        participants: participants.map((participant) =>
+        participants: uniqueParticipants.map((participant) =>
           ChorePlanAssignmentsController.participantView(
             participant,
             shiftIDsByUser.get(participant.userID) ?? [],
@@ -303,6 +308,20 @@ export default class ChorePlanAssignmentsController {
       requirements,
       assignedShiftIDs,
     };
+  }
+
+  private static uniqueParticipants(
+    participants: ParticipantRow[],
+  ): ParticipantRow[] {
+    // The legacy schema permits duplicate membership rows. Callers order by
+    // row ID so the original registration remains authoritative.
+    const byUserID = new Map<number, ParticipantRow>();
+    participants.forEach((participant) => {
+      if (!byUserID.has(participant.userID)) {
+        byUserID.set(participant.userID, participant);
+      }
+    });
+    return [...byUserID.values()];
   }
 
   async mutate(
@@ -366,12 +385,20 @@ export default class ChorePlanAssignmentsController {
       const participants = (await transaction<ParticipantRow>(
         'roster_participants',
       )
-        .select('userID', 'estimatedArrivalDate', 'estimatedDepartureDate')
+        .select(
+          'id',
+          'userID',
+          'estimatedArrivalDate',
+          'estimatedDepartureDate',
+        )
         .where({ rosterID })
         .whereIn('userID', orderedUserIDs)
         .orderBy('userID')
+        .orderBy('id')
         .forUpdate()) as ParticipantRow[];
-      if (participants.length !== orderedUserIDs.length) {
+      const uniqueParticipants =
+        ChorePlanAssignmentsController.uniqueParticipants(participants);
+      if (uniqueParticipants.length !== orderedUserIDs.length) {
         throw new ChorePlanAssignmentError(
           'Administrative assignments are limited to roster members.',
           409,
@@ -484,7 +511,7 @@ export default class ChorePlanAssignmentsController {
           : ChorePlanAssignmentsController.validateFinalState(
               plan.id,
               requirementsByUserID,
-              participants,
+              uniqueParticipants,
               shifts,
               finalAssignments,
               finalCounts,

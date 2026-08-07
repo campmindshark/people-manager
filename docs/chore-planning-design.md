@@ -306,7 +306,9 @@ assignment unchanged. Category assignment counts may not exceed the effective
 requirement, and overlap checks include ordinary and generated assignments.
 Frontend controls appear only for an open read model and surface backend
 conflicts, but their visibility is never treated as authorization or integrity
-validation.
+validation. Removing a participant from a roster removes that participant's
+assignments for the roster in the same transaction so departed members cannot
+continue consuming shift capacity.
 
 Ordinary shifts share the generic attendance, overlap, capacity, and duplicate
 integrity rules. They do not inherit chore-plan lifecycle, category

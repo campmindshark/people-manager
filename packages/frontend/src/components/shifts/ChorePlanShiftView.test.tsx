@@ -1,5 +1,11 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {
   CHORE_PLAN_SIGNUP_RESTRICTION_MESSAGES,
@@ -61,6 +67,17 @@ function client(result: ChorePlanShiftViewResponse): ChorePlanShiftClient {
       .fn()
       .mockResolvedValue({ changed: true, assignedShiftIDs: [] }),
   };
+}
+
+function deferred<T>(): {
+  promise: Promise<T>;
+  resolve: (value: T) => void;
+} {
+  let resolvePromise!: (value: T) => void;
+  const promise = new Promise<T>((resolve) => {
+    resolvePromise = resolve;
+  });
+  return { promise, resolve: resolvePromise };
 }
 
 function openResponse(
@@ -248,6 +265,80 @@ test('selects and submits as many as three non-conflicting chores at once', asyn
   expect(
     await screen.findByText(/signed up for 3 chore shifts/i),
   ).toBeVisible();
+});
+
+test('keeps the newest state when category refreshes resolve out of order', async () => {
+  const openChoreShift = {
+    ...shift,
+    assignedParticipantCount: 0,
+    currentUserAssigned: false,
+    assignments: [],
+  };
+  const openEventShift = {
+    ...openChoreShift,
+    id: 12,
+    stableKey: 'event|1|gate',
+    scheduleKey: 'event|gate',
+    kind: 'event' as const,
+    scheduleName: 'Gate',
+    timePeriodLabel: '6p-9p',
+    periodOrder: 1,
+  };
+  const assignedChoreShift = {
+    ...openChoreShift,
+    assignedParticipantCount: 1,
+    currentUserAssigned: true,
+    assignments: [{ displayName: 'Moonbeam', currentUser: true }],
+  };
+  const assignedEventShift = {
+    ...openEventShift,
+    assignedParticipantCount: 1,
+    currentUserAssigned: true,
+    assignments: [{ displayName: 'Moonbeam', currentUser: true }],
+  };
+  const initialResponse = openResponse([openChoreShift, openEventShift]);
+  const firstRefresh = deferred<ChorePlanShiftViewResponse>();
+  const secondRefresh = deferred<ChorePlanShiftViewResponse>();
+  const planClient = client(initialResponse);
+  planClient.GetShifts = jest
+    .fn()
+    .mockResolvedValueOnce(initialResponse)
+    .mockReturnValueOnce(firstRefresh.promise)
+    .mockReturnValueOnce(secondRefresh.promise);
+  render(<ChorePlanShiftView rosterID={2} planClient={planClient} />);
+
+  userEvent.click(await screen.findByRole('button', { name: /event crew/i }));
+  userEvent.click(
+    screen.getByRole('button', {
+      name: /select open spot for AM Chum Wench/i,
+    }),
+  );
+  userEvent.click(screen.getByRole('button', { name: 'Sign up (1)' }));
+  await waitFor(() => expect(planClient.GetShifts).toHaveBeenCalledTimes(2));
+
+  userEvent.click(
+    screen.getByRole('button', { name: /select open spot for Gate/i }),
+  );
+  userEvent.click(screen.getByRole('button', { name: 'Sign up (1)' }));
+  await waitFor(() => expect(planClient.GetShifts).toHaveBeenCalledTimes(3));
+
+  await act(async () => {
+    secondRefresh.resolve(
+      openResponse([assignedChoreShift, assignedEventShift]),
+    );
+  });
+  await waitFor(() =>
+    expect(
+      screen.getByRole('button', { name: /remove your spot for Gate/i }),
+    ).toBeEnabled(),
+  );
+
+  await act(async () => {
+    firstRefresh.resolve(openResponse([assignedChoreShift, openEventShift]));
+  });
+  expect(
+    screen.getByRole('button', { name: /remove your spot for Gate/i }),
+  ).toBeEnabled();
 });
 
 test('selects signup-sheet slots before signup, removal, and switching', async () => {
@@ -447,6 +538,43 @@ test('shows authoritative backend signup conflicts', async () => {
   userEvent.click(screen.getByRole('button', { name: 'Sign up (1)' }));
   expect(await screen.findByText(/chore plan shift is full/i)).toBeVisible();
   expect(planClient.GetShifts).toHaveBeenCalledTimes(1);
+});
+
+test('reports a saved mutation separately when the refresh fails', async () => {
+  const initialResponse = openResponse([
+    {
+      ...shift,
+      assignedParticipantCount: 0,
+      currentUserAssigned: false,
+      assignments: [],
+    },
+  ]);
+  const planClient = client(initialResponse);
+  planClient.GetShifts = jest
+    .fn()
+    .mockResolvedValueOnce(initialResponse)
+    .mockRejectedValueOnce(new Error('Refresh failed'));
+  render(<ChorePlanShiftView rosterID={2} planClient={planClient} />);
+
+  userEvent.click(
+    await screen.findByRole('button', {
+      name: /select open spot for AM Chum Wench/i,
+    }),
+  );
+  userEvent.click(screen.getByRole('button', { name: 'Sign up (1)' }));
+
+  expect(await screen.findByText(/signed up for 1 chore shift/i)).toBeVisible();
+  expect(
+    screen.getByText(/assignment update was saved.*could not be refreshed/i),
+  ).toBeVisible();
+  await waitFor(() =>
+    expect(
+      screen.getByRole('button', {
+        name: /select open spot for AM Chum Wench/i,
+      }),
+    ).toBeEnabled(),
+  );
+  expect(planClient.GetShifts).toHaveBeenCalledTimes(2);
 });
 
 test('keeps closed assignments visible and read-only', async () => {

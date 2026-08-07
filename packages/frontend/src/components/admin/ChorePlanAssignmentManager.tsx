@@ -458,12 +458,14 @@ export default function ChorePlanAssignmentManager({
     );
     setSelectedParticipants([]);
     setDestinationShiftID(null);
+    setForceReason('');
     setError(null);
     setSuccess(null);
   };
 
   const handleToggleParticipant = (selection: AdminParticipantSelection) => {
     setSelectedAssigneeID(null);
+    setForceReason('');
     setError(null);
     setSuccess(null);
     const selected = selectedParticipants.some(
@@ -774,6 +776,7 @@ export default function ChorePlanAssignmentManager({
                             setDestinationShiftID((current) =>
                               current === shiftID ? null : shiftID,
                             );
+                            setForceReason('');
                             setError(null);
                             setSuccess(null);
                           }}

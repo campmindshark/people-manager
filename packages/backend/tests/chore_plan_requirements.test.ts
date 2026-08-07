@@ -9,7 +9,7 @@ import ChorePlanLifecycleController from '../controllers/chore_plan_lifecycle';
 import ChorePlanRequirementsController from '../controllers/chore_plan_requirements';
 import ChorePlanShiftsController from '../controllers/chore_plan_shifts';
 import ChorePlanSignupController from '../controllers/chore_plan_signup';
-import RosterController from '../controllers/roster';
+import RosterParticipantController from '../controllers/roster_participant';
 import RoleConfigCollection from '../roles/role';
 import ChorePlanAssignmentError from '../utils/chorePlanAssignmentError';
 import ChorePlanPreviewError from '../utils/chorePlanPreviewError';
@@ -847,9 +847,9 @@ test(
         FOR EACH ROW EXECUTE FUNCTION reject_roster_requirement_audit();
       `);
       await assert.rejects(
-        RosterController.UnregisterParticipantFromRoster(
+        RosterParticipantController.RemoveFromRoster(
           cleanupRoster.id,
-          users[2].id,
+          [users[2].id],
           users[0].id,
           database,
         ),
@@ -878,6 +878,10 @@ test(
         .where({ chorePlanID: cleanupDraft.draft.id })
         .first();
       assert(cleanupShift);
+      await database('shift_participants').insert({
+        shiftID: cleanupShift.shiftID,
+        userID: users[2].id,
+      });
       await database.raw(`
         CREATE FUNCTION delay_roster_requirement_audit()
         RETURNS trigger AS $$
@@ -894,30 +898,33 @@ test(
         BEFORE INSERT ON chore_plan_audit_entries
         FOR EACH ROW EXECUTE FUNCTION delay_roster_requirement_audit();
       `);
-      const cleanup = RosterController.UnregisterParticipantFromRoster(
+      const cleanup = RosterParticipantController.RemoveFromRoster(
         cleanupRoster.id,
-        users[2].id,
+        [users[2].id],
         users[0].id,
         database,
       );
       await sleep(100);
-      const concurrentActorShiftLock = database.transaction(
+      const concurrentActorAssignmentLock = database.transaction(
         async (transaction) => {
           await transaction('users')
             .select('id')
             .where({ id: users[0].id })
             .forUpdate()
             .first();
-          await transaction('shifts')
-            .select('id')
-            .where({ id: cleanupShift.shiftID })
+          await transaction('shift_participants')
+            .select('shiftID')
+            .where({
+              shiftID: cleanupShift.shiftID,
+              userID: users[2].id,
+            })
             .forUpdate()
             .first();
         },
       );
-      assert.equal(
-        (await Promise.all([cleanup, concurrentActorShiftLock]))[0],
-        true,
+      assert.deepEqual(
+        (await Promise.all([cleanup, concurrentActorAssignmentLock]))[0],
+        { deletedCount: 1, removedAssignmentCount: 1 },
       );
       await database.raw(
         'DROP TRIGGER delay_roster_requirement_audit_trigger ON chore_plan_audit_entries',
