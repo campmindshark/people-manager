@@ -125,7 +125,11 @@ export default function NavList() {
   const featureFlags = useRecoilValue(FeatureFlagsState);
 
   const isUserAllowed = (link: MenuItemLinkData) => {
-    if (link.index === 'shifts' && !canSignupForShifts) {
+    if (
+      link.index === 'shifts' &&
+      !featureFlags.chorePlanning &&
+      !canSignupForShifts
+    ) {
       return false;
     }
 

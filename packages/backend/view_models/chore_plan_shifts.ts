@@ -28,6 +28,13 @@ export interface ChorePlanShiftViewAssignment {
   currentUser: boolean;
 }
 
+export interface ChorePlanShiftViewConflict {
+  shiftID: number;
+  scheduleName: string;
+  startTime: string;
+  endTime: string;
+}
+
 export interface ChorePlanShiftViewItem {
   id: number;
   stableKey: string;
@@ -46,6 +53,7 @@ export interface ChorePlanShiftViewItem {
   currentUserAssigned: boolean;
   signupRestrictionReason: string | null;
   signupConflictShiftIDs: number[];
+  signupConflicts: ChorePlanShiftViewConflict[];
   assignments: ChorePlanShiftViewAssignment[];
   slots: ChorePlanShiftViewSlot[];
 }
