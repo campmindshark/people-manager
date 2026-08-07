@@ -9,6 +9,7 @@ import BackendShiftClient from 'src/api/shifts/shifts';
 import { getFrontendConfig } from '../../config/config';
 import ShiftBlock from './ShiftBlock';
 import { UserState } from '../../state/store';
+import { startOfEventDay } from '../../utils/datetime/utils';
 
 const frontendConfig = getFrontendConfig();
 
@@ -53,8 +54,7 @@ export default function ShiftStack(props: Props) {
     }
 
     const firstShift = Shift.fromJson(shiftViewModels[0].shift);
-    const lastEndTime = new Date(firstShift.startTime);
-    lastEndTime.setHours(0, 0, 0, 0);
+    const lastEndTime = startOfEventDay(new Date(firstShift.startTime));
     for (let index = 0; index < shiftViewModels.length; index += 1) {
       const shift = Shift.fromJson(shiftViewModels[index].shift);
       const differenceBetweenStartTimes =

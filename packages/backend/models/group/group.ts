@@ -49,7 +49,7 @@ export default class Group extends Model {
       },
       shiftSignupOpenDate: {
         type: 'string',
-        title: 'Shift Signup Open Date',
+        title: 'Shift Signup Open Date (Pacific Time)',
         format: 'date-time',
         default: '',
       },

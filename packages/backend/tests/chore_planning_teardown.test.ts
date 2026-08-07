@@ -130,7 +130,10 @@ async function assertTeardownSchema(
   assert.equal(constraints.length, 1);
 }
 
-async function assertFoundationSchema(database: Knex): Promise<void> {
+async function assertFoundationSchema(
+  database: Knex,
+  schemaName: string,
+): Promise<void> {
   await Promise.all(
     [
       'chore_plans',
@@ -150,6 +153,33 @@ async function assertFoundationSchema(database: Knex): Promise<void> {
     false,
   );
   assert.equal(await database.schema.hasColumn('shifts', 'plannerKey'), false);
+
+  await Promise.all(
+    [
+      ['shifts', 'startTime'],
+      ['shifts', 'endTime'],
+      ['groups', 'shiftSignupOpenDate'],
+    ].map(async ([tableName, columnName]) => {
+      const column = await database('information_schema.columns')
+        .select('data_type as dataType')
+        .where({
+          column_name: columnName,
+          table_name: tableName,
+          table_schema: schemaName,
+        })
+        .first();
+      assert.equal(column?.dataType, 'timestamp with time zone');
+    }),
+  );
+
+  const constraints = (await database('information_schema.table_constraints')
+    .select('constraint_name as constraintName')
+    .where({
+      constraint_name: 'shift_participants_shift_user_unique',
+      table_name: 'shift_participants',
+      table_schema: schemaName,
+    })) as NamedConstraintRow[];
+  assert.equal(constraints.length, 1);
 }
 
 test(
@@ -403,7 +433,7 @@ test(
         extension: 'ts',
       });
       assert.equal(migrationNames.at(-1), FOUNDATION_MIGRATION);
-      await assertFoundationSchema(database);
+      await assertFoundationSchema(database, schemaName);
     } finally {
       await database?.destroy();
       await adminDatabase.schema.dropSchemaIfExists(schemaName, true);

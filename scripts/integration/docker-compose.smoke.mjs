@@ -133,8 +133,8 @@ async function runIntegrationTest() {
         },
         body: JSON.stringify({
           probabilityOfAttending: 100,
-          estimatedArrivalDate: '2024-08-20T00:00:00.000Z',
-          estimatedDepartureDate: '2024-09-10T00:00:00.000Z',
+          estimatedArrivalDate: '2024-08-24T23:00:00.000Z',
+          estimatedDepartureDate: '2024-08-25T00:30:00.000Z',
           sleepingArrangement: 'Smoke-test fixture',
           yearsAtCamp: [],
         }),
@@ -143,6 +143,13 @@ async function runIntegrationTest() {
     assert(
       adminRosterSignupResponse.ok,
       'Could not create the smoke-test roster participant',
+    );
+    const adminRosterSignup = await adminRosterSignupResponse.json();
+    assert(
+      adminRosterSignup.estimatedArrivalDate === '2024-08-24T23:00:00.000Z' &&
+        adminRosterSignup.estimatedDepartureDate ===
+          '2024-08-25T00:30:00.000Z',
+      'Roster attendance timestamps were not preserved as absolute instants',
     );
 
     const groupResponse = await fetch('http://localhost:3001/api/groups', {
