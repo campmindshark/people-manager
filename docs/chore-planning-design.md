@@ -197,15 +197,19 @@ While chore planning is enabled, this signup-sheet experience replaces the
 legacy hourly shift grid, matching PR #58; disabling the feature restores the
 legacy view.
 
-The administrative planner loads the current plan summary and the draft
-revision needed for optimistic concurrency. It exposes reviewed open, close,
-and reason-required reopen controls in the same plan-status alert used by PR
-#58, but it does not expose participant mutations. Preview displays exact
-category shortages and generated shifts. A shortage disables apply. If the
-observed draft inputs, planning year, or catalog revision differ from the
-preview, the UI requires explicit replacement confirmation and sends the
-observed draft revision. A `409` clears the stale preview and requires the
-administrator to preview again.
+The administrative planner loads the current draft revision needed for
+optimistic concurrency, but it does not expose lifecycle or participant
+controls. Preview displays exact category shortages and generated shifts. A
+shortage disables apply. If the observed draft inputs, planning year, or
+catalog revision differ from the preview, the UI requires explicit replacement
+confirmation and sends the observed draft revision. A `409` clears the stale
+preview and requires the administrator to preview again.
+
+Following PR #58, administrators open and close chore signups from the Shifts
+page header, with the current plan state shown immediately above the shift
+display. Draft and open transitions use the original direct header control.
+Reopening a closed plan uses the same location but requires the audited reason
+added by the safer lifecycle contract.
 
 PR #58 is the visual source of truth for the chore-planning experience. The
 planner keeps its camp-year and prospective-camper form, fixed 3 chore / 3 event
