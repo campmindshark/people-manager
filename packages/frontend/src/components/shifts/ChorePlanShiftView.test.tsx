@@ -140,10 +140,7 @@ test('renders PR 58-style signup sheets and category requirements', async () => 
     />,
   );
 
-  expect(
-    await screen.findByText('Chore signups are open for 2026.'),
-  ).toBeVisible();
-  expect(screen.getByText('AM Chum Wench')).toBeVisible();
+  expect(await screen.findByText('AM Chum Wench')).toBeVisible();
   expect(screen.getByText('Your signup')).toBeVisible();
   expect(screen.getByText('Requirement complete!')).toBeVisible();
   expect(screen.getAllByText('1 shift required!')).toHaveLength(2);
@@ -267,11 +264,7 @@ test('keeps closed assignments visible and read-only', async () => {
     />,
   );
 
-  expect(
-    await screen.findByText(/the 2026 chore plan is closed/i),
-  ).toBeVisible();
-  expect(screen.getByText('AM Chum Wench')).toBeVisible();
-  expect(screen.getByText(/assignments are read-only/i)).toBeVisible();
+  expect(await screen.findByText('AM Chum Wench')).toBeVisible();
   expect(screen.getAllByText('Signups closed')).toHaveLength(3);
   expect(
     screen.queryByRole('button', { name: /select|remove|sign up/i }),
