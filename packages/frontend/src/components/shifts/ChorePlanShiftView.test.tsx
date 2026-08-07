@@ -449,6 +449,43 @@ test('shows authoritative backend signup conflicts', async () => {
   expect(planClient.GetShifts).toHaveBeenCalledTimes(1);
 });
 
+test('reports a saved mutation separately when the refresh fails', async () => {
+  const initialResponse = openResponse([
+    {
+      ...shift,
+      assignedParticipantCount: 0,
+      currentUserAssigned: false,
+      assignments: [],
+    },
+  ]);
+  const planClient = client(initialResponse);
+  planClient.GetShifts = jest
+    .fn()
+    .mockResolvedValueOnce(initialResponse)
+    .mockRejectedValueOnce(new Error('Refresh failed'));
+  render(<ChorePlanShiftView rosterID={2} planClient={planClient} />);
+
+  userEvent.click(
+    await screen.findByRole('button', {
+      name: /select open spot for AM Chum Wench/i,
+    }),
+  );
+  userEvent.click(screen.getByRole('button', { name: 'Sign up (1)' }));
+
+  expect(await screen.findByText(/signed up for 1 chore shift/i)).toBeVisible();
+  expect(
+    screen.getByText(/assignment update was saved.*could not be refreshed/i),
+  ).toBeVisible();
+  await waitFor(() =>
+    expect(
+      screen.getByRole('button', {
+        name: /select open spot for AM Chum Wench/i,
+      }),
+    ).toBeEnabled(),
+  );
+  expect(planClient.GetShifts).toHaveBeenCalledTimes(2);
+});
+
 test('keeps closed assignments visible and read-only', async () => {
   render(
     <ChorePlanShiftView

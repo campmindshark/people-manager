@@ -77,15 +77,6 @@ export default class ChorePlanSignupController {
     rosterID: number,
     userID: number,
   ): Promise<MutationContext> {
-    const user = await transaction('users')
-      .select('id')
-      .where({ id: userID })
-      .forUpdate()
-      .first();
-    if (!user) {
-      throw new ChorePlanSignupError('User not found.', 404);
-    }
-
     const roster = await transaction('rosters')
       .select('id')
       .where({ id: rosterID })
@@ -113,6 +104,17 @@ export default class ChorePlanSignupController {
         'Self-service chore signup is available only while the plan is open.',
         409,
       );
+    }
+
+    // Lifecycle transitions lock the plan before they reference their actor's
+    // user row. Keep that order here so the two operations cannot deadlock.
+    const user = await transaction('users')
+      .select('id')
+      .where({ id: userID })
+      .forUpdate()
+      .first();
+    if (!user) {
+      throw new ChorePlanSignupError('User not found.', 404);
     }
 
     const participant = (await transaction<ParticipantRow>(

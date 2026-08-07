@@ -331,12 +331,20 @@ function SignupCategory({
     setSuccess(null);
     try {
       const result = await action();
-      await onChanged();
       setSuccess(
         result.changed ? successMessage : 'Your assignments are unchanged.',
       );
       setSelectedShiftIDs([]);
       setSelectedRemovalShiftID(null);
+      try {
+        await onChanged();
+      } catch (_refreshFailure) {
+        setError(
+          result.changed
+            ? 'Your assignment update was saved, but the signup sheets could not be refreshed. Refresh the page to see the latest assignments.'
+            : 'Your assignments are unchanged, but the signup sheets could not be refreshed. Refresh the page to try again.',
+        );
+      }
     } catch (mutationFailure) {
       setError(mutationErrorMessage(mutationFailure));
     } finally {
