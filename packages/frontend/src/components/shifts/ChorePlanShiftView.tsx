@@ -494,67 +494,54 @@ function MemberChorePlanShiftView({
   }
 
   return (
-    <Stack spacing={2}>
-      <Alert severity={plan.status === 'open' ? 'success' : 'info'}>
-        {plan.status === 'open'
-          ? `Chore signups are open for ${plan.planningYear}.`
-          : `The ${plan.planningYear} chore plan is closed. Assignments are read-only.`}
-      </Alert>
-      <Paper sx={{ p: { xs: 1, sm: 3 } }}>
-        {response.shifts.length === 0 ? (
-          <Alert severity="warning">This plan has no generated shifts.</Alert>
-        ) : (
-          KINDS.map((kind) => {
-            const shifts = response.shifts.filter(
-              (shift) => shift.kind === kind,
-            );
-            const status = requirementChip(kind, plan, shifts);
-            return (
-              <Accordion key={kind} defaultExpanded={kind === 'chore'}>
-                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                  <Stack
-                    alignItems={{ xs: 'flex-start', sm: 'center' }}
-                    direction={{ xs: 'column', sm: 'row' }}
-                    spacing={{ xs: 0.5, sm: 2 }}
-                  >
-                    <Typography variant="h6">
-                      {CATEGORY_LABELS[kind]}
-                    </Typography>
-                    <Chip
-                      color={status.color}
-                      label={status.label}
-                      size="small"
-                    />
-                  </Stack>
-                </AccordionSummary>
-                <AccordionDetails sx={{ px: { xs: 0, sm: 2 } }}>
-                  {shifts.length ? (
-                    <SignupCategory
-                      kind={kind}
-                      mutationsAllowed={response.selfServiceMutationsAllowed}
-                      onChanged={loadShifts}
-                      onRemove={(shiftID) => client.Remove(rosterID, shiftID)}
-                      onSignup={(shiftID) =>
-                        client.Signup(rosterID, { shiftID })
-                      }
-                      onSwitch={(fromShiftID, toShiftID) =>
-                        client.Switch(rosterID, { fromShiftID, toShiftID })
-                      }
-                      plan={plan}
-                      shifts={shifts}
-                    />
-                  ) : (
-                    <Typography color="text.secondary">
-                      No {CATEGORY_LABELS[kind].toLowerCase()} were generated.
-                    </Typography>
-                  )}
-                </AccordionDetails>
-              </Accordion>
-            );
-          })
-        )}
-      </Paper>
-    </Stack>
+    <Paper sx={{ p: { xs: 1, sm: 3 } }}>
+      {response.shifts.length === 0 ? (
+        <Alert severity="warning">This plan has no generated shifts.</Alert>
+      ) : (
+        KINDS.map((kind) => {
+          const shifts = response.shifts.filter((shift) => shift.kind === kind);
+          const status = requirementChip(kind, plan, shifts);
+          return (
+            <Accordion key={kind} defaultExpanded={kind === 'chore'}>
+              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                <Stack
+                  alignItems={{ xs: 'flex-start', sm: 'center' }}
+                  direction={{ xs: 'column', sm: 'row' }}
+                  spacing={{ xs: 0.5, sm: 2 }}
+                >
+                  <Typography variant="h6">{CATEGORY_LABELS[kind]}</Typography>
+                  <Chip
+                    color={status.color}
+                    label={status.label}
+                    size="small"
+                  />
+                </Stack>
+              </AccordionSummary>
+              <AccordionDetails sx={{ px: { xs: 0, sm: 2 } }}>
+                {shifts.length ? (
+                  <SignupCategory
+                    kind={kind}
+                    mutationsAllowed={response.selfServiceMutationsAllowed}
+                    onChanged={loadShifts}
+                    onRemove={(shiftID) => client.Remove(rosterID, shiftID)}
+                    onSignup={(shiftID) => client.Signup(rosterID, { shiftID })}
+                    onSwitch={(fromShiftID, toShiftID) =>
+                      client.Switch(rosterID, { fromShiftID, toShiftID })
+                    }
+                    plan={plan}
+                    shifts={shifts}
+                  />
+                ) : (
+                  <Typography color="text.secondary">
+                    No {CATEGORY_LABELS[kind].toLowerCase()} were generated.
+                  </Typography>
+                )}
+              </AccordionDetails>
+            </Accordion>
+          );
+        })
+      )}
+    </Paper>
   );
 }
 

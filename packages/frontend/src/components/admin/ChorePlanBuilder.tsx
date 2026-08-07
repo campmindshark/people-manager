@@ -35,10 +35,6 @@ import {
 import Roster from 'backend/models/roster/roster';
 import { ChoreCatalogKind } from 'backend/view_models/chore_catalog';
 import {
-  ChorePlanLifecycleResponse,
-  ChorePlanLifecycleState,
-} from 'backend/view_models/chore_plan_lifecycle';
-import {
   ChorePlanApplyRequest,
   ChorePlanApplyResponse,
   ChorePlanDraftResponse,
@@ -67,23 +63,11 @@ const DEFAULT_REQUIREMENTS: ChorePlanRequirements = {
   event: 3,
   dinner: 1,
 };
-const LIFECYCLE_DATE_FORMATTER = new Intl.DateTimeFormat('en-US', {
-  timeZone: 'America/Los_Angeles',
-  dateStyle: 'medium',
-  timeStyle: 'short',
-});
 
 export interface ChorePlannerClient {
   Preview: (request: ChorePlanPreviewRequest) => Promise<ChorePlanPreview>;
   GetDraft: (rosterID: number) => Promise<ChorePlanDraftResponse>;
   Apply: (request: ChorePlanApplyRequest) => Promise<ChorePlanApplyResponse>;
-  GetLifecycle: (rosterID: number) => Promise<ChorePlanLifecycleResponse>;
-  Open: (rosterID: number) => Promise<ChorePlanLifecycleState>;
-  Close: (rosterID: number) => Promise<ChorePlanLifecycleState>;
-  Reopen: (
-    rosterID: number,
-    reason: string,
-  ) => Promise<ChorePlanLifecycleState>;
 }
 
 export interface ChorePlannerRosterClient {
@@ -204,106 +188,6 @@ function applyErrorMessage(error: unknown): string {
   return 'Failed to apply the chore plan draft. Please try again.';
 }
 
-function lifecycleErrorMessage(error: unknown): string {
-  const message = responseMessage(error);
-  if (message) {
-    return message;
-  }
-  if (responseStatus(error) === 403) {
-    return 'You do not have permission to manage chore signups.';
-  }
-  return 'Failed to update chore signups. Please try again.';
-}
-
-function lifecycleFromDraft(
-  draft: ChorePlanDraftSummary,
-): ChorePlanLifecycleState {
-  return {
-    id: draft.id,
-    rosterID: draft.rosterID,
-    status: 'draft',
-    planningYear: draft.planningYear,
-    camperCount: draft.camperCount,
-    requirements: draft.requirements,
-    shiftCount: draft.shiftCount,
-    slotCount: draft.slotCount,
-    openedAt: null,
-    openedByUserID: null,
-    closedAt: null,
-    closedByUserID: null,
-    updatedAt: draft.updatedAt,
-  };
-}
-
-function lifecycleEvent(label: string, timestamp: string): string {
-  return `${label} ${LIFECYCLE_DATE_FORMATTER.format(
-    new Date(timestamp),
-  )} by an administrator.`;
-}
-
-export function PlanLifecycleSummary({
-  plan,
-  loading,
-  onReviewTransition,
-}: {
-  plan: ChorePlanLifecycleState;
-  loading: boolean;
-  onReviewTransition: () => void;
-}) {
-  const signupsOpen = plan.status === 'open';
-  const signupsClosed = plan.status === 'closed';
-  let severity: 'success' | 'info' | 'warning' = 'warning';
-  let title = `Chore signups are in draft for ${plan.planningYear}.`;
-  let description =
-    'Members cannot join shifts until signups are opened. Plan updates are available while the plan remains a draft.';
-  if (signupsOpen) {
-    severity = 'success';
-    title = `Chore signups are open for ${plan.planningYear}.`;
-    description = 'Members can join available shifts.';
-  } else if (signupsClosed) {
-    severity = 'info';
-    title = `Chore signups are closed for ${plan.planningYear}.`;
-    description =
-      'Members cannot change their signups while the plan is closed. Reopen signups to allow changes again.';
-  }
-
-  return (
-    <Alert
-      severity={severity}
-      action={
-        <Button
-          color="inherit"
-          size="small"
-          disabled={loading}
-          onClick={onReviewTransition}
-        >
-          {loading
-            ? `${signupsOpen ? 'Closing' : 'Opening'}…`
-            : `Review and ${signupsOpen ? 'close' : 'open'} chore signups`}
-        </Button>
-      }
-    >
-      <Typography variant="subtitle2">{title}</Typography>
-      <Typography variant="body2">
-        This plan covers {plan.camperCount} campers with {plan.slotCount} signup
-        spots across {plan.shiftCount} shifts. The default member requirement is{' '}
-        {plan.requirements.chore} chore, {plan.requirements.event} event, and{' '}
-        {plan.requirements.dinner} dinner shifts. {description}
-      </Typography>
-      {plan.openedAt && (
-        <Typography variant="caption" display="block">
-          {lifecycleEvent('Last opened', plan.openedAt)}
-        </Typography>
-      )}
-      {plan.closedAt && (
-        <Typography variant="caption" display="block">
-          {lifecycleEvent('Last closed', plan.closedAt)}
-        </Typography>
-      )}
-    </Alert>
-  );
-}
-
 function scoreTone(score: number): 'high' | 'medium' | 'low' {
   if (score >= 75) {
     return 'high';
@@ -355,14 +239,10 @@ export default function ChorePlanBuilder({
   const [preview, setPreview] = useState<ChorePlanPreview | null>(null);
   const [observedDraft, setObservedDraft] =
     useState<ChorePlanDraftSummary | null>(null);
-  const [plan, setPlan] = useState<ChorePlanLifecycleState | null>(null);
   const [loadingRosters, setLoadingRosters] = useState(true);
   const [previewing, setPreviewing] = useState(false);
   const [applying, setApplying] = useState(false);
-  const [transitioning, setTransitioning] = useState(false);
   const [confirmingReplacement, setConfirmingReplacement] = useState(false);
-  const [reviewingTransition, setReviewingTransition] = useState(false);
-  const [reopenReason, setReopenReason] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -402,34 +282,6 @@ export default function ChorePlanBuilder({
       active = false;
     };
   }, [rosterClient]);
-
-  useEffect(() => {
-    const rosterID = wholeNumber(values.rosterID, 1, Number.MAX_SAFE_INTEGER);
-    if (rosterID === null) {
-      setPlan(null);
-      return undefined;
-    }
-
-    let active = true;
-    setPlan(null);
-    planClient
-      .GetLifecycle(rosterID)
-      .then((response) => {
-        if (active) {
-          setPlan(response.plan);
-        }
-      })
-      .catch((loadError) => {
-        console.error('Failed to load chore plan lifecycle:', loadError);
-        if (active) {
-          setError('Failed to load the current chore plan. Please try again.');
-        }
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [planClient, values.rosterID]);
 
   const resetGeneratedState = useCallback(() => {
     setPreview(null);
@@ -507,7 +359,6 @@ export default function ChorePlanBuilder({
       });
       setPreview(response.preview);
       setObservedDraft(response.draft);
-      setPlan(lifecycleFromDraft(response.draft));
       if (!response.changed) {
         setSuccess('The saved signup plan already matches this preview.');
       } else if (response.replaced) {
@@ -539,60 +390,11 @@ export default function ChorePlanBuilder({
     applyPreview();
   };
 
-  const handleLifecycleTransition = async () => {
-    if (!plan) {
-      return;
-    }
-    const normalizedReason = reopenReason.trim();
-    if (plan.status === 'closed' && normalizedReason.length === 0) {
-      setError('Enter a reason before reopening chore signups.');
-      return;
-    }
-
-    setTransitioning(true);
-    setError(null);
-    setSuccess(null);
-    try {
-      let updated: ChorePlanLifecycleState;
-      if (plan.status === 'draft') {
-        updated = await planClient.Open(plan.rosterID);
-      } else if (plan.status === 'open') {
-        updated = await planClient.Close(plan.rosterID);
-      } else {
-        updated = await planClient.Reopen(plan.rosterID, normalizedReason);
-      }
-      setPlan(updated);
-      setReviewingTransition(false);
-      setReopenReason('');
-      setSuccess(
-        `Chore signups are now ${
-          updated.status === 'open' ? 'open' : 'closed'
-        } for ${updated.planningYear}.`,
-      );
-    } catch (transitionError) {
-      console.error('Failed to update chore plan lifecycle:', transitionError);
-      setError(lifecycleErrorMessage(transitionError));
-      setReviewingTransition(false);
-    } finally {
-      setTransitioning(false);
-    }
-  };
-
   let applyButtonLabel = observedDraft
     ? 'Apply plan updates'
     : 'Create signup plan';
   if (applying) {
     applyButtonLabel = 'Applying…';
-  } else if (plan?.status === 'open') {
-    applyButtonLabel = 'Signup plan is open';
-  } else if (plan?.status === 'closed') {
-    applyButtonLabel = 'Signup plan is closed';
-  }
-  let lifecycleAction: 'open' | 'close' | 'reopen' = 'open';
-  if (plan?.status === 'open') {
-    lifecycleAction = 'close';
-  } else if (plan?.status === 'closed') {
-    lifecycleAction = 'reopen';
   }
 
   if (loadingRosters) {
@@ -607,18 +409,6 @@ export default function ChorePlanBuilder({
     <Stack spacing={3}>
       {error && <Alert severity="error">{error}</Alert>}
       {success && <Alert severity="success">{success}</Alert>}
-      {plan && (
-        <PlanLifecycleSummary
-          loading={transitioning}
-          onReviewTransition={() => {
-            setError(null);
-            setSuccess(null);
-            setReopenReason('');
-            setReviewingTransition(true);
-          }}
-          plan={plan}
-        />
-      )}
 
       <Paper component="form" onSubmit={handlePreview} sx={{ p: 3 }}>
         <Grid container spacing={3} alignItems="flex-start">
@@ -714,11 +504,7 @@ export default function ChorePlanBuilder({
                 variant="contained"
                 color="secondary"
                 startIcon={<PlaylistAddCheckIcon />}
-                disabled={
-                  applying ||
-                  hasShortage ||
-                  Boolean(plan && plan.status !== 'draft')
-                }
+                disabled={applying || hasShortage}
                 onClick={handleApply}
               >
                 {applyButtonLabel}
@@ -791,55 +577,6 @@ export default function ChorePlanBuilder({
           </Paper>
         </>
       )}
-
-      <Dialog
-        open={reviewingTransition}
-        onClose={() => {
-          if (!transitioning) {
-            setReviewingTransition(false);
-          }
-        }}
-      >
-        <DialogTitle>Review and {lifecycleAction} chore signups</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            {lifecycleAction === 'close'
-              ? 'Closing makes the current assignments read-only for members.'
-              : 'Opening lets verified roster members choose and change available shifts.'}
-          </DialogContentText>
-          {lifecycleAction === 'reopen' && (
-            <TextField
-              autoFocus
-              fullWidth
-              inputProps={{ maxLength: 500 }}
-              label="Reopening reason"
-              margin="normal"
-              multiline
-              onChange={(event) => setReopenReason(event.target.value)}
-              required
-              value={reopenReason}
-            />
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button
-            disabled={transitioning}
-            onClick={() => setReviewingTransition(false)}
-          >
-            Cancel
-          </Button>
-          <Button
-            disabled={
-              transitioning ||
-              (lifecycleAction === 'reopen' && reopenReason.trim().length === 0)
-            }
-            onClick={handleLifecycleTransition}
-            variant="contained"
-          >
-            {transitioning ? 'Saving…' : `${lifecycleAction} signups`}
-          </Button>
-        </DialogActions>
-      </Dialog>
 
       <Dialog
         open={confirmingReplacement}

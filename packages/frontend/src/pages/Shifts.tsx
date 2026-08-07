@@ -1,9 +1,19 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, Box, Button, Typography } from '@mui/material';
-import Container from '@mui/material/Container';
-import Stack from '@mui/material/Stack';
+import {
+  Alert,
+  Box,
+  Button,
+  Container,
+  Stack,
+  Typography,
+} from '@mui/material';
 import { useSetRecoilState, useRecoilValue } from 'recoil';
 import ChorePlanShiftView from 'src/components/shifts/ChorePlanShiftView';
+import ChoreSignupControls, {
+  ChoreSignupButton,
+  ChoreSignupReopenDialog,
+  useChoreSignupControls,
+} from 'src/components/shifts/ChoreSignupControls';
 import ShiftDisplay from 'src/components/shifts/ShiftDisplay';
 import Dashboard from '../layouts/dashboard/Dashboard';
 import { FeatureFlagsState } from '../state/features';
@@ -50,6 +60,18 @@ export default function Shifts() {
   const canForceAssignments = roles.some((role) =>
     role.permissions.includes('chorePlans:forceAssign'),
   );
+  const {
+    canManageChorePlans,
+    canReopenChorePlans,
+    plan: chorePlan,
+    loading: choreSignupLoading,
+    error: choreSignupError,
+    success: choreSignupSuccess,
+    reviewingReopen,
+    setReviewingReopen,
+    toggleSignups,
+    reopenSignups,
+  } = useChoreSignupControls();
 
   useEffect(() => {
     setPageState({
@@ -63,6 +85,20 @@ export default function Shifts() {
       setAdminEditMode(false);
     }
   }, [canManageAssignments]);
+
+  if (!featureFlags.chorePlanning) {
+    return (
+      <Dashboard>
+        <Container maxWidth={false} sx={{ mt: 4, mb: 4 }}>
+          {userIsVerified ? (
+            <ShiftDisplay />
+          ) : (
+            <h1>Verify your account to sign up for shifts.</h1>
+          )}
+        </Container>
+      </Dashboard>
+    );
+  }
 
   return (
     <Dashboard>
@@ -83,16 +119,39 @@ export default function Shifts() {
                 year&apos;s chore plan.
               </Typography>
             </Box>
-            {canManageAssignments && userIsVerified && (
-              <Button
-                color={adminEditMode ? 'secondary' : 'primary'}
-                onClick={() => setAdminEditMode((enabled) => !enabled)}
-                variant={adminEditMode ? 'contained' : 'outlined'}
-              >
-                {adminEditMode ? 'Exit Admin Edit' : 'Admin Edit'}
-              </Button>
-            )}
+            <Stack
+              alignItems={{ xs: 'stretch', sm: 'flex-end' }}
+              direction={{ xs: 'column', sm: 'row' }}
+              spacing={1}
+            >
+              {canManageChorePlans && (
+                <ChoreSignupButton
+                  canReopen={canReopenChorePlans}
+                  loading={choreSignupLoading}
+                  onReviewReopen={() => setReviewingReopen(true)}
+                  onToggleSignups={toggleSignups}
+                  plan={chorePlan}
+                />
+              )}
+              {canManageAssignments && userIsVerified && (
+                <Button
+                  color={adminEditMode ? 'secondary' : 'primary'}
+                  onClick={() => setAdminEditMode((enabled) => !enabled)}
+                  variant={adminEditMode ? 'contained' : 'outlined'}
+                >
+                  {adminEditMode ? 'Exit Admin Edit' : 'Admin Edit'}
+                </Button>
+              )}
+            </Stack>
           </Stack>
+          <ChoreSignupControls
+            canManageChorePlans={canManageChorePlans}
+            error={choreSignupError}
+            loading={choreSignupLoading}
+            plan={chorePlan}
+            rosterYear={currentRoster.year}
+            success={choreSignupSuccess}
+          />
           {userIsVerified ? (
             <VerifiedShiftExperience
               adminEditMode={adminEditMode}
@@ -105,6 +164,12 @@ export default function Shifts() {
             </Alert>
           )}
         </Stack>
+        <ChoreSignupReopenDialog
+          loading={choreSignupLoading}
+          onClose={() => setReviewingReopen(false)}
+          onReopen={reopenSignups}
+          open={reviewingReopen}
+        />
       </Container>
     </Dashboard>
   );
