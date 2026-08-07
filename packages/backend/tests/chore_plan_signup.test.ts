@@ -219,6 +219,10 @@ test(
       const draftController = new ChorePlanDraftController(database);
       const lifecycleController = new ChorePlanLifecycleController(database);
       const signupController = new ChorePlanSignupController(database);
+      await assert.rejects(
+        signupController.signup(roster.id, [1], users[5].id),
+        (error) => isSignupError(error, 403, /roster members/i),
+      );
       const applied = await draftController.apply(
         {
           rosterID: roster.id,
@@ -269,6 +273,10 @@ test(
       assert(capacityShift);
       assert(overlappingShift);
 
+      await assert.rejects(
+        signupController.signup(roster.id, [sourceShift.id], users[5].id),
+        (error) => isSignupError(error, 403, /roster members/i),
+      );
       await assert.rejects(
         signupController.signup(roster.id, [sourceShift.id], users[0].id),
         (error) => isSignupError(error, 409, /plan is open/i),
@@ -513,6 +521,10 @@ test(
 
       await signupController.signup(roster.id, [sourceShift.id], users[0].id);
       await lifecycleController.close(roster.id, users[0].id);
+      await assert.rejects(
+        signupController.remove(roster.id, sourceShift.id, users[5].id),
+        (error) => isSignupError(error, 403, /roster members/i),
+      );
       await assert.rejects(
         signupController.remove(roster.id, sourceShift.id, users[0].id),
         (error) => isSignupError(error, 409, /plan is open/i),

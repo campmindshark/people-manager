@@ -85,6 +85,20 @@ export default class ChorePlanSignupController {
       throw new ChorePlanSignupError('Roster not found.', 404);
     }
 
+    // Reject non-members before returning plan-specific errors. The participant
+    // row is checked and locked again below so a concurrent membership change
+    // cannot bypass mutation-time authorization.
+    const participantMembership = await transaction('roster_participants')
+      .select('id')
+      .where({ rosterID, userID })
+      .first();
+    if (!participantMembership) {
+      throw new ChorePlanSignupError(
+        'Chore plan signup is available only to roster members.',
+        403,
+      );
+    }
+
     const plan = (await transaction<PlanRow>('chore_plans')
       .select(
         'id',
