@@ -4,17 +4,44 @@ import { DateTime } from 'luxon';
 
 const timezone = 'America/Los_Angeles';
 
-interface IDRow {
+interface PersistedScheduleIdentity {
   id: number;
+
+  rosterID: number;
+
+  name: string;
+
+  description: string | null;
+
+  chorePlanID: number | null;
+
+  plannerKey: string | null;
 }
 
 interface ScheduleFixture {
+  id: number;
   rosterID: number;
   name: string;
   description: string;
 }
 
+interface PersistedShiftIdentity {
+  id: number;
+
+  scheduleID: number;
+
+  plannerKey: string | null;
+
+  startTime: Date | string;
+
+  endTime: Date | string;
+
+  requiredParticipants: number;
+}
+
 interface ShiftFixture {
+  id: number;
+  scheduleID: number;
   startTime: Date;
   endTime: Date;
   requiredParticipants: number;
@@ -28,16 +55,22 @@ const generateShiftsAtIntervalOverRange = (
   intervalMins: number,
   startTime: Date,
   endTime: Date,
+  startID: number,
+  scheduleID: number,
 ) => {
   const shifts: ShiftFixture[] = [];
   let currTime = startTime;
+  let currentID = startID;
   while (currTime < endTime) {
     shifts.push({
+      id: currentID,
+      scheduleID,
       startTime: currTime,
       endTime: new Date(currTime.getTime() + intervalMins * 60000),
       requiredParticipants: 2,
     });
     currTime = new Date(currTime.getTime() + intervalMins * 60000);
+    currentID += 1;
   }
 
   return shifts;
@@ -46,59 +79,88 @@ const generateShiftsAtIntervalOverRange = (
 async function upsertFixtureSchedule(
   knex: Knex.Transaction,
   fixture: ScheduleFixture,
-): Promise<number> {
+): Promise<void> {
   const existing = (await knex('schedules')
-    .select('id')
-    .where({ rosterID: fixture.rosterID, name: fixture.name })
-    .whereNull('chorePlanID')
-    .orderBy('id')
-    .first()) as IDRow | undefined;
+    .select(
+      'id',
+      'rosterID',
+      'name',
+      'description',
+      'chorePlanID',
+      'plannerKey',
+    )
+    .where({ id: fixture.id })
+    .first()) as PersistedScheduleIdentity | undefined;
   if (existing) {
-    await knex('schedules')
-      .where({ id: existing.id })
-      .update({ description: fixture.description });
-    return existing.id;
+    if (
+      existing.rosterID !== fixture.rosterID ||
+      existing.name !== fixture.name ||
+      existing.description !== fixture.description ||
+      existing.chorePlanID !== null ||
+      existing.plannerKey !== null
+    ) {
+      throw new Error(
+        `Schedule fixture ID ${fixture.id} belongs to application data.`,
+      );
+    }
+    return;
   }
 
-  const [created] = (await knex('schedules')
-    .insert(fixture)
-    .returning('id')) as IDRow[];
-  return created.id;
+  await knex('schedules').insert(fixture);
 }
 
 async function upsertFixtureShift(
   knex: Knex.Transaction,
-  scheduleID: number,
   fixture: ShiftFixture,
 ): Promise<void> {
   const existing = (await knex('shifts')
-    .select('id')
-    .where({
-      scheduleID,
-      startTime: fixture.startTime,
-      endTime: fixture.endTime,
-    })
-    .whereNull('plannerKey')
-    .orderBy('id')
-    .first()) as IDRow | undefined;
+    .select(
+      'id',
+      'scheduleID',
+      'plannerKey',
+      'startTime',
+      'endTime',
+      'requiredParticipants',
+    )
+    .where({ id: fixture.id })
+    .first()) as PersistedShiftIdentity | undefined;
   if (existing) {
-    await knex('shifts')
-      .where({ id: existing.id })
-      .update({ requiredParticipants: fixture.requiredParticipants });
+    if (
+      existing.scheduleID !== fixture.scheduleID ||
+      existing.plannerKey !== null ||
+      new Date(existing.startTime).getTime() !== fixture.startTime.getTime() ||
+      new Date(existing.endTime).getTime() !== fixture.endTime.getTime() ||
+      existing.requiredParticipants !== fixture.requiredParticipants
+    ) {
+      throw new Error(
+        `Shift fixture ID ${fixture.id} belongs to application data.`,
+      );
+    }
     return;
   }
 
-  await knex('shifts').insert({ scheduleID, ...fixture });
+  await knex('shifts').insert(fixture);
 }
 
 export async function seed(knex: Knex): Promise<void> {
   await knex.transaction(async (transaction) => {
-    const barScheduleID = await upsertFixtureSchedule(transaction, {
+    // Sequence repair must observe every allocated application ID. This lock
+    // waits for current writers and excludes new schedule/shift writers until
+    // both the fixture upserts and setval calls commit.
+    await transaction.raw(`
+      LOCK TABLE "schedules", "shifts" IN SHARE ROW EXCLUSIVE MODE
+    `);
+
+    const barScheduleID = 1;
+    const iceScheduleID = 2;
+    await upsertFixtureSchedule(transaction, {
+      id: barScheduleID,
       rosterID: 1,
       name: 'Bar Wench',
       description: 'Prepare the bar for battle.',
     });
-    const iceScheduleID = await upsertFixtureSchedule(transaction, {
+    await upsertFixtureSchedule(transaction, {
+      id: iceScheduleID,
       rosterID: 1,
       name: 'Ice Bitch',
       description: 'Keep us cool.',
@@ -108,6 +170,8 @@ export async function seed(knex: Knex): Promise<void> {
       90,
       getBMTime('August 24, 2024 16:00'),
       getBMTime('August 29, 2024 18:00'),
+      1,
+      barScheduleID,
     );
     const iceShifts: ShiftFixture[] = [
       ['August 24, 2024 10:00', 'August 24, 2024 11:00'],
@@ -116,7 +180,9 @@ export async function seed(knex: Knex): Promise<void> {
       ['August 25, 2024 18:00', 'August 25, 2024 19:00'],
       ['August 26, 2024 10:00', 'August 26, 2024 11:00'],
       ['August 26, 2024 18:00', 'August 26, 2024 19:00'],
-    ].map(([startTime, endTime]) => ({
+    ].map(([startTime, endTime], index) => ({
+      id: barShifts.length + index + 1,
+      scheduleID: iceScheduleID,
       startTime: getBMTime(startTime),
       endTime: getBMTime(endTime),
       requiredParticipants: 2,
@@ -125,18 +191,15 @@ export async function seed(knex: Knex): Promise<void> {
     // Do not delete or replace application-created schedules, generated chore
     // shifts, or participant assignments when refreshing development fixtures.
     await Promise.all(
-      barShifts.map((shift) =>
-        upsertFixtureShift(transaction, barScheduleID, shift),
-      ),
+      barShifts.map((shift) => upsertFixtureShift(transaction, shift)),
     );
     await Promise.all(
-      iceShifts.map((shift) =>
-        upsertFixtureShift(transaction, iceScheduleID, shift),
-      ),
+      iceShifts.map((shift) => upsertFixtureShift(transaction, shift)),
     );
 
-    // Older versions inserted these fixtures with explicit IDs. Keep both
-    // sequences above every preserved row before application inserts resume.
+    // The fixture IDs are reserved and validated above. Keep both sequences
+    // above every fixture and preserved application row before releasing the
+    // writer lock.
     await transaction.raw(`
       SELECT setval(
         pg_get_serial_sequence('schedules', 'id'),

@@ -71,6 +71,12 @@ async function countRows(database: Knex, tableName: string): Promise<number> {
   return Number(result?.count ?? 0);
 }
 
+function delay(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, milliseconds);
+  });
+}
+
 async function persistedPlanState(database: Knex, chorePlanID: number) {
   const generatedShiftIDs = (
     await database('chore_plan_generated_shifts')
@@ -141,6 +147,27 @@ test(
         .returning('id')) as IDRow[];
       const controller = new ChorePlanDraftController(database);
 
+      const applicationSchedule = {
+        id: 1,
+        rosterID: roster.id,
+        name: 'Bar Wench',
+        description: 'Application-owned schedule with a fixture name.',
+      };
+      await database('schedules').insert(applicationSchedule);
+      await assert.rejects(
+        seedSchedulesAndShifts(database),
+        /Schedule fixture ID 1 belongs to application data/i,
+      );
+      assert.deepEqual(
+        await database('schedules')
+          .select('id', 'rosterID', 'name', 'description')
+          .where({ id: applicationSchedule.id })
+          .first(),
+        applicationSchedule,
+        'fixture seeding must not adopt an application-owned schedule by name',
+      );
+      await database('schedules').where({ id: applicationSchedule.id }).del();
+
       await seedSchedulesAndShifts(database);
       await database.raw(`
         SELECT setval(
@@ -157,6 +184,41 @@ test(
         )
       `);
       await seedSchedulesAndShifts(database);
+
+      const writer = await database.transaction();
+      const [concurrentSchedule] = (await writer('schedules')
+        .insert({
+          rosterID: roster.id,
+          name: 'Concurrent application schedule',
+          description: 'Allocated while a reseed begins.',
+        })
+        .returning('id')) as IDRow[];
+      const concurrentSeed = seedSchedulesAndShifts(database);
+      try {
+        const resultBeforeCommit = await Promise.race([
+          concurrentSeed.then(() => 'completed' as const),
+          delay(100).then(() => 'blocked' as const),
+        ]);
+        assert.equal(
+          resultBeforeCommit,
+          'blocked',
+          'reseed must wait for in-flight schedule writers before repairing sequences',
+        );
+      } finally {
+        await writer.commit();
+        await concurrentSeed;
+      }
+      const [scheduleAfterSeed] = (await database('schedules')
+        .insert({
+          rosterID: roster.id,
+          name: 'Post-seed application schedule',
+          description: 'Must receive a fresh sequence value.',
+        })
+        .returning('id')) as IDRow[];
+      assert(
+        scheduleAfterSeed.id > concurrentSchedule.id,
+        'sequence repair must not reuse a concurrently allocated schedule ID',
+      );
 
       await assert.rejects(
         controller.apply(
