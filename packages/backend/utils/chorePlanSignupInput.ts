@@ -2,6 +2,7 @@ import ChorePlanSignupError from './chorePlanSignupError';
 import {
   ChorePlanSignupRequest,
   ChorePlanSwitchRequest,
+  MAX_CHORE_PLAN_SIGNUPS_PER_REQUEST,
 } from '../view_models/chore_plan_signup';
 
 function isObject(value: unknown): value is Record<string, unknown> {
@@ -50,13 +51,27 @@ export function parseEmptyChorePlanSignupRequest(value: unknown): void {
 export function parseChorePlanSignupRequest(
   value: unknown,
 ): ChorePlanSignupRequest {
-  if (!isObject(value) || !exactKeys(value, ['shiftID'])) {
+  if (!isObject(value) || !exactKeys(value, ['shiftIDs'])) {
     throw new ChorePlanSignupError(
-      'The signup request accepts only a shift ID.',
+      'The signup request accepts only shift IDs.',
       400,
     );
   }
-  return { shiftID: parseRequestShiftID(value.shiftID) };
+  if (
+    !Array.isArray(value.shiftIDs) ||
+    value.shiftIDs.length < 1 ||
+    value.shiftIDs.length > MAX_CHORE_PLAN_SIGNUPS_PER_REQUEST
+  ) {
+    throw new ChorePlanSignupError(
+      `Choose between 1 and ${MAX_CHORE_PLAN_SIGNUPS_PER_REQUEST} chore plan shifts.`,
+      400,
+    );
+  }
+  const shiftIDs = value.shiftIDs.map(parseRequestShiftID);
+  if (new Set(shiftIDs).size !== shiftIDs.length) {
+    throw new ChorePlanSignupError('Choose each chore plan shift once.', 400);
+  }
+  return { shiftIDs };
 }
 
 export function parseChorePlanSwitchRequest(

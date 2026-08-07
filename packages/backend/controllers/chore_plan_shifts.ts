@@ -1,11 +1,14 @@
 import { Knex } from 'knex';
 import ChorePlan from '../models/chore_plan/chore_plan';
 import ChorePlanShiftViewError from '../utils/chorePlanShiftViewError';
+import { shiftTimeRangesOverlap, ShiftTimeRange } from '../utils/shiftTime';
 import {
   effectiveRequirements,
   ChorePlanRequirementColumns,
 } from '../utils/chorePlanRequirements';
 import {
+  CHORE_PLAN_SIGNUP_RESTRICTION_MESSAGES,
+  ChorePlanShiftViewAssignment,
   ChorePlanShiftViewItem,
   ChorePlanShiftViewPlan,
   ChorePlanShiftViewResponse,
@@ -48,10 +51,54 @@ interface SlotRow {
   positionLabel: string;
 }
 
-interface AssignmentSummaryRow {
+interface AssignmentRow {
+  id: number;
   shiftID: number;
-  assignedParticipantCount: string;
-  currentUserAssigned: boolean;
+  userID: number;
+  firstName: string | null;
+  lastName: string | null;
+  playaName: string | null;
+}
+
+interface ParticipantRow {
+  id: number;
+  estimatedArrivalDate: Date | string;
+  estimatedDepartureDate: Date | string;
+}
+
+interface ExistingAssignmentRow extends ShiftTimeRange {
+  shiftID: number;
+}
+
+function dateMilliseconds(value: Date | string): number {
+  const milliseconds = new Date(value).getTime();
+  if (!Number.isFinite(milliseconds)) {
+    throw new Error('A stored chore signup timestamp is invalid.');
+  }
+  return milliseconds;
+}
+
+function attendanceWindowContains(
+  participant: ParticipantRow,
+  shift: ShiftTimeRange,
+): boolean {
+  return (
+    dateMilliseconds(shift.startTime) >=
+      dateMilliseconds(participant.estimatedArrivalDate) &&
+    dateMilliseconds(shift.endTime) <=
+      dateMilliseconds(participant.estimatedDepartureDate)
+  );
+}
+
+function signupDisplayName(assignment: AssignmentRow): string {
+  const playaName = assignment.playaName?.trim();
+  if (playaName) {
+    return playaName;
+  }
+  const firstName = assignment.firstName?.trim() ?? '';
+  const lastInitial = assignment.lastName?.trim().slice(0, 1) ?? '';
+  const realName = `${firstName}${lastInitial ? ` ${lastInitial}.` : ''}`;
+  return realName || 'Camp member';
 }
 
 function isoTimestamp(value: Date | string | null): string | null {
@@ -101,10 +148,10 @@ export default class ChorePlanShiftsController {
         throw new ChorePlanShiftViewError('Roster not found.', 404);
       }
 
-      const participant = await transaction('roster_participants')
-        .select('id')
+      const participant = (await transaction('roster_participants')
+        .select('id', 'estimatedArrivalDate', 'estimatedDepartureDate')
         .where({ rosterID, userID })
-        .first();
+        .first()) as ParticipantRow | undefined;
       if (!participant) {
         throw new ChorePlanShiftViewError(
           'Chore plan shifts are available only to roster members.',
@@ -187,18 +234,26 @@ export default class ChorePlanShiftsController {
             .orderBy('slotOrder')) as SlotRow[])
         : [];
       const assignmentRows = shiftIDs.length
-        ? ((await transaction<AssignmentSummaryRow>('shift_participants')
-            .select('shiftID')
-            .count('* as assignedParticipantCount')
+        ? ((await transaction<AssignmentRow>('shift_participants as assignment')
+            .innerJoin('users as user', 'user.id', 'assignment.userID')
             .select(
-              transaction.raw(
-                'bool_or("userID" = ?) as "currentUserAssigned"',
-                [userID],
-              ),
+              'assignment.id',
+              'assignment.shiftID',
+              'assignment.userID',
+              'user.firstName',
+              'user.lastName',
+              'user.playaName',
             )
-            .whereIn('shiftID', shiftIDs)
-            .groupBy('shiftID')) as AssignmentSummaryRow[])
+            .whereIn('assignment.shiftID', shiftIDs)
+            .orderBy('assignment.shiftID')
+            .orderBy('assignment.id')) as AssignmentRow[])
         : [];
+      const existingAssignments = (await transaction<ExistingAssignmentRow>(
+        'shift_participants as assignment',
+      )
+        .innerJoin('shifts as shift', 'shift.id', 'assignment.shiftID')
+        .select('assignment.shiftID', 'shift.startTime', 'shift.endTime')
+        .where('assignment.userID', userID)) as ExistingAssignmentRow[];
 
       const slotsByShiftID = new Map<number, ChorePlanShiftViewSlot[]>();
       slotRows.forEach((slot) => {
@@ -209,12 +264,44 @@ export default class ChorePlanShiftsController {
         });
         slotsByShiftID.set(slot.shiftID, slots);
       });
-      const assignmentsByShiftID = new Map(
-        assignmentRows.map((assignment) => [assignment.shiftID, assignment]),
-      );
+      const assignmentsByShiftID = new Map<
+        number,
+        ChorePlanShiftViewAssignment[]
+      >();
+      assignmentRows.forEach((assignment) => {
+        const assignments = assignmentsByShiftID.get(assignment.shiftID) ?? [];
+        assignments.push({
+          displayName: signupDisplayName(assignment),
+          currentUser: Number(assignment.userID) === Number(userID),
+        });
+        assignmentsByShiftID.set(assignment.shiftID, assignments);
+      });
 
       const shifts: ChorePlanShiftViewItem[] = generatedShifts.map((shift) => {
-        const assignments = assignmentsByShiftID.get(shift.shiftID);
+        const assignments = assignmentsByShiftID.get(shift.shiftID) ?? [];
+        const currentUserAssigned = assignments.some(
+          ({ currentUser }) => currentUser,
+        );
+        let signupRestrictionReason: string | null = null;
+        let signupConflictShiftIDs: number[] = [];
+        if (!currentUserAssigned) {
+          if (!attendanceWindowContains(participant, shift)) {
+            signupRestrictionReason =
+              CHORE_PLAN_SIGNUP_RESTRICTION_MESSAGES.outsideAttendanceWindow;
+          } else {
+            signupConflictShiftIDs = existingAssignments
+              .filter(
+                (existingAssignment) =>
+                  existingAssignment.shiftID !== shift.shiftID &&
+                  shiftTimeRangesOverlap(shift, existingAssignment),
+              )
+              .map(({ shiftID }) => Number(shiftID));
+            if (signupConflictShiftIDs.length > 0) {
+              signupRestrictionReason =
+                CHORE_PLAN_SIGNUP_RESTRICTION_MESSAGES.existingShiftConflict;
+            }
+          }
+        }
         return {
           id: shift.shiftID,
           stableKey: shift.stableKey,
@@ -229,10 +316,11 @@ export default class ChorePlanShiftsController {
           startTime: new Date(shift.startTime).toISOString(),
           endTime: new Date(shift.endTime).toISOString(),
           requiredParticipants: shift.requiredParticipants,
-          assignedParticipantCount: Number(
-            assignments?.assignedParticipantCount ?? 0,
-          ),
-          currentUserAssigned: assignments?.currentUserAssigned ?? false,
+          assignedParticipantCount: assignments.length,
+          currentUserAssigned,
+          signupRestrictionReason,
+          signupConflictShiftIDs,
+          assignments,
           slots: slotsByShiftID.get(shift.shiftID) ?? [],
         };
       });
