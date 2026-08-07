@@ -145,7 +145,6 @@ export default function Shifts() {
   };
 
   const confirmLifecycleChange = async () => {
-    setReadinessReviewOpen(false);
     await toggleSignups();
     refreshSignupStatus();
   };
