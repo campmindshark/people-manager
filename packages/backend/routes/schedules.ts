@@ -3,6 +3,7 @@ import Schedule from '../models/schedule/schedule';
 import ShiftController from '../controllers/shift';
 import hasPermission from '../middleware/rbac';
 import userIsVerified from '../middleware/verified_user';
+import { PUBLIC_SCHEDULE_COLUMNS } from '../utils/scheduleApiColumns';
 
 const router: Router = express.Router();
 
@@ -11,7 +12,7 @@ router.get(
   '/',
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async (req: Request, res: Response, next: NextFunction) => {
-    const query = Schedule.query();
+    const query = Schedule.query().select(...PUBLIC_SCHEDULE_COLUMNS);
 
     const schedules = await query;
     res.json(schedules);

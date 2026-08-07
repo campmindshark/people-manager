@@ -5,6 +5,7 @@ import ShiftController from '../controllers/shift';
 import hasPermission from '../middleware/rbac';
 import userIsVerified from '../middleware/verified_user';
 import ShiftSignupError from '../utils/shiftSignupError';
+import { PUBLIC_SHIFT_COLUMNS } from '../utils/scheduleApiColumns';
 
 const router: Router = express.Router();
 
@@ -23,7 +24,7 @@ router.get(
   '/',
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async (req: Request, res: Response, next: NextFunction) => {
-    const query = Shift.query();
+    const query = Shift.query().select(...PUBLIC_SHIFT_COLUMNS);
 
     const shifts = await query;
     res.json(shifts);
