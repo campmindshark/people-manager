@@ -181,21 +181,21 @@ shift rows. A missing plan returns a null plan and no shifts. A draft returns
 only its lifecycle summary and no generated shifts. Open and closed plans return
 the generated-shift display fields and stable slot identities from the immutable
 snapshot, assignment counts, and whether the caller is assigned. They never
-return participant identities, planner revisions, or score data. Assignment
-status is aggregated in PostgreSQL so other participants' user IDs do not enter
-the application read model. Only an open plan reports self-service mutations as
-allowed. This response is the shared read contract for the later signup slice,
-while the read-only UI in this slice adds no mutation controls.
+return participant IDs, contact details, planner revisions, or score data. Each
+occupied position includes only the participant's trimmed playa name or, when
+that is blank, first name and last initial. Only an open plan reports
+self-service mutations as allowed. This response is the shared read contract
+for the later signup slice, while the read-only UI in this slice adds no
+mutation controls.
 
 The member shift page follows PR #58's signup-sheet layout: the roster-year
 heading and explanatory copy lead into daily-chore, event-crew, and dinner-crew
 accordions using the shared weekly grids. Read-only slot pills distinguish the
-member's assignment, filled spots, and open spots without exposing another
-participant's identity. Category chips show the member's remaining default
-requirements while the plan is open and the closed state after signups close.
-While chore planning is enabled, this signup-sheet experience replaces the
-legacy hourly shift grid, matching PR #58; disabling the feature restores the
-legacy view.
+member's assignment, named occupied spots, and open spots. Category chips show
+the member's remaining default requirements while the plan is open and the
+closed state after signups close. While chore planning is enabled, this
+signup-sheet experience replaces the legacy hourly shift grid, matching PR #58;
+disabling the feature restores the legacy view.
 
 The administrative planner loads the current draft revision needed for
 optimistic concurrency, but it does not expose lifecycle or participant
@@ -278,12 +278,14 @@ the transaction. The database unique constraint on `(shiftID, userID)` is the
 last line of duplicate protection. Switching is one transaction that validates
 the final state before removing the old assignment.
 
-Self-service mutations use exact request contracts for signup by shift ID,
-removal by roster/shift path, and switching by source/destination shift IDs.
-The backend locks the user, holds a shared plan lock against lifecycle changes,
-locks participant attendance, and locks destination shift rows in stable ID
-order. A repeated signup or removal is an idempotent no-op. A switch requires
-the caller to own the source and not the destination; failure leaves the source
+Self-service mutations use exact request contracts for an atomic batch of one
+to three signup shift IDs, removal by roster/shift path, and switching by
+source/destination shift IDs. The backend locks the user, holds a shared plan
+lock against lifecycle changes, locks participant attendance, and locks
+destination shift rows in stable ID order. A repeated signup or removal is an
+idempotent no-op. Batch signup validates both existing assignments and conflicts
+within the requested batch before inserting anything. A switch requires the
+caller to own the source and not the destination; failure leaves the source
 assignment unchanged. Category assignment counts may not exceed the effective
 requirement, and overlap checks include ordinary and generated assignments.
 Frontend controls appear only for an open read model and surface backend

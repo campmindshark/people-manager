@@ -141,7 +141,7 @@ async function runIntegrationTest() {
           cookie: sessionCookie,
           'content-type': 'application/json',
         },
-        body: JSON.stringify({ shiftID: 1 }),
+        body: JSON.stringify({ shiftIDs: [1] }),
       },
     );
     assert(
@@ -865,7 +865,7 @@ async function runIntegrationTest() {
           cookie: standardCookie,
           'content-type': 'application/json',
         },
-        body: JSON.stringify({ shiftID: 1 }),
+        body: JSON.stringify({ shiftIDs: [1] }),
       },
     );
     assert(
@@ -1060,7 +1060,7 @@ async function runIntegrationTest() {
           cookie: standardCookie,
           'content-type': 'application/json',
         },
-        body: JSON.stringify({ shiftID: signupSource.id, force: true }),
+        body: JSON.stringify({ shiftIDs: [signupSource.id], force: true }),
       },
     );
     assert(
@@ -1075,7 +1075,7 @@ async function runIntegrationTest() {
           cookie: standardCookie,
           'content-type': 'application/json',
         },
-        body: JSON.stringify({ shiftID: signupSource.id }),
+        body: JSON.stringify({ shiftIDs: [signupSource.id] }),
       },
     );
     assert(choreSignupResponse.ok, 'Open chore signup failed');
@@ -1104,7 +1104,7 @@ async function runIntegrationTest() {
           cookie: standardCookie,
           'content-type': 'application/json',
         },
-        body: JSON.stringify({ shiftID: signupSource.id }),
+        body: JSON.stringify({ shiftIDs: [signupSource.id] }),
       },
     );
     assert(
@@ -1398,7 +1398,7 @@ async function runIntegrationTest() {
           cookie: standardCookie,
           'content-type': 'application/json',
         },
-        body: JSON.stringify({ shiftID: signupSource.id }),
+        body: JSON.stringify({ shiftIDs: [signupSource.id] }),
       },
     );
     assert(
