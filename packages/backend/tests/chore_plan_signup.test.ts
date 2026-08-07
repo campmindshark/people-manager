@@ -6,6 +6,7 @@ import knexFactory, { Knex } from 'knex';
 import ChorePlanDraftController from '../controllers/chore_plan_draft';
 import ChorePlanLifecycleController from '../controllers/chore_plan_lifecycle';
 import ChorePlanSignupController from '../controllers/chore_plan_signup';
+import RosterParticipantController from '../controllers/roster_participant';
 import ChorePlanSignupError from '../utils/chorePlanSignupError';
 import { shiftTimeRangesOverlap } from '../utils/shiftTime';
 import {
@@ -161,7 +162,7 @@ test('signup input accepts only narrow positive shift contracts', () => {
 });
 
 test(
-  'signup, removal, and switching enforce lifecycle and integrity atomically',
+  'signup, roster removal, and switching enforce lifecycle and integrity atomically',
   POSTGRES_TEST_OPTIONS,
   async () => {
     const databaseURL = assertSafeTestDatabaseURL(TEST_DATABASE_URL);
@@ -480,10 +481,31 @@ test(
       const capacityAssignment = await database('shift_participants')
         .where({ shiftID: capacityShift.id })
         .first();
-      await signupController.remove(
-        roster.id,
-        capacityShift.id,
-        Number(capacityAssignment.userID),
+      assert.deepEqual(
+        await RosterParticipantController.RemoveFromRoster(
+          roster.id,
+          [Number(capacityAssignment.userID)],
+          database,
+        ),
+        { deletedCount: 1, removedAssignmentCount: 1 },
+      );
+      assert.equal(
+        await database('shift_participants')
+          .where({
+            shiftID: capacityShift.id,
+            userID: Number(capacityAssignment.userID),
+          })
+          .first(),
+        undefined,
+      );
+      assert.equal(
+        await database('roster_participants')
+          .where({
+            rosterID: roster.id,
+            userID: Number(capacityAssignment.userID),
+          })
+          .first(),
+        undefined,
       );
       assert.deepEqual(
         await signupController.switch(

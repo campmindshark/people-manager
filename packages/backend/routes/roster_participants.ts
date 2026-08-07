@@ -1,6 +1,7 @@
 import express, { Request, Response, Router } from 'express';
 import { DateTime } from 'luxon';
 import { ValidationError } from 'objection';
+import RosterParticipantController from '../controllers/roster_participant';
 import User from '../models/user/user';
 import Roster from '../models/roster/roster';
 import RosterParticipant from '../models/roster_participant/roster_participant';
@@ -139,26 +140,24 @@ router.delete(
       return;
     }
 
-    const participant = await RosterParticipant.query()
-      .where({
-        userID: parseInt(userId, 10),
-        rosterID: parseInt(rosterId, 10),
-      })
-      .first();
+    const parsedRosterID = parseInt(rosterId, 10);
+    const parsedUserID = parseInt(userId, 10);
+    if (Number.isNaN(parsedRosterID) || Number.isNaN(parsedUserID)) {
+      res.status(400).json({ error: 'Roster ID and User ID must be valid' });
+      return;
+    }
 
-    if (!participant) {
+    const result = await RosterParticipantController.RemoveFromRoster(
+      parsedRosterID,
+      [parsedUserID],
+    );
+
+    if (result.deletedCount === 0) {
       res.status(404).json({ error: 'User not found in roster' });
       return;
     }
 
-    const success = await RosterParticipant.query().deleteById(participant.id);
-
-    if (!success) {
-      res.status(500).json({ error: 'Failed to remove user from roster' });
-      return;
-    }
-
-    res.json({ success: true });
+    res.json({ success: true, ...result });
   },
 );
 
@@ -177,25 +176,29 @@ router.delete(
       return;
     }
 
-    const participants = await RosterParticipant.query()
-      .where({
-        rosterID: parseInt(rosterId, 10),
-      })
-      .whereIn('userID', userIds);
+    const parsedRosterID = parseInt(rosterId, 10);
+    const parsedUserIDs = userIds.map(Number);
+    if (
+      Number.isNaN(parsedRosterID) ||
+      parsedUserIDs.some((userID) => !Number.isInteger(userID) || userID < 1)
+    ) {
+      res.status(400).json({ error: 'Roster ID and user IDs must be valid' });
+      return;
+    }
 
-    if (participants.length === 0) {
+    const result = await RosterParticipantController.RemoveFromRoster(
+      parsedRosterID,
+      parsedUserIDs,
+    );
+
+    if (result.deletedCount === 0) {
       res
         .status(404)
         .json({ error: 'No participants found for the given user IDs' });
       return;
     }
 
-    const participantIds = participants.map((p) => p.id);
-    const deletedCount = await RosterParticipant.query()
-      .whereIn('id', participantIds)
-      .delete();
-
-    res.json({ success: true, deletedCount });
+    res.json({ success: true, ...result });
   },
 );
 
