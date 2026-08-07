@@ -5,6 +5,7 @@ import knexFactory, { Knex } from 'knex';
 import ChorePlanAssignmentsController from '../controllers/chore_plan_assignments';
 import ChorePlanDraftController from '../controllers/chore_plan_draft';
 import ChorePlanLifecycleController from '../controllers/chore_plan_lifecycle';
+import RosterController from '../controllers/roster';
 import RoleConfigCollection from '../roles/role';
 import ChorePlanAssignmentError from '../utils/chorePlanAssignmentError';
 import {
@@ -186,6 +187,11 @@ test(
             lastName: 'Camper',
             email: 'assignment-late@example.invalid',
           },
+          {
+            firstName: 'Removed',
+            lastName: 'Camper',
+            email: 'assignment-removed@example.invalid',
+          },
         ])
         .returning('id')) as IDRow[];
       const [roster] = (await database('rosters')
@@ -200,6 +206,7 @@ test(
         '2026-09-05T00:00:00.000Z',
         '2026-09-10T00:00:00.000Z',
       );
+      await addParticipant(database, roster.id, users[4].id);
 
       const draftController = new ChorePlanDraftController(database);
       const lifecycleController = new ChorePlanLifecycleController(database);
@@ -257,7 +264,7 @@ test(
       assert.equal(initialView.mutationsAllowed, true);
       assert.deepEqual(
         initialView.participants.map(({ firstName }) => firstName),
-        ['Alpha', 'Beta', 'Late'],
+        ['Alpha', 'Beta', 'Late', 'Removed'],
       );
       assert(
         initialView.shifts.every(
@@ -317,6 +324,36 @@ test(
         shiftID: ordinaryShift.id,
         userID: users[1].id,
       });
+      await database('shift_participants').insert([
+        { shiftID: ordinaryShift.id, userID: users[4].id },
+        { shiftID: firstShift.id, userID: users[4].id },
+      ]);
+      assert.equal(
+        await RosterController.UnregisterParticipantFromRoster(
+          roster.id,
+          users[4].id,
+          database,
+        ),
+        true,
+      );
+      assert.equal(
+        await database('roster_participants')
+          .where({ rosterID: roster.id, userID: users[4].id })
+          .first(),
+        undefined,
+      );
+      assert.equal(
+        await database('shift_participants')
+          .where({ userID: users[4].id })
+          .whereIn('shiftID', [ordinaryShift.id, firstShift.id])
+          .first(),
+        undefined,
+      );
+      assert(
+        await database('shift_participants')
+          .where({ shiftID: ordinaryShift.id, userID: users[1].id })
+          .first(),
+      );
 
       const swap = {
         operation: 'swap' as const,
