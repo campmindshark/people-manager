@@ -56,9 +56,12 @@ jest.mock('src/components/shifts/ChorePlanShiftView', () => {
   }
   return ChorePlanShiftView;
 });
-jest.mock('src/components/shifts/ShiftDisplay', () => () => (
-  <div>Legacy hourly shifts</div>
-));
+jest.mock('src/components/shifts/ShiftDisplay', () => {
+  function ShiftDisplay() {
+    return <div>Legacy hourly shifts</div>;
+  }
+  return ShiftDisplay;
+});
 
 jest.mock('src/components/shifts/ChoreSignupControls', () => ({
   __esModule: true,
