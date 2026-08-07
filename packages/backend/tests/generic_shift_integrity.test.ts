@@ -66,6 +66,14 @@ async function createTestDatabase(
     table.increments('id').primary();
     table.integer('rosterID').notNullable();
   });
+  await database.schema.createTable('roster_participants', (table) => {
+    table.increments('id').primary();
+    table.integer('rosterID').notNullable();
+    table.integer('userID').notNullable();
+    table.timestamp('estimatedArrivalDate', { useTz: true }).notNullable();
+    table.timestamp('estimatedDepartureDate', { useTz: true }).notNullable();
+    table.unique(['rosterID', 'userID']);
+  });
   await database.schema.createTable('shifts', (table) => {
     table.increments('id').primary();
     table.integer('scheduleID').notNullable();
@@ -229,6 +237,14 @@ test(
         { groupID: openGroup.id, userID: users[1].id },
         { groupID: futureGroup.id, userID: users[2].id },
       ]);
+      await database('roster_participants').insert(
+        users.map(({ id: userID }) => ({
+          rosterID: roster.id,
+          userID,
+          estimatedArrivalDate: '2026-08-20T00:00:00.000Z',
+          estimatedDepartureDate: '2026-09-10T00:00:00.000Z',
+        })),
+      );
 
       const shifts = (await database('shifts')
         .insert([
@@ -321,6 +337,116 @@ test(
         ),
         (error: unknown) =>
           error instanceof ShiftSignupError && error.status === 403,
+      );
+    } finally {
+      await destroyTestDatabase(adminDatabase, database, schemaName);
+    }
+  },
+);
+
+test(
+  'ordinary signup requires roster attendance and compares absolute instants',
+  POSTGRES_TEST_OPTIONS,
+  async () => {
+    const databaseURL = assertSafeTestDatabaseURL(TEST_DATABASE_URL);
+    const { adminDatabase, database, schemaName } =
+      await createTestDatabase(databaseURL);
+
+    try {
+      const users = (await database('users')
+        .insert([
+          { name: 'Absent roster participant' },
+          { name: 'Arrives after shift starts' },
+          { name: 'Departs before shift ends' },
+          { name: 'Offset attendance participant' },
+        ])
+        .returning('id')) as IDRow[];
+      const [roster] = (await database('rosters')
+        .insert({ year: 2026 })
+        .returning('id')) as IDRow[];
+      const [schedule] = (await database('schedules')
+        .insert({ rosterID: roster.id })
+        .returning('id')) as IDRow[];
+      const [openGroup] = (await database('groups')
+        .insert({
+          rosterID: roster.id,
+          shiftSignupOpenDate: database.raw(
+            "timezone('UTC', CURRENT_TIMESTAMP) - interval '1 minute'",
+          ),
+        })
+        .returning('id')) as IDRow[];
+      await database('group_members').insert(
+        users.map(({ id: userID }) => ({ groupID: openGroup.id, userID })),
+      );
+      await database('roster_participants').insert([
+        {
+          rosterID: roster.id,
+          userID: users[1].id,
+          estimatedArrivalDate: '2026-08-24T16:30:00.000Z',
+          estimatedDepartureDate: '2026-08-24T18:00:00.000Z',
+        },
+        {
+          rosterID: roster.id,
+          userID: users[2].id,
+          estimatedArrivalDate: '2026-08-24T15:00:00.000Z',
+          estimatedDepartureDate: '2026-08-24T16:30:00.000Z',
+        },
+        {
+          rosterID: roster.id,
+          userID: users[3].id,
+          estimatedArrivalDate: '2026-08-24T11:30:00.000-04:00',
+          estimatedDepartureDate: '2026-08-24T20:00:00.000+02:00',
+        },
+      ]);
+      const [shift] = (await database('shifts')
+        .insert({
+          scheduleID: schedule.id,
+          startTime: new Date('2026-08-24T09:00:00.000-07:00'),
+          endTime: new Date('2026-08-24T10:00:00.000-07:00'),
+          requiredParticipants: 4,
+        })
+        .returning('id')) as IDRow[];
+
+      await assert.rejects(
+        ShiftController.RegisterParticipantForShift(
+          shift.id,
+          users[0].id,
+          database,
+        ),
+        (error: unknown) =>
+          error instanceof ShiftSignupError &&
+          error.status === 403 &&
+          /roster members/i.test(error.message),
+      );
+      await assert.rejects(
+        ShiftController.RegisterParticipantForShift(
+          shift.id,
+          users[1].id,
+          database,
+        ),
+        (error: unknown) =>
+          error instanceof ShiftSignupError &&
+          error.status === 409 &&
+          /attendance window/i.test(error.message),
+      );
+      await assert.rejects(
+        ShiftController.RegisterParticipantForShift(
+          shift.id,
+          users[2].id,
+          database,
+        ),
+        (error: unknown) =>
+          error instanceof ShiftSignupError &&
+          error.status === 409 &&
+          /attendance window/i.test(error.message),
+      );
+      assert.deepEqual(
+        await ShiftController.RegisterParticipantForShift(
+          shift.id,
+          users[3].id,
+          database,
+        ),
+        { registeredShiftIDs: [shift.id] },
       );
     } finally {
       await destroyTestDatabase(adminDatabase, database, schemaName);

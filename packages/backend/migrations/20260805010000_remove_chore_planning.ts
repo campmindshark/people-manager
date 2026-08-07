@@ -297,7 +297,9 @@ export async function up(knex: Knex): Promise<void> {
 }
 
 export function down(_knex: Knex): Promise<void> {
-  // Deleted data and removed schema cannot be reconstructed. Any future chore
-  // schema must be introduced by a new forward migration.
-  return Promise.resolve();
+  return Promise.reject(
+    new Error(
+      '20260805010000_remove_chore_planning is forward-only because deleted data and removed schema cannot be reconstructed.',
+    ),
+  );
 }
