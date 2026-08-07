@@ -172,6 +172,14 @@ async function runIntegrationTest() {
       disabledReadinessResponse.status === 404,
       'Disabled readiness routes must appear absent',
     );
+    const disabledFinalAssignmentsResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/1/final-assignments',
+      { headers: { cookie: sessionCookie } },
+    );
+    assert(
+      disabledFinalAssignmentsResponse.status === 404,
+      'Disabled final-assignment routes must appear absent',
+    );
 
     const verificationResponse = await fetch(
       `http://localhost:3001/api/users/verify/${authCheck.user.id}`,
@@ -648,6 +656,14 @@ async function runIntegrationTest() {
         memberDraft.selfServiceMutationsAllowed === false &&
         memberDraft.shifts?.length === 0,
       'Draft generated shifts were exposed to a roster member',
+    );
+    const draftFinalAssignmentsResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/1/final-assignments',
+      { headers: { cookie: standardCookie } },
+    );
+    assert(
+      draftFinalAssignmentsResponse.status === 409,
+      'Draft plans must not expose final assignments',
     );
     const forbiddenReadinessResponse = await fetch(
       'http://localhost:3001/api/chore-plans/admin/1/readiness',
@@ -1340,6 +1356,15 @@ async function runIntegrationTest() {
       cleanupFirstResponse.ok && cleanupSecondResponse.ok,
       'Could not clean up administrative assignment smoke rows',
     );
+    const finalAssignmentSetupResponse = await mutateAdminAssignments({
+      operation: 'assign',
+      userID: standardAuth.user.id,
+      shiftID: adminSource.id,
+    });
+    assert(
+      finalAssignmentSetupResponse.ok,
+      'Could not prepare the final-assignment smoke row',
+    );
 
     const repeatedOpenResponse = await fetch(
       'http://localhost:3001/api/chore-plans/1/open',
@@ -1378,6 +1403,36 @@ async function runIntegrationTest() {
         memberClosed.selfServiceMutationsAllowed === false &&
         memberClosed.shifts?.length === memberOpen.shifts.length,
       'Closed member shift view did not remain visible and read-only',
+    );
+    const finalAssignmentsResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/1/final-assignments',
+      { headers: { cookie: standardCookie } },
+    );
+    assert(
+      finalAssignmentsResponse.ok,
+      'Roster member could not read final assignments',
+    );
+    const finalAssignments = await finalAssignmentsResponse.json();
+    const serializedFinalAssignments = JSON.stringify(finalAssignments);
+    const finalAssignedShift = finalAssignments.categories
+      ?.flatMap((category) => category.shifts)
+      .find((shift) => shift.id === adminSource.id);
+    assert(
+      finalAssignments.status === 'closed' &&
+        finalAssignments.assignmentCount === 1 &&
+        finalAssignments.categories
+          ?.map((category) => category.kind)
+          .join(',') === 'chore,event,dinner' &&
+        finalAssignedShift?.participants?.length === 1 &&
+        finalAssignedShift.participants[0].displayName === 'Dev U.' &&
+        finalAssignedShift.participants[0].currentUser === true,
+      'Final assignments omitted the closed, ordered participant snapshot',
+    );
+    assert(
+      !serializedFinalAssignments.includes('userID') &&
+        !serializedFinalAssignments.includes('@localhost') &&
+        !serializedFinalAssignments.includes('catalogRevision'),
+      'Final assignments exposed private or planner-only fields',
     );
     const closedSignupStatusResponse = await fetch(
       'http://localhost:3001/api/users/signup-status/1',
@@ -1464,6 +1519,14 @@ async function runIntegrationTest() {
         reopenedPlan.closedAt === null &&
         reopenedPlan.closedByUserID === null,
       'Reopening did not return the expected lifecycle state',
+    );
+    const reopenedFinalAssignmentsResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/1/final-assignments',
+      { headers: { cookie: standardCookie } },
+    );
+    assert(
+      reopenedFinalAssignmentsResponse.status === 409,
+      'Reopened plans must stop exposing final assignments',
     );
 
     console.log('Integration smoke test passed.');

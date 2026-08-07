@@ -14,6 +14,7 @@ import CelebrationIcon from '@mui/icons-material/Celebration';
 import SettingsIcon from '@mui/icons-material/Settings';
 import PriceChangeIcon from '@mui/icons-material/PriceChange';
 import PlaylistAddCheckIcon from '@mui/icons-material/PlaylistAddCheck';
+import PrintIcon from '@mui/icons-material/Print';
 import List from '@mui/material/List';
 import Divider from '@mui/material/Divider';
 import { Link } from 'react-router-dom';
@@ -45,6 +46,14 @@ const mainLinks: MenuItemLinkData[] = [
     icon: <CelebrationIcon />,
     path: '/shifts',
     needsRole: [],
+  },
+  {
+    text: 'Final Assignments',
+    index: 'final-assignments',
+    icon: <PrintIcon />,
+    path: '/final-assignments',
+    needsRole: [],
+    feature: 'chorePlanning',
   },
   {
     text: 'Roster',

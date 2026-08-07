@@ -18,6 +18,7 @@ import ManageRosters from './pages/ManageRosters';
 import ChoreCatalog from './pages/ChoreCatalog';
 import ChorePlanner from './pages/ChorePlanner';
 import FeatureGate from './components/FeatureGate';
+import FinalAssignments from './pages/FinalAssignments';
 
 const mdTheme = createTheme({
   palette: {
@@ -147,6 +148,18 @@ const router = createBrowserRouter([
       return (
         <AuthenticatedPage>
           <Shifts />
+        </AuthenticatedPage>
+      );
+    },
+  },
+  {
+    path: '/final-assignments',
+    Component() {
+      return (
+        <AuthenticatedPage>
+          <FeatureGate feature="chorePlanning">
+            <FinalAssignments />
+          </FeatureGate>
         </AuthenticatedPage>
       );
     },

@@ -2,6 +2,7 @@ import express, { Request, Response, Router } from 'express';
 import ChoreCatalogController from '../controllers/chore_catalog';
 import ChorePlanAssignmentsController from '../controllers/chore_plan_assignments';
 import ChorePlanDraftController from '../controllers/chore_plan_draft';
+import ChorePlanFinalAssignmentsController from '../controllers/chore_plan_final_assignments';
 import ChorePlanLifecycleController from '../controllers/chore_plan_lifecycle';
 import ChorePlanPreviewController from '../controllers/chore_plan_preview';
 import ChorePlanReadinessController from '../controllers/chore_plan_readiness';
@@ -19,6 +20,7 @@ import {
   parseChorePlanForceAssignmentRequest,
 } from '../utils/chorePlanAssignmentInput';
 import ChorePlanLifecycleError from '../utils/chorePlanLifecycleError';
+import ChorePlanFinalAssignmentsError from '../utils/chorePlanFinalAssignmentsError';
 import {
   parseChorePlanReopenRequest,
   parseEmptyLifecycleRequest,
@@ -49,6 +51,7 @@ const router: Router = express.Router();
 const controller = new ChoreCatalogController();
 const assignmentsController = new ChorePlanAssignmentsController();
 const draftController = new ChorePlanDraftController();
+const finalAssignmentsController = new ChorePlanFinalAssignmentsController();
 const lifecycleController = new ChorePlanLifecycleController();
 const previewController = new ChorePlanPreviewController();
 const readinessController = new ChorePlanReadinessController();
@@ -60,6 +63,7 @@ function sendError(error: unknown, res: Response, operation: string): void {
   if (
     (error instanceof ChoreCatalogError ||
       error instanceof ChorePlanAssignmentError ||
+      error instanceof ChorePlanFinalAssignmentsError ||
       error instanceof ChorePlanLifecycleError ||
       error instanceof ChorePlanPreviewError ||
       error instanceof ChorePlanReadinessError ||
@@ -209,6 +213,24 @@ router.post(
       );
     } catch (error) {
       sendError(error, res, 'force administrative chore assignments');
+    }
+  },
+);
+
+router.get(
+  '/:rosterID/final-assignments',
+  userIsVerified(),
+  async (req: Request, res: Response) => {
+    try {
+      const user = req.user as User;
+      res.json(
+        await finalAssignmentsController.getForUser(
+          parseChorePlanRosterID(req.params.rosterID),
+          user.id,
+        ),
+      );
+    } catch (error) {
+      sendError(error, res, 'load final chore assignments');
     }
   },
 );
