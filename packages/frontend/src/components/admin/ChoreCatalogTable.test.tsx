@@ -26,6 +26,23 @@ const definition: ChoreCatalogDefinitionView = {
   score: 100,
 };
 
+const closingSundayDefinition: ChoreCatalogDefinitionView = {
+  stableKey: 'event-39-audio-manager',
+  kind: 'event',
+  shiftLabel: 'Audio',
+  positionLabel: 'Manager',
+  dayMode: 'explicit',
+  dayNumber: 8,
+  dayLabel: 'Sunday',
+  timePeriodLabel: '12a-3a',
+  periodOrder: 39,
+  startLocalTime: '00:00:00',
+  endLocalTime: '03:00:00',
+  endDayOffset: 0,
+  sourceOrder: 230,
+  score: 100,
+};
+
 function response(revision = '1', score = 100): ChoreCatalogResponse {
   return {
     revision,
@@ -63,6 +80,23 @@ test('shows fixed definition fields and exposes only score as an input', async (
       name: 'Save score for chore-am-chum-wench-first',
     }),
   ).toBeDisabled();
+});
+
+test('describes the closing Sunday event period as day eight', async () => {
+  const client = clientWith(
+    jest.fn().mockResolvedValue({
+      revision: '1',
+      definitions: [definition, closingSundayDefinition],
+    }),
+    jest.fn(),
+  );
+  render(<ChoreCatalogTable client={client} />);
+
+  userEvent.click(await screen.findByRole('tab', { name: 'event (1)' }));
+
+  expect(screen.getByText('Sunday (day 8)')).toBeVisible();
+  expect(screen.getByText('12a-3a')).toBeVisible();
+  expect(screen.getByText('39')).toBeVisible();
 });
 
 test('updates only score with the displayed catalog revision', async () => {
