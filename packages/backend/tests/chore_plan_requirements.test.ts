@@ -33,6 +33,7 @@ interface IDRow {
 
 interface GeneratedShiftRow {
   id: number;
+  stableKey: string;
   kind: 'chore' | 'event' | 'dinner';
   startTime: Date | string;
   endTime: Date | string;
@@ -339,6 +340,17 @@ test(
         ),
         1,
       );
+      const firstOverrideAudit = await database('chore_plan_audit_entries')
+        .where({ action: 'participant_requirements_overridden' })
+        .first();
+      assert.deepEqual(firstOverrideAudit.details, {
+        participantUserID: users[1].id,
+        previousRequirements: { chore: 2, event: 1, dinner: 1 },
+        requirements: { chore: 1, event: 1, dinner: 1 },
+        previousReason: null,
+        reason: 'Accessibility accommodation',
+        removedAssignments: [],
+      });
 
       await assert.rejects(
         draftController.apply(
@@ -397,6 +409,7 @@ test(
         .innerJoin('shifts as shift', 'shift.id', 'generated.shiftID')
         .select(
           'shift.id',
+          'generated.stableKey',
           'generated.kind',
           'shift.startTime',
           'shift.endTime',
@@ -513,6 +526,106 @@ test(
           /all required chore/i.test(error.message),
       );
 
+      await database.raw(`
+        CREATE FUNCTION reject_requirement_reconciliation_audit()
+        RETURNS trigger AS $$
+        BEGIN
+          IF NEW.action = 'participant_requirements_overridden' THEN
+            RAISE EXCEPTION 'forced reconciliation audit failure';
+          END IF;
+          RETURN NEW;
+        END;
+        $$ LANGUAGE plpgsql;
+        CREATE TRIGGER reject_requirement_reconciliation_audit_trigger
+        BEFORE INSERT ON chore_plan_audit_entries
+        FOR EACH ROW EXECUTE FUNCTION reject_requirement_reconciliation_audit();
+      `);
+      await assert.rejects(
+        requirementController.setOverride(
+          roster.id,
+          users[1].id,
+          {
+            requirements: { chore: 1, event: 1, dinner: 1 },
+            reason: 'Reduced participation',
+          },
+          users[0].id,
+        ),
+        /forced reconciliation audit failure/i,
+      );
+      assert.equal(
+        Number(
+          (
+            await database('shift_participants as assignment')
+              .innerJoin(
+                'chore_plan_generated_shifts as generated',
+                'generated.shiftID',
+                'assignment.shiftID',
+              )
+              .where('assignment.userID', users[1].id)
+              .where('generated.chorePlanID', applied.draft.id)
+              .count('* as count')
+              .first()
+          )?.count ?? 0,
+        ),
+        2,
+      );
+      assert.equal(
+        await database('chore_plan_requirement_overrides')
+          .where({ chorePlanID: applied.draft.id, userID: users[1].id })
+          .first(),
+        undefined,
+      );
+      await database.raw(
+        'DROP TRIGGER reject_requirement_reconciliation_audit_trigger ON chore_plan_audit_entries',
+      );
+      await database.raw(
+        'DROP FUNCTION reject_requirement_reconciliation_audit()',
+      );
+
+      await requirementController.setOverride(
+        roster.id,
+        users[1].id,
+        {
+          requirements: { chore: 1, event: 1, dinner: 1 },
+          reason: 'Reduced participation',
+        },
+        users[0].id,
+      );
+      const retainedAssignments = await database(
+        'shift_participants as assignment',
+      )
+        .innerJoin(
+          'chore_plan_generated_shifts as generated',
+          'generated.shiftID',
+          'assignment.shiftID',
+        )
+        .select('assignment.shiftID')
+        .where('assignment.userID', users[1].id)
+        .where('generated.chorePlanID', applied.draft.id)
+        .orderBy('assignment.id');
+      assert.deepEqual(
+        retainedAssignments.map(({ shiftID }) => Number(shiftID)),
+        [firstShift.id],
+      );
+      const reconciliationAudit = await database('chore_plan_audit_entries')
+        .where({ action: 'participant_requirements_overridden' })
+        .orderBy('id', 'desc')
+        .first();
+      assert.deepEqual(reconciliationAudit.details, {
+        participantUserID: users[1].id,
+        previousRequirements: { chore: 2, event: 1, dinner: 1 },
+        requirements: { chore: 1, event: 1, dinner: 1 },
+        previousReason: null,
+        reason: 'Reduced participation',
+        removedAssignments: [
+          {
+            shiftID: secondShift.id,
+            stableKey: secondShift.stableKey,
+            kind: 'chore',
+          },
+        ],
+      });
+
       const clearedAudit = await database('chore_plan_audit_entries')
         .where({ action: 'participant_requirements_cleared' })
         .first();
@@ -523,6 +636,7 @@ test(
         requirements: { chore: 2, event: 1, dinner: 1 },
         previousReason: 'Full chore exemption',
         reason: 'Accommodation ended',
+        removedAssignments: [],
       });
       await assert.rejects(
         database('chore_plan_audit_entries').insert({
@@ -533,6 +647,38 @@ test(
             participantUserID: users[1].id,
             requirements: { chore: 2, event: 1, dinner: 1 },
             reason: 'Missing required audit fields',
+          },
+        }),
+        /requirement_details_valid/i,
+      );
+      await assert.rejects(
+        database('chore_plan_audit_entries').insert({
+          chorePlanID: applied.draft.id,
+          actorUserID: users[0].id,
+          action: 'participant_requirements_overridden',
+          details: {
+            participantUserID: users[1].id,
+            previousRequirements: { chore: 2, event: 1, dinner: 1 },
+            requirements: { chore: '1', event: 1, dinner: 1 },
+            previousReason: null,
+            reason: 'Invalid requirement type',
+            removedAssignments: [],
+          },
+        }),
+        /requirement_details_valid/i,
+      );
+      await assert.rejects(
+        database('chore_plan_audit_entries').insert({
+          chorePlanID: applied.draft.id,
+          actorUserID: users[0].id,
+          action: 'participant_requirements_overridden',
+          details: {
+            participantUserID: users[1].id,
+            previousRequirements: { chore: 2, event: 1, dinner: 1 },
+            requirements: { chore: 21, event: 1, dinner: 1 },
+            previousReason: null,
+            reason: 'Invalid requirement range',
+            removedAssignments: [],
           },
         }),
         /requirement_details_valid/i,

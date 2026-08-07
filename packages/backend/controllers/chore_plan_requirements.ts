@@ -32,6 +32,19 @@ interface OverrideRow extends ChorePlanRequirementColumns {
   reason: string;
 }
 
+interface AssignmentRow {
+  assignmentID: number;
+  shiftID: number;
+  stableKey: string;
+  kind: 'chore' | 'event' | 'dinner';
+}
+
+interface RemovedAssignment {
+  shiftID: number;
+  stableKey: string;
+  kind: 'chore' | 'event' | 'dinner';
+}
+
 interface MutationContext {
   plan: PlanRow;
   planRequirements: ChorePlanRequirements;
@@ -228,6 +241,64 @@ export default class ChorePlanRequirementsController {
     };
   }
 
+  private static async reconcileReducedRequirements(
+    transaction: Knex.Transaction,
+    chorePlanID: number,
+    userID: number,
+    previousRequirements: ChorePlanRequirements,
+    requirements: ChorePlanRequirements,
+  ): Promise<RemovedAssignment[]> {
+    const reducedKinds = (['chore', 'event', 'dinner'] as const).filter(
+      (kind) => requirements[kind] < previousRequirements[kind],
+    );
+    if (reducedKinds.length === 0) {
+      return [];
+    }
+
+    const assignments = (await transaction<AssignmentRow>(
+      'shift_participants as assignment',
+    )
+      .innerJoin(
+        'chore_plan_generated_shifts as generated',
+        'generated.shiftID',
+        'assignment.shiftID',
+      )
+      .select(
+        'assignment.id as assignmentID',
+        'assignment.shiftID',
+        'generated.stableKey',
+        'generated.kind',
+      )
+      .where('assignment.userID', userID)
+      .where('generated.chorePlanID', chorePlanID)
+      .whereIn('generated.kind', reducedKinds)
+      .orderBy('generated.kind')
+      .orderBy('assignment.id')
+      .forUpdate('assignment')) as AssignmentRow[];
+    const retainedByKind = new Map<AssignmentRow['kind'], number>();
+    const removedRows = assignments.filter((assignment) => {
+      const retained = retainedByKind.get(assignment.kind) ?? 0;
+      if (retained < requirements[assignment.kind]) {
+        retainedByKind.set(assignment.kind, retained + 1);
+        return false;
+      }
+      return true;
+    });
+    if (removedRows.length > 0) {
+      await transaction('shift_participants')
+        .whereIn(
+          'id',
+          removedRows.map(({ assignmentID }) => assignmentID),
+        )
+        .del();
+    }
+    return removedRows.map(({ shiftID, stableKey, kind }) => ({
+      shiftID,
+      stableKey,
+      kind,
+    }));
+  }
+
   async setOverride(
     rosterID: number,
     userID: number,
@@ -257,11 +328,11 @@ export default class ChorePlanRequirementsController {
         );
       }
 
-      const previousRequirements = context.existingOverride
-        ? effectiveRequirements(context.plan, context.existingOverride)
-        : null;
+      const previousRequirements = effectiveRequirements(
+        context.plan,
+        context.existingOverride,
+      );
       if (
-        previousRequirements &&
         requirementsEqual(previousRequirements, request.requirements) &&
         context.existingOverride?.reason === request.reason
       ) {
@@ -275,6 +346,14 @@ export default class ChorePlanRequirementsController {
         };
       }
 
+      const removedAssignments =
+        await ChorePlanRequirementsController.reconcileReducedRequirements(
+          transaction,
+          context.plan.id,
+          userID,
+          previousRequirements,
+          request.requirements,
+        );
       const columns = requirementsToColumns(request.requirements);
       await transaction('chore_plan_requirement_overrides')
         .insert({
@@ -299,6 +378,7 @@ export default class ChorePlanRequirementsController {
           requirements: request.requirements,
           previousReason: context.existingOverride?.reason ?? null,
           reason: request.reason,
+          removedAssignments,
         },
       });
       return {
@@ -347,6 +427,7 @@ export default class ChorePlanRequirementsController {
           requirements: context.planRequirements,
           previousReason: context.existingOverride.reason,
           reason,
+          removedAssignments: [],
         },
       });
       return {

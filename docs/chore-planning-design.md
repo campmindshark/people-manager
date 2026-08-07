@@ -233,6 +233,13 @@ changing, or clearing an override requires a reason and the appropriate admin
 permission, and is audited in the same transaction. A zero value is an explicit
 exemption for that category, not missing data.
 
+Lowering a requirement also reconciles that participant's generated-shift
+assignments in the same transaction. For each reduced category, the oldest
+assignment rows are retained up to the new limit and newer rows are removed.
+The override audit records each removed shift's ID, stable key, and category;
+an audit failure restores both the assignments and the previous requirement
+state.
+
 One shared backend function computes effective requirements. Signup validation,
 readiness, participant messaging, and final-assignment reporting must all use
 that function.
@@ -252,11 +259,12 @@ PostgreSQL constrains every stored value to 0–20 and prevents an override from
 exceeding its plan's corresponding value. Draft replacement also rejects a
 plan reduction that would make an existing override invalid. Each changed set
 or clear and its immutable before/after vector, actor, and reason are written
-in one transaction. In the frontend these controls appear above the signup
-sheets in `Admin Edit`; assignment needs refresh after a change. The member
-shift response exposes only that member's effective vector, while the separate
-administrative assignment response exposes effective vectors without override
-reasons.
+in one transaction. Audit vectors contain exact integer values from `0` through
+`20`; a first override records the inherited plan vector as its previous state.
+In the frontend these controls appear above the signup sheets in `Admin Edit`;
+assignment needs refresh after a change. The member shift response exposes only
+that member's effective vector, while the separate administrative assignment
+response exposes effective vectors without override reasons.
 
 ## Signup and assignment integrity
 

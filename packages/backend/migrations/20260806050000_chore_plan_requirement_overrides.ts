@@ -133,12 +133,14 @@ export async function up(knex: Knex): Promise<void> {
         AND jsonb_exists("details", 'requirements')
         AND jsonb_exists("details", 'previousReason')
         AND jsonb_exists("details", 'reason')
+        AND jsonb_exists("details", 'removedAssignments')
         AND "details" - ARRAY[
           'participantUserID',
           'previousRequirements',
           'requirements',
           'previousReason',
-          'reason'
+          'reason',
+          'removedAssignments'
         ]::text[] = '{}'::jsonb
         AND jsonb_typeof("details" -> 'participantUserID') = 'number'
         AND ("details" ->> 'participantUserID') ~ '^[1-9][0-9]*$'
@@ -151,20 +153,39 @@ export async function up(knex: Knex): Promise<void> {
           'event',
           'dinner'
         ]::text[] = '{}'::jsonb
-        AND (
-          "details" -> 'previousRequirements' = 'null'::jsonb
-          OR (
-            jsonb_typeof("details" -> 'previousRequirements') = 'object'
-            AND jsonb_exists("details" -> 'previousRequirements', 'chore')
-            AND jsonb_exists("details" -> 'previousRequirements', 'event')
-            AND jsonb_exists("details" -> 'previousRequirements', 'dinner')
-            AND ("details" -> 'previousRequirements') - ARRAY[
-              'chore',
-              'event',
-              'dinner'
-            ]::text[] = '{}'::jsonb
-          )
-        )
+        AND jsonb_typeof("details" -> 'requirements' -> 'chore') = 'number'
+        AND ("details" -> 'requirements' ->> 'chore')
+          ~ '^(0|[1-9]|1[0-9]|20)$'
+        AND jsonb_typeof("details" -> 'requirements' -> 'event') = 'number'
+        AND ("details" -> 'requirements' ->> 'event')
+          ~ '^(0|[1-9]|1[0-9]|20)$'
+        AND jsonb_typeof("details" -> 'requirements' -> 'dinner') = 'number'
+        AND ("details" -> 'requirements' ->> 'dinner')
+          ~ '^(0|[1-9]|1[0-9]|20)$'
+        AND jsonb_typeof("details" -> 'previousRequirements') = 'object'
+        AND jsonb_exists("details" -> 'previousRequirements', 'chore')
+        AND jsonb_exists("details" -> 'previousRequirements', 'event')
+        AND jsonb_exists("details" -> 'previousRequirements', 'dinner')
+        AND ("details" -> 'previousRequirements') - ARRAY[
+          'chore',
+          'event',
+          'dinner'
+        ]::text[] = '{}'::jsonb
+        AND jsonb_typeof(
+          "details" -> 'previousRequirements' -> 'chore'
+        ) = 'number'
+        AND ("details" -> 'previousRequirements' ->> 'chore')
+          ~ '^(0|[1-9]|1[0-9]|20)$'
+        AND jsonb_typeof(
+          "details" -> 'previousRequirements' -> 'event'
+        ) = 'number'
+        AND ("details" -> 'previousRequirements' ->> 'event')
+          ~ '^(0|[1-9]|1[0-9]|20)$'
+        AND jsonb_typeof(
+          "details" -> 'previousRequirements' -> 'dinner'
+        ) = 'number'
+        AND ("details" -> 'previousRequirements' ->> 'dinner')
+          ~ '^(0|[1-9]|1[0-9]|20)$'
         AND (
           "details" -> 'previousReason' = 'null'::jsonb
           OR (
@@ -174,6 +195,7 @@ export async function up(knex: Knex): Promise<void> {
         )
         AND jsonb_typeof("details" -> 'reason') = 'string'
         AND char_length(btrim("details" ->> 'reason')) BETWEEN 1 AND 500
+        AND jsonb_typeof("details" -> 'removedAssignments') = 'array'
       )
     )
   `);
