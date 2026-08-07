@@ -375,15 +375,45 @@ test(
         { shiftID: ordinaryShift.id, userID: users[4].id },
         { shiftID: firstShift.id, userID: users[4].id },
       ]);
-      assert.equal(
-        await RosterController.UnregisterParticipantFromRoster(
-          roster.id,
-          users[4].id,
-          users[0].id,
-          database,
-        ),
-        true,
+      // Audit foreign keys take this lock on their actor. Roster cleanup must
+      // remain compatible while still serializing assignment changes.
+      let releaseActorKeyShare = () => {};
+      const actorKeyShareRelease = new Promise<void>((resolve) => {
+        releaseActorKeyShare = resolve;
+      });
+      let confirmActorKeyShare = () => {};
+      const actorKeyShareConfirmed = new Promise<void>((resolve) => {
+        confirmActorKeyShare = resolve;
+      });
+      const actorKeyShareTransaction = database.transaction(
+        async (transaction) => {
+          await transaction('users')
+            .select('id')
+            .where({ id: users[4].id })
+            .forKeyShare()
+            .first();
+          confirmActorKeyShare();
+          await actorKeyShareRelease;
+        },
       );
+      await actorKeyShareConfirmed;
+      try {
+        assert.equal(
+          await database.transaction(async (transaction) => {
+            await transaction.raw("SET LOCAL lock_timeout = '250ms'");
+            return RosterController.UnregisterParticipantFromRoster(
+              roster.id,
+              users[4].id,
+              users[0].id,
+              transaction,
+            );
+          }),
+          true,
+        );
+      } finally {
+        releaseActorKeyShare();
+        await actorKeyShareTransaction;
+      }
       assert.equal(
         await database('roster_participants')
           .where({ rosterID: roster.id, userID: users[4].id })

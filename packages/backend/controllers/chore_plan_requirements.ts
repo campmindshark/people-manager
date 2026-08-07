@@ -175,7 +175,19 @@ export default class ChorePlanRequirementsController {
     transaction: Knex.Transaction,
     rosterID: number,
     userID: number,
+    actorUserID: number,
   ): Promise<MutationContext> {
+    const actor = await transaction('users')
+      .select('id')
+      .where({ id: actorUserID })
+      // Audit entries acquire this same lock through their actor foreign key.
+      // Take it before plan and participant locks to avoid signup deadlocks.
+      .forKeyShare()
+      .first();
+    if (!actor) {
+      throw new ChorePlanRequirementError('User not found.', 404);
+    }
+
     const roster = await transaction('rosters')
       .select('id')
       .where({ id: rosterID })
@@ -310,6 +322,7 @@ export default class ChorePlanRequirementsController {
         transaction,
         rosterID,
         userID,
+        actorUserID,
       );
       (['chore', 'event', 'dinner'] as const).forEach((kind) => {
         if (request.requirements[kind] > context.planRequirements[kind]) {
@@ -403,6 +416,7 @@ export default class ChorePlanRequirementsController {
         transaction,
         rosterID,
         userID,
+        actorUserID,
       );
       if (!context.existingOverride) {
         return {

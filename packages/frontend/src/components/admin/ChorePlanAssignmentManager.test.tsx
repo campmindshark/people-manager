@@ -227,6 +227,17 @@ test('force-assigns a complete participant directly to a full shift', async () =
     }),
   );
   expect(client.MutateAdminAssignments).not.toHaveBeenCalled();
+  expect(
+    await screen.findByText(/Gamma Camper was assigned to PM Chum Wench/),
+  ).toBeVisible();
+  await waitFor(() => {
+    expect(client.GetAdminAssignments).toHaveBeenCalledTimes(2);
+    expect(
+      screen.getByRole('checkbox', {
+        name: 'Force (skip safety constraints)',
+      }),
+    ).toBeEnabled();
+  });
 });
 
 test('swaps two selected participants in different shifts', async () => {

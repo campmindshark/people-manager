@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import test from 'node:test';
+import { setTimeout as sleep } from 'node:timers/promises';
 import knexFactory, { Knex } from 'knex';
 import ChorePlanAssignmentsController from '../controllers/chore_plan_assignments';
 import ChorePlanDraftController from '../controllers/chore_plan_draft';
@@ -434,6 +435,53 @@ test(
             new Date(secondShift.endTime).getTime(),
       );
       assert(thirdShift);
+
+      await database.raw(`
+        CREATE FUNCTION delay_requirement_actor_audit() RETURNS trigger AS $$
+        BEGIN
+          IF NEW.action = 'participant_requirements_overridden'
+            AND NEW.details ->> 'reason' = 'Concurrency lock test'
+          THEN
+            PERFORM pg_sleep(0.5);
+          END IF;
+          RETURN NEW;
+        END;
+        $$ LANGUAGE plpgsql;
+        CREATE TRIGGER delay_requirement_actor_audit_trigger
+        BEFORE INSERT ON chore_plan_audit_entries
+        FOR EACH ROW EXECUTE FUNCTION delay_requirement_actor_audit();
+      `);
+      const concurrentSignup = (async () => {
+        await sleep(100);
+        return signupController.signup(roster.id, [firstShift.id], users[2].id);
+      })();
+      await Promise.all([
+        requirementController.setOverride(
+          roster.id,
+          users[1].id,
+          {
+            requirements: { chore: 0, event: 1, dinner: 1 },
+            reason: 'Concurrency lock test',
+          },
+          users[2].id,
+        ),
+        concurrentSignup,
+      ]);
+      await database.raw(
+        'DROP TRIGGER delay_requirement_actor_audit_trigger ON chore_plan_audit_entries',
+      );
+      await database.raw('DROP FUNCTION delay_requirement_actor_audit()');
+      await signupController.remove(roster.id, firstShift.id, users[2].id);
+      await requirementController.setOverride(
+        roster.id,
+        users[1].id,
+        {
+          requirements: { chore: 0, event: 1, dinner: 1 },
+          reason: 'Full chore exemption',
+        },
+        users[0].id,
+      );
+
       await assert.rejects(
         signupController.signup(roster.id, [firstShift.id], users[1].id),
         (error) =>
@@ -825,15 +873,56 @@ test(
       );
       await database.raw('DROP FUNCTION reject_roster_requirement_audit()');
 
+      const cleanupShift = await database('chore_plan_generated_shifts')
+        .select('shiftID')
+        .where({ chorePlanID: cleanupDraft.draft.id })
+        .first();
+      assert(cleanupShift);
+      await database.raw(`
+        CREATE FUNCTION delay_roster_requirement_audit()
+        RETURNS trigger AS $$
+        BEGIN
+          IF NEW.action = 'participant_requirements_cleared'
+            AND NEW.details ->> 'reason' = 'Roster membership ended.'
+          THEN
+            PERFORM pg_sleep(0.5);
+          END IF;
+          RETURN NEW;
+        END;
+        $$ LANGUAGE plpgsql;
+        CREATE TRIGGER delay_roster_requirement_audit_trigger
+        BEFORE INSERT ON chore_plan_audit_entries
+        FOR EACH ROW EXECUTE FUNCTION delay_roster_requirement_audit();
+      `);
+      const cleanup = RosterController.UnregisterParticipantFromRoster(
+        cleanupRoster.id,
+        users[2].id,
+        users[0].id,
+        database,
+      );
+      await sleep(100);
+      const concurrentActorShiftLock = database.transaction(
+        async (transaction) => {
+          await transaction('users')
+            .select('id')
+            .where({ id: users[0].id })
+            .forUpdate()
+            .first();
+          await transaction('shifts')
+            .select('id')
+            .where({ id: cleanupShift.shiftID })
+            .forUpdate()
+            .first();
+        },
+      );
       assert.equal(
-        await RosterController.UnregisterParticipantFromRoster(
-          cleanupRoster.id,
-          users[2].id,
-          users[0].id,
-          database,
-        ),
+        (await Promise.all([cleanup, concurrentActorShiftLock]))[0],
         true,
       );
+      await database.raw(
+        'DROP TRIGGER delay_roster_requirement_audit_trigger ON chore_plan_audit_entries',
+      );
+      await database.raw('DROP FUNCTION delay_roster_requirement_audit()');
       assert.equal(
         await database('chore_plan_requirement_overrides')
           .where({

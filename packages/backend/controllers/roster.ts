@@ -51,14 +51,17 @@ export default class RosterController {
     if (orderedUserIDs.length === 0) {
       return 0;
     }
+    const orderedLockUserIDs = [
+      ...new Set([...orderedUserIDs, actorUserID]),
+    ].sort((first, second) => first - second);
 
     return database.transaction(async (transaction): Promise<number> => {
       await transaction('users')
         .select('id')
-        .whereIn('id', orderedUserIDs)
+        .whereIn('id', orderedLockUserIDs)
         .orderBy('id')
-        // Serialize roster and assignment changes without blocking foreign
-        // key checks when a concurrent operation writes an audit entry.
+        // Lock the audit actor before shifts while retaining compatibility
+        // with the audit foreign key's FOR KEY SHARE lock.
         .forNoKeyUpdate();
 
       const participants = await transaction('roster_participants')
