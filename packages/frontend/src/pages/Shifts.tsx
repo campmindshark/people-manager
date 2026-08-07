@@ -23,7 +23,6 @@ export default function Shifts() {
     plan: chorePlan,
     loading: choreSignupLoading,
     error: choreSignupError,
-    success: choreSignupSuccess,
     reviewingReopen,
     setReviewingReopen,
     toggleSignups,
@@ -86,7 +85,6 @@ export default function Shifts() {
             loading={choreSignupLoading}
             plan={chorePlan}
             rosterYear={currentRoster.year}
-            success={choreSignupSuccess}
           />
           {userIsVerified ? (
             <ShiftDisplay />
