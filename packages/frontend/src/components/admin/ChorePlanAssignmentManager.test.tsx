@@ -63,6 +63,15 @@ function assignmentView(
         estimatedDepartureDate: '2026-09-10T00:00:00.000Z',
         assignedShiftIDs: [12],
       },
+      {
+        userID: 23,
+        firstName: 'Gamma',
+        lastName: 'Camper',
+        playaName: '',
+        estimatedArrivalDate: '2026-08-20T00:00:00.000Z',
+        estimatedDepartureDate: '2026-09-10T00:00:00.000Z',
+        assignedShiftIDs: [],
+      },
     ],
     shifts: [firstShift, secondShift],
     ...overrides,
@@ -84,7 +93,9 @@ function planClient(view = assignmentView()): ChorePlanAdminAssignmentClient {
 }
 
 async function choosePerson(option: string | RegExp): Promise<void> {
-  userEvent.click(screen.getByLabelText('Person needing shifts'));
+  userEvent.click(
+    screen.getByLabelText(/Person (needing shifts|to force assign)/),
+  );
   userEvent.click(await screen.findByRole('option', { name: option }));
 }
 
@@ -170,6 +181,55 @@ test('force-moves a selected participant with an audited reason', async () => {
   );
   expect(client.MutateAdminAssignments).not.toHaveBeenCalled();
   expect(await screen.findByText(/bypassed: capacity:shift:12/i)).toBeVisible();
+});
+
+test('force-assigns a complete participant directly to a full shift', async () => {
+  const client = planClient(
+    assignmentView({
+      plan: {
+        id: 3,
+        status: 'open',
+        planningYear: 2026,
+        requirements: { chore: 0, event: 0, dinner: 0 },
+      },
+      shifts: [firstShift, { ...secondShift, assignedUserIDs: [21, 22] }],
+    }),
+  );
+  render(
+    <ChorePlanAssignmentManager
+      canForceAssignments
+      planClient={client}
+      rosterID={2}
+    />,
+  );
+
+  userEvent.click(
+    await screen.findByRole('checkbox', {
+      name: 'Force (skip safety constraints)',
+    }),
+  );
+  await choosePerson(/Gamma Camper.*requirements complete/);
+  userEvent.type(
+    await screen.findByRole('textbox', { name: 'Force reason' }),
+    '  Approved extra coverage  ',
+  );
+  userEvent.click(
+    screen.getByRole('button', {
+      name: /Force add Gamma Camper to PM Chum Wench/,
+    }),
+  );
+
+  await waitFor(() =>
+    expect(client.ForceAdminAssignments).toHaveBeenCalledWith(2, {
+      mutation: {
+        operation: 'assign',
+        userID: 23,
+        shiftID: 12,
+      },
+      reason: 'Approved extra coverage',
+    }),
+  );
+  expect(client.MutateAdminAssignments).not.toHaveBeenCalled();
 });
 
 test('swaps two selected participants in different shifts', async () => {

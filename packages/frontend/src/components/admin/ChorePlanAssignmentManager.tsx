@@ -171,6 +171,7 @@ function AdminSignupSlots({
   selectedParticipants,
   destinationShiftID,
   assignee,
+  force,
   mutationsAllowed,
   submitting,
   onAssign,
@@ -182,17 +183,24 @@ function AdminSignupSlots({
   selectedParticipants: AdminParticipantSelection[];
   destinationShiftID: number | null;
   assignee: ChorePlanAdminAssignmentParticipant | null;
+  force: boolean;
   mutationsAllowed: boolean;
   submitting: boolean;
   onAssign: (shift: ChorePlanAdminAssignmentShift) => void;
   onToggleParticipant: (selection: AdminParticipantSelection) => void;
   onToggleDestination: (shiftID: number) => void;
 }) {
-  const slotCount = Math.max(
+  const baseSlotCount = Math.max(
     1,
     shift.requiredParticipants,
     shift.assignedUserIDs.length,
   );
+  const slotCount =
+    force &&
+    assignee &&
+    shift.assignedUserIDs.length >= shift.requiredParticipants
+      ? baseSlotCount + 1
+      : baseSlotCount;
   const selectedSourceShiftID =
     selectedParticipants.length === 1 ? selectedParticipants[0].shiftID : null;
   const showDestinationSelector =
@@ -210,16 +218,17 @@ function AdminSignupSlots({
               const alreadyAssigned = shift.assignedUserIDs.includes(
                 assignee.userID,
               );
+              const action = force ? 'Force add' : 'Add';
               return (
                 <button
-                  aria-label={`Add ${name} to ${shiftDescription(shift)}`}
+                  aria-label={`${action} ${name} to ${shiftDescription(shift)}`}
                   className="signup-sheet-slot signup-sheet-slot-button open"
                   disabled={submitting || alreadyAssigned}
                   key={`${shift.stableKey}|admin-slot-${index}`}
                   onClick={() => onAssign(shift)}
                   type="button"
                 >
-                  Add {name}
+                  {action} {name}
                 </button>
               );
             }
@@ -375,9 +384,9 @@ export default function ChorePlanAssignmentManager({
               needs: participantNeeds(participant, view),
               participant,
             }))
-            .filter(({ needs }) => needs.total > 0)
+            .filter(({ needs }) => force || needs.total > 0)
         : [],
-    [view],
+    [force, view],
   );
   const selectedDestination = view?.shifts.find(
     ({ id }) => id === destinationShiftID,
@@ -439,8 +448,6 @@ export default function ChorePlanAssignmentManager({
     );
     setSelectedParticipants([]);
     setDestinationShiftID(null);
-    setForce(false);
-    setForceReason('');
     setError(null);
     setSuccess(null);
   };
@@ -482,7 +489,6 @@ export default function ChorePlanAssignmentManager({
         shiftID: shift.id,
       },
       `${participantName(selectedAssignee)} was assigned to ${shift.scheduleName}.`,
-      false,
     );
   };
 
@@ -551,6 +557,12 @@ export default function ChorePlanAssignmentManager({
   if (!view.plan) {
     return <Alert severity="info">No chore plan exists for this roster.</Alert>;
   }
+  const assigneeLabel = force
+    ? 'Person to force assign'
+    : 'Person needing shifts';
+  const selectedAssigneeNeeds = selectedAssignee
+    ? participantNeeds(selectedAssignee, view)
+    : null;
 
   return (
     <Stack spacing={2}>
@@ -563,7 +575,9 @@ export default function ChorePlanAssignmentManager({
                 then select an open spot. To change assignments, select one
                 person to move or unassign, or two people to swap. Safe edits
                 check capacity, attendance dates, time conflicts, roster,
-                category, and signup requirements.
+                category, and signup requirements. Force also makes complete
+                roster participants and full shifts available for direct
+                assignment.
               </Typography>
               <FormControl
                 disabled={
@@ -575,11 +589,11 @@ export default function ChorePlanAssignmentManager({
                 sx={{ maxWidth: 620 }}
               >
                 <InputLabel id="admin-shift-assignee-label">
-                  Person needing shifts
+                  {assigneeLabel}
                 </InputLabel>
                 <Select<number | ''>
                   id="admin-shift-assignee"
-                  label="Person needing shifts"
+                  label={assigneeLabel}
                   labelId="admin-shift-assignee-label"
                   onChange={handleAssigneeChange}
                   value={selectedAssigneeID ?? ''}
@@ -592,21 +606,26 @@ export default function ChorePlanAssignmentManager({
                       key={participant.userID}
                       value={participant.userID}
                     >
-                      {participantName(participant)} — needs {needs.label}
+                      {participantName(participant)} —{' '}
+                      {needs.total > 0
+                        ? `needs ${needs.label}`
+                        : 'requirements complete'}
                     </MenuItem>
                   ))}
                 </Select>
               </FormControl>
-              {eligibleAssignees.length === 0 && (
+              {!force && eligibleAssignees.length === 0 && (
                 <Typography variant="caption">
                   Everyone on this roster has all of their required shifts.
                 </Typography>
               )}
               {selectedAssignee && (
                 <Typography variant="caption">
-                  {participantName(selectedAssignee)} still needs{' '}
-                  {participantNeeds(selectedAssignee, view).label}. Select an
-                  enabled open spot below to add them.
+                  {participantName(selectedAssignee)}{' '}
+                  {selectedAssigneeNeeds?.total
+                    ? `still needs ${selectedAssigneeNeeds.label}.`
+                    : 'has all required shifts.'}{' '}
+                  Select an enabled spot below to add them.
                 </Typography>
               )}
               {selectedParticipants.length > 0 && (
@@ -627,86 +646,86 @@ export default function ChorePlanAssignmentManager({
                   )}
                 </Stack>
               )}
-              {!selectedAssignee && (
-                <>
-                  {canForceAssignments && (
-                    <FormControlLabel
-                      control={
-                        <Checkbox
-                          checked={force}
-                          disabled={!view.mutationsAllowed || submitting}
-                          onChange={(event) => {
-                            setForce(event.target.checked);
-                            setForceReason('');
-                            setError(null);
-                            setSuccess(null);
-                          }}
-                          size="small"
-                        />
-                      }
-                      label="Force (skip safety constraints)"
+              {canForceAssignments && (
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={force}
+                      disabled={!view.mutationsAllowed || submitting}
+                      onChange={(event) => {
+                        const nextForce = event.target.checked;
+                        setForce(nextForce);
+                        if (!nextForce && selectedAssigneeNeeds?.total === 0) {
+                          setSelectedAssigneeID(null);
+                        }
+                        setForceReason('');
+                        setError(null);
+                        setSuccess(null);
+                      }}
+                      size="small"
                     />
-                  )}
-                  {force && (
-                    <>
-                      <Typography variant="caption">
-                        Force may bypass capacity, attendance, time, and
-                        category checks. Lifecycle, membership, generated-shift
-                        ownership, and duplicate rules remain enforced.
-                      </Typography>
-                      <TextField
-                        fullWidth
-                        inputProps={{ maxLength: 500 }}
-                        label="Force reason"
-                        multiline
-                        onChange={(event) => setForceReason(event.target.value)}
-                        required
-                        size="small"
-                        value={forceReason}
-                      />
-                    </>
-                  )}
-                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
-                    <Button
-                      color={force ? 'warning' : 'primary'}
-                      disabled={
-                        !view.mutationsAllowed ||
-                        selectedParticipants.length !== 1 ||
-                        !destinationShiftID ||
-                        submitting
-                      }
-                      onClick={handleMove}
-                      size="small"
-                      variant="contained"
-                    >
-                      {moveButtonLabel}
-                    </Button>
-                    <Button
-                      color={force ? 'warning' : 'primary'}
-                      disabled={
-                        !view.mutationsAllowed || !canSwap || submitting
-                      }
-                      onClick={handleSwap}
-                      size="small"
-                      variant="contained"
-                    >
-                      {swapButtonLabel}
-                    </Button>
-                    <Button
-                      color="error"
-                      disabled={
-                        !view.mutationsAllowed ||
-                        selectedParticipants.length !== 1 ||
-                        submitting
-                      }
-                      onClick={handleUnassign}
-                      size="small"
-                      variant="contained"
-                    >
-                      {submitting ? 'Saving…' : 'Unassign'}
-                    </Button>
-                  </Stack>
+                  }
+                  label="Force (skip safety constraints)"
+                />
+              )}
+              {force && (
+                <>
+                  <Typography variant="caption">
+                    Force may bypass capacity, attendance, time, and category
+                    checks. Lifecycle, membership, generated-shift ownership,
+                    and duplicate rules remain enforced.
+                  </Typography>
+                  <TextField
+                    fullWidth
+                    inputProps={{ maxLength: 500 }}
+                    label="Force reason"
+                    multiline
+                    onChange={(event) => setForceReason(event.target.value)}
+                    required
+                    size="small"
+                    value={forceReason}
+                  />
                 </>
+              )}
+              {!selectedAssignee && (
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+                  <Button
+                    color={force ? 'warning' : 'primary'}
+                    disabled={
+                      !view.mutationsAllowed ||
+                      selectedParticipants.length !== 1 ||
+                      !destinationShiftID ||
+                      submitting
+                    }
+                    onClick={handleMove}
+                    size="small"
+                    variant="contained"
+                  >
+                    {moveButtonLabel}
+                  </Button>
+                  <Button
+                    color={force ? 'warning' : 'primary'}
+                    disabled={!view.mutationsAllowed || !canSwap || submitting}
+                    onClick={handleSwap}
+                    size="small"
+                    variant="contained"
+                  >
+                    {swapButtonLabel}
+                  </Button>
+                  <Button
+                    color="error"
+                    disabled={
+                      !view.mutationsAllowed ||
+                      selectedParticipants.length !== 1 ||
+                      submitting
+                    }
+                    onClick={handleUnassign}
+                    size="small"
+                    variant="contained"
+                  >
+                    {submitting ? 'Saving…' : 'Unassign'}
+                  </Button>
+                </Stack>
               )}
             </Stack>
           </Alert>
@@ -738,6 +757,7 @@ export default function ChorePlanAssignmentManager({
                         <AdminSignupSlots
                           assignee={selectedAssignee}
                           destinationShiftID={destinationShiftID}
+                          force={force}
                           mutationsAllowed={view.mutationsAllowed}
                           onAssign={handleAssign}
                           onToggleDestination={(shiftID) => {

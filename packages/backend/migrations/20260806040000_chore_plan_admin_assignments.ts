@@ -57,5 +57,9 @@ export async function up(knex: Knex): Promise<void> {
 // Administrative assignment audits are application data. Any replacement must
 // use a separately reviewed forward migration.
 export function down(_knex: Knex): Promise<void> {
-  return Promise.resolve();
+  return Promise.reject(
+    new Error(
+      '20260806040000_chore_plan_admin_assignments is forward-only because assignment audits are application data.',
+    ),
+  );
 }
