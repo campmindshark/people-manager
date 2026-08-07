@@ -4,7 +4,7 @@ import path from 'node:path';
 import test from 'node:test';
 import knexFactory, { Knex } from 'knex';
 
-const CURRENT_MIGRATION = '20260806040000_chore_plan_admin_assignments.ts';
+const CURRENT_MIGRATION = '20260806050000_chore_plan_requirement_overrides.ts';
 const TEST_DATABASE_URL = process.env.CHORE_TEARDOWN_TEST_DATABASE_URL;
 const POSTGRES_TEST_OPTIONS = {
   skip: TEST_DATABASE_URL

@@ -9,6 +9,7 @@ import {
 } from '@mui/material';
 import { useSetRecoilState, useRecoilValue } from 'recoil';
 import ChorePlanShiftView from 'src/components/shifts/ChorePlanShiftView';
+import ChoreRequirementOverrides from 'src/components/admin/ChoreRequirementOverrides';
 import ChoreSignupControls, {
   ChoreSignupButton,
   ChoreSignupReopenDialog,
@@ -54,12 +55,19 @@ export default function Shifts() {
   const featureFlags = useRecoilValue(FeatureFlagsState);
   const roles = useRecoilValue(MyRolesState);
   const [adminEditMode, setAdminEditMode] = useState(false);
+  const [requirementRevision, setRequirementRevision] = useState(0);
   const canManageAssignments =
     featureFlags.chorePlanning &&
     roles.some((role) => role.permissions.includes('chorePlans:assign'));
   const canForceAssignments = roles.some((role) =>
     role.permissions.includes('chorePlans:forceAssign'),
   );
+  const canOverrideRequirements =
+    featureFlags.chorePlanning &&
+    roles.some((role) =>
+      role.permissions.includes('chorePlans:overrideRequirements'),
+    );
+  const canAdminEdit = canManageAssignments || canOverrideRequirements;
   const {
     canManageChorePlans,
     canReopenChorePlans,
@@ -80,10 +88,10 @@ export default function Shifts() {
   }, [setPageState]);
 
   useEffect(() => {
-    if (!canManageAssignments) {
+    if (!canAdminEdit) {
       setAdminEditMode(false);
     }
-  }, [canManageAssignments]);
+  }, [canAdminEdit]);
 
   if (!featureFlags.chorePlanning) {
     return (
@@ -132,7 +140,7 @@ export default function Shifts() {
                   plan={chorePlan}
                 />
               )}
-              {canManageAssignments && userIsVerified && (
+              {canAdminEdit && userIsVerified && (
                 <Button
                   color={adminEditMode ? 'secondary' : 'primary'}
                   onClick={() => setAdminEditMode((enabled) => !enabled)}
@@ -150,13 +158,19 @@ export default function Shifts() {
             plan={chorePlan}
             rosterYear={currentRoster.year}
           />
+          {adminEditMode && canOverrideRequirements && userIsVerified && (
+            <ChoreRequirementOverrides
+              onChanged={() => setRequirementRevision((current) => current + 1)}
+              rosterID={currentRoster.id}
+            />
+          )}
           {userIsVerified ? (
             <VerifiedShiftExperience
-              adminEditMode={adminEditMode}
+              adminEditMode={adminEditMode && canManageAssignments}
               canForceAssignments={canForceAssignments}
               key={`${chorePlan?.id ?? 'none'}:${
                 chorePlan?.status ?? 'loading'
-              }`}
+              }:${requirementRevision}`}
               rosterID={currentRoster.id}
             />
           ) : (

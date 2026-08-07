@@ -1,5 +1,6 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { RecoilRoot } from 'recoil';
 import { FeatureFlagsState } from '../state/features';
 import Shifts, { VerifiedShiftExperience } from './Shifts';
@@ -40,7 +41,11 @@ jest.mock('../state/store', () => {
       key: 'testMyRoles',
       default: [
         {
-          permissions: ['chorePlans:assign', 'chorePlans:forceAssign'],
+          permissions: [
+            'chorePlans:assign',
+            'chorePlans:forceAssign',
+            'chorePlans:overrideRequirements',
+          ],
         },
       ],
     }),
@@ -72,6 +77,16 @@ jest.mock('src/components/shifts/ChorePlanShiftView', () => {
     );
   }
   return ChorePlanShiftView;
+});
+jest.mock('src/components/admin/ChoreRequirementOverrides', () => {
+  function ChoreRequirementOverrides({ onChanged }: { onChanged: () => void }) {
+    return (
+      <button onClick={onChanged} type="button">
+        Update member requirements
+      </button>
+    );
+  }
+  return ChoreRequirementOverrides;
 });
 jest.mock('src/components/shifts/ShiftDisplay', () => {
   function ShiftDisplay() {
@@ -200,5 +215,29 @@ test('refreshes the signup sheets when lifecycle status changes', () => {
   mockLifecycleStatus = 'open';
   rerender(shiftsPage());
 
+  expect(screen.getByText('Chore sheet mount 2')).toBeVisible();
+});
+
+test('shows requirement controls in Admin Edit and refreshes assignment needs', () => {
+  render(
+    <RecoilRoot
+      initializeState={({ set }) => {
+        set(FeatureFlagsState, { chorePlanning: true });
+      }}
+    >
+      <Shifts />
+    </RecoilRoot>,
+  );
+
+  userEvent.click(screen.getByRole('button', { name: 'Admin Edit' }));
+  expect(
+    screen.getByRole('button', { name: 'Update member requirements' }),
+  ).toBeVisible();
+  expect(screen.getByText(/Chore signup sheets — admin/)).toBeVisible();
+  expect(screen.getByText('Chore sheet mount 1')).toBeVisible();
+
+  userEvent.click(
+    screen.getByRole('button', { name: 'Update member requirements' }),
+  );
   expect(screen.getByText('Chore sheet mount 2')).toBeVisible();
 });

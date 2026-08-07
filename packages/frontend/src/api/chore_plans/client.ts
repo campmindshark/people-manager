@@ -12,6 +12,12 @@ import {
   ChorePlanPreview,
   ChorePlanPreviewRequest,
 } from 'backend/view_models/chore_plan_preview';
+import {
+  ChorePlanRequirementOverrideClearRequest,
+  ChorePlanRequirementOverrideMutationResponse,
+  ChorePlanRequirementOverrideRequest,
+  ChorePlanRequirementOverrideViewResponse,
+} from 'backend/view_models/chore_plan_requirements';
 import { ChorePlanShiftViewResponse } from 'backend/view_models/chore_plan_shifts';
 import {
   ChorePlanLifecycleResponse,
@@ -63,6 +69,43 @@ export default class BackendChorePlanClient {
       `${this.baseApiURL}/api/chore-plans/admin/${rosterID}/assignments`,
       defaultRequestConfig,
     );
+    return data;
+  }
+
+  async GetRequirementOverrides(
+    rosterID: number,
+  ): Promise<ChorePlanRequirementOverrideViewResponse> {
+    const { data } = await axios.get<ChorePlanRequirementOverrideViewResponse>(
+      `${this.baseApiURL}/api/chore-plans/admin/${rosterID}/requirements`,
+      defaultRequestConfig,
+    );
+    return data;
+  }
+
+  async SetRequirementOverride(
+    rosterID: number,
+    userID: number,
+    request: ChorePlanRequirementOverrideRequest,
+  ): Promise<ChorePlanRequirementOverrideMutationResponse> {
+    const { data } =
+      await axios.put<ChorePlanRequirementOverrideMutationResponse>(
+        `${this.baseApiURL}/api/chore-plans/admin/${rosterID}/participants/${userID}/requirements`,
+        request,
+        defaultRequestConfig,
+      );
+    return data;
+  }
+
+  async ClearRequirementOverride(
+    rosterID: number,
+    userID: number,
+    request: ChorePlanRequirementOverrideClearRequest,
+  ): Promise<ChorePlanRequirementOverrideMutationResponse> {
+    const { data } =
+      await axios.delete<ChorePlanRequirementOverrideMutationResponse>(
+        `${this.baseApiURL}/api/chore-plans/admin/${rosterID}/participants/${userID}/requirements`,
+        { ...defaultRequestConfig, data: request },
+      );
     return data;
   }
 

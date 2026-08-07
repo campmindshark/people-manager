@@ -139,7 +139,7 @@ function participantNeeds(
     }
   });
   const missing = KINDS.map((kind) => ({
-    count: Math.max(0, plan.requirements[kind] - assigned[kind]),
+    count: Math.max(0, participant.requirements[kind] - assigned[kind]),
     kind,
   })).filter(({ count }) => count > 0);
   return {

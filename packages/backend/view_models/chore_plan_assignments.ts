@@ -45,6 +45,7 @@ export interface ChorePlanAdminAssignmentParticipant {
   playaName: string;
   estimatedArrivalDate: string;
   estimatedDepartureDate: string;
+  requirements: ChorePlanRequirements;
   assignedShiftIDs: number[];
 }
 

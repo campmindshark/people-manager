@@ -33,6 +33,7 @@
         "chorePlans:apply",
         "chorePlans:lifecycle",
         "chorePlans:reopen",
+        "chorePlans:overrideRequirements",
         "chorePlans:assign",
         "chorePlans:forceAssign"
       ]

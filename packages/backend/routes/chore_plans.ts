@@ -4,6 +4,7 @@ import ChorePlanAssignmentsController from '../controllers/chore_plan_assignment
 import ChorePlanDraftController from '../controllers/chore_plan_draft';
 import ChorePlanLifecycleController from '../controllers/chore_plan_lifecycle';
 import ChorePlanPreviewController from '../controllers/chore_plan_preview';
+import ChorePlanRequirementsController from '../controllers/chore_plan_requirements';
 import ChorePlanShiftsController from '../controllers/chore_plan_shifts';
 import ChorePlanSignupController from '../controllers/chore_plan_signup';
 import hasPermission from '../middleware/rbac';
@@ -27,6 +28,12 @@ import {
   parseChorePlanRosterID,
 } from '../utils/chorePlanPreviewInput';
 import ChorePlanPreviewError from '../utils/chorePlanPreviewError';
+import ChorePlanRequirementError from '../utils/chorePlanRequirementError';
+import {
+  parseChorePlanRequirementOverrideClearRequest,
+  parseChorePlanRequirementOverrideRequest,
+  parseChorePlanRequirementParticipantID,
+} from '../utils/chorePlanRequirementInput';
 import ChorePlanShiftViewError from '../utils/chorePlanShiftViewError';
 import ChorePlanSignupError from '../utils/chorePlanSignupError';
 import {
@@ -42,6 +49,7 @@ const assignmentsController = new ChorePlanAssignmentsController();
 const draftController = new ChorePlanDraftController();
 const lifecycleController = new ChorePlanLifecycleController();
 const previewController = new ChorePlanPreviewController();
+const requirementsController = new ChorePlanRequirementsController();
 const shiftsController = new ChorePlanShiftsController();
 const signupController = new ChorePlanSignupController();
 
@@ -51,6 +59,7 @@ function sendError(error: unknown, res: Response, operation: string): void {
       error instanceof ChorePlanAssignmentError ||
       error instanceof ChorePlanLifecycleError ||
       error instanceof ChorePlanPreviewError ||
+      error instanceof ChorePlanRequirementError ||
       error instanceof ChorePlanShiftViewError ||
       error instanceof ChorePlanSignupError) &&
     error.status < 500
@@ -62,6 +71,66 @@ function sendError(error: unknown, res: Response, operation: string): void {
   console.error(`Failed to ${operation}:`, error);
   res.status(500).json({ error: `Failed to ${operation}.` });
 }
+
+router.get(
+  '/admin/:rosterID/requirements',
+  userIsVerified(),
+  hasPermission('chorePlans:overrideRequirements'),
+  async (req: Request, res: Response) => {
+    try {
+      res.json(
+        await requirementsController.getView(
+          parseChorePlanRosterID(req.params.rosterID),
+        ),
+      );
+    } catch (error) {
+      sendError(error, res, 'load participant chore requirements');
+    }
+  },
+);
+
+router.put(
+  '/admin/:rosterID/participants/:userID/requirements',
+  userIsVerified(),
+  hasPermission('chorePlans:overrideRequirements'),
+  async (req: Request, res: Response) => {
+    try {
+      const user = req.user as User;
+      res.json(
+        await requirementsController.setOverride(
+          parseChorePlanRosterID(req.params.rosterID),
+          parseChorePlanRequirementParticipantID(req.params.userID),
+          parseChorePlanRequirementOverrideRequest(req.body),
+          user.id,
+        ),
+      );
+    } catch (error) {
+      sendError(error, res, 'update participant chore requirements');
+    }
+  },
+);
+
+router.delete(
+  '/admin/:rosterID/participants/:userID/requirements',
+  userIsVerified(),
+  hasPermission('chorePlans:overrideRequirements'),
+  async (req: Request, res: Response) => {
+    try {
+      const user = req.user as User;
+      const request = parseChorePlanRequirementOverrideClearRequest(req.body);
+      res.json(
+        await requirementsController.clearOverride(
+          parseChorePlanRosterID(req.params.rosterID),
+          parseChorePlanRequirementParticipantID(req.params.userID),
+          request.reason,
+          user.id,
+        ),
+      );
+    } catch (error) {
+      sendError(error, res, 'clear participant chore requirements');
+    }
+  },
+);
 
 router.get(
   '/admin/:rosterID/assignments',
