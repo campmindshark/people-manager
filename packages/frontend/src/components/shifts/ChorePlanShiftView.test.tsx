@@ -123,6 +123,8 @@ test('renders PR 58-style signup sheets and category requirements', async () => 
     scheduleKey: 'event|gate',
     kind: 'event' as const,
     scheduleName: 'Gate',
+    timePeriodLabel: '6p-9p',
+    periodOrder: 1,
     currentUserAssigned: false,
     assignments: [{ displayName: 'Alex R.', currentUser: false }],
   };
