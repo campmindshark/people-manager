@@ -366,7 +366,6 @@ test(
         ledgerEntryBeforeRollback,
         'a failed rollback must retain the forward-only migration ledger entry',
       );
-      await assertTeardownSchema(database, schemaName);
     } finally {
       await database?.destroy();
       await adminDatabase.schema.dropSchemaIfExists(schemaName, true);
