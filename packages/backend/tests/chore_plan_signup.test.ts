@@ -6,6 +6,7 @@ import ChorePlanDraftController from '../controllers/chore_plan_draft';
 import ChorePlanLifecycleController from '../controllers/chore_plan_lifecycle';
 import ChorePlanSignupController from '../controllers/chore_plan_signup';
 import ChorePlanSignupError from '../utils/chorePlanSignupError';
+import { shiftTimeRangesOverlap } from '../utils/shiftTime';
 import {
   parseEmptyChorePlanSignupRequest,
   parseChorePlanShiftID,
@@ -78,7 +79,9 @@ async function addParticipant(
 }
 
 test('signup input accepts only narrow positive shift contracts', () => {
-  assert.deepEqual(parseChorePlanSignupRequest({ shiftID: 7 }), { shiftID: 7 });
+  assert.deepEqual(parseChorePlanSignupRequest({ shiftIDs: [7, 8, 9] }), {
+    shiftIDs: [7, 8, 9],
+  });
   assert.deepEqual(
     parseChorePlanSwitchRequest({ fromShiftID: 7, toShiftID: 8 }),
     { fromShiftID: 7, toShiftID: 8 },
@@ -88,16 +91,24 @@ test('signup input accepts only narrow positive shift contracts', () => {
   assert.equal(parseEmptyChorePlanSignupRequest({}), undefined);
 
   assert.throws(
-    () => parseChorePlanSignupRequest({ shiftID: 7, force: true }),
-    (error) => isSignupError(error, 400, /only a shift ID/i),
+    () => parseChorePlanSignupRequest({ shiftIDs: [7], force: true }),
+    (error) => isSignupError(error, 400, /only shift IDs/i),
   );
   assert.throws(
-    () => parseChorePlanSignupRequest({ shiftID: 0 }),
+    () => parseChorePlanSignupRequest({ shiftIDs: [0] }),
     (error) => isSignupError(error, 400, /valid chore plan shift/i),
   );
   assert.throws(
-    () => parseChorePlanSignupRequest({ shiftID: '7' }),
+    () => parseChorePlanSignupRequest({ shiftIDs: ['7'] }),
     (error) => isSignupError(error, 400, /valid chore plan shift/i),
+  );
+  assert.throws(
+    () => parseChorePlanSignupRequest({ shiftIDs: [7, 7] }),
+    (error) => isSignupError(error, 400, /each chore plan shift once/i),
+  );
+  assert.throws(
+    () => parseChorePlanSignupRequest({ shiftIDs: [1, 2, 3, 4] }),
+    (error) => isSignupError(error, 400, /between 1 and 3/i),
   );
   assert.throws(
     () => parseEmptyChorePlanSignupRequest({ force: true }),
@@ -170,7 +181,7 @@ test(
         {
           rosterID: roster.id,
           camperCount: 3,
-          requirements: { chore: 1, event: 1, dinner: 1 },
+          requirements: { chore: 3, event: 1, dinner: 1 },
           expectedCatalogRevision: '1',
           expectedDraftRevision: null,
         },
@@ -194,47 +205,109 @@ test(
       const choreShifts = generatedShifts.filter(
         ({ kind }) => kind === 'chore',
       );
-      assert(choreShifts.length >= 3);
-      const sourceShift = choreShifts[0];
-      const capacityShift = choreShifts[1];
-      const nonOverlappingShift = choreShifts.find(
-        (shift) =>
-          new Date(shift.startTime).getTime() >=
-          new Date(sourceShift.endTime).getTime(),
+      const batchShifts = choreShifts.reduce<GeneratedShiftRow[]>(
+        (selected, candidate) =>
+          selected.length < 3 &&
+          selected.every(
+            (selectedShift) =>
+              !shiftTimeRangesOverlap(selectedShift, candidate),
+          )
+            ? [...selected, candidate]
+            : selected,
+        [],
       );
-      assert(nonOverlappingShift);
+      assert(batchShifts.length >= 3);
+      const [sourceShift, secondBatchShift, thirdBatchShift] = batchShifts;
+      const capacityShift = choreShifts.find(({ id }) => id !== sourceShift.id);
+      const overlappingShift = choreShifts.find(
+        (candidate) =>
+          candidate.id !== sourceShift.id &&
+          shiftTimeRangesOverlap(sourceShift, candidate),
+      );
+      assert(capacityShift);
+      assert(overlappingShift);
 
       await assert.rejects(
-        signupController.signup(roster.id, sourceShift.id, users[0].id),
+        signupController.signup(roster.id, [sourceShift.id], users[0].id),
         (error) => isSignupError(error, 409, /plan is open/i),
       );
       await lifecycleController.open(roster.id, users[0].id);
       await assert.rejects(
-        signupController.signup(roster.id, sourceShift.id, users[5].id),
+        signupController.signup(roster.id, [sourceShift.id], users[5].id),
         (error) => isSignupError(error, 403, /roster members/i),
       );
       await assert.rejects(
-        signupController.signup(roster.id, sourceShift.id, users[4].id),
+        signupController.signup(roster.id, [sourceShift.id], users[4].id),
         (error) => isSignupError(error, 409, /attendance window/i),
       );
 
+      await database('chore_plans')
+        .where({ id: applied.draft.id })
+        .update({ choreRequirement: 2 });
+      const batchShiftIDs = [
+        sourceShift.id,
+        secondBatchShift.id,
+        thirdBatchShift.id,
+      ].sort((first, second) => first - second);
+      await assert.rejects(
+        signupController.signup(roster.id, batchShiftIDs, users[0].id),
+        (error) => isSignupError(error, 409, /all required chore/i),
+      );
+      assert.equal(
+        Number(
+          (
+            await database('shift_participants')
+              .where({ userID: users[0].id })
+              .count('* as count')
+              .first()
+          )?.count ?? 0,
+        ),
+        0,
+      );
+      await database('chore_plans')
+        .where({ id: applied.draft.id })
+        .update({ choreRequirement: 3 });
       const firstSignup = await signupController.signup(
         roster.id,
-        sourceShift.id,
+        batchShiftIDs,
         users[0].id,
       );
       assert.deepEqual(firstSignup, {
         changed: true,
-        assignedShiftIDs: [sourceShift.id],
+        assignedShiftIDs: batchShiftIDs,
       });
       assert.deepEqual(
-        await signupController.signup(roster.id, sourceShift.id, users[0].id),
-        { changed: false, assignedShiftIDs: [sourceShift.id] },
+        await signupController.signup(roster.id, batchShiftIDs, users[0].id),
+        { changed: false, assignedShiftIDs: batchShiftIDs },
       );
       await assert.rejects(
-        signupController.signup(roster.id, nonOverlappingShift.id, users[0].id),
-        (error) => isSignupError(error, 409, /all required chore/i),
+        signupController.signup(
+          roster.id,
+          [sourceShift.id, overlappingShift.id],
+          users[3].id,
+        ),
+        (error) => isSignupError(error, 409, /another assignment/i),
       );
+      assert.equal(
+        Number(
+          (
+            await database('shift_participants')
+              .where({ userID: users[3].id })
+              .count('* as count')
+              .first()
+          )?.count ?? 0,
+        ),
+        0,
+      );
+      await signupController.remove(
+        roster.id,
+        secondBatchShift.id,
+        users[0].id,
+      );
+      await signupController.remove(roster.id, thirdBatchShift.id, users[0].id);
+      await database('chore_plans')
+        .where({ id: applied.draft.id })
+        .update({ choreRequirement: 1 });
 
       const [ordinarySchedule] = (await database('schedules')
         .insert({
@@ -259,13 +332,13 @@ test(
         userID: users[3].id,
       });
       await assert.rejects(
-        signupController.signup(roster.id, sourceShift.id, users[3].id),
+        signupController.signup(roster.id, [sourceShift.id], users[3].id),
         (error) => isSignupError(error, 409, /another assignment/i),
       );
 
       const raceResults = await Promise.allSettled([
-        signupController.signup(roster.id, capacityShift.id, users[1].id),
-        signupController.signup(roster.id, capacityShift.id, users[2].id),
+        signupController.signup(roster.id, [capacityShift.id], users[1].id),
+        signupController.signup(roster.id, [capacityShift.id], users[2].id),
       ]);
       assert.equal(
         raceResults.filter(({ status }) => status === 'fulfilled').length,
@@ -333,7 +406,7 @@ test(
         signupController.switch(
           roster.id,
           sourceShift.id,
-          nonOverlappingShift.id,
+          thirdBatchShift.id,
           users[0].id,
         ),
         (error) => isSignupError(error, 409, /not assigned to the source/i),
@@ -348,7 +421,7 @@ test(
         { changed: false, assignedShiftIDs: [] },
       );
 
-      await signupController.signup(roster.id, sourceShift.id, users[0].id);
+      await signupController.signup(roster.id, [sourceShift.id], users[0].id);
       await lifecycleController.close(roster.id, users[0].id);
       await assert.rejects(
         signupController.remove(roster.id, sourceShift.id, users[0].id),

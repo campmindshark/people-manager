@@ -23,6 +23,11 @@ export interface ChorePlanShiftViewSlot {
   positionLabel: string;
 }
 
+export interface ChorePlanShiftViewAssignment {
+  displayName: string;
+  currentUser: boolean;
+}
+
 export interface ChorePlanShiftViewItem {
   id: number;
   stableKey: string;
@@ -41,6 +46,7 @@ export interface ChorePlanShiftViewItem {
   currentUserAssigned: boolean;
   signupRestrictionReason: string | null;
   signupConflictShiftIDs: number[];
+  assignments: ChorePlanShiftViewAssignment[];
   slots: ChorePlanShiftViewSlot[];
 }
 

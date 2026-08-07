@@ -90,10 +90,20 @@ test(
       });
 
       const [member] = (await database('users')
-        .insert({ email: 'shift-view-member@example.invalid' })
+        .insert({
+          email: 'shift-view-member@example.invalid',
+          firstName: 'Mara',
+          lastName: 'Moon',
+          playaName: 'Moonbeam',
+        })
         .returning('id')) as IDRow[];
       const [otherMember] = (await database('users')
-        .insert({ email: 'shift-view-other@example.invalid' })
+        .insert({
+          email: 'shift-view-other@example.invalid',
+          firstName: 'Alex',
+          lastName: 'Rivera',
+          playaName: '',
+        })
         .returning('id')) as IDRow[];
       const [unassignedMember] = (await database('users')
         .insert({ email: 'shift-view-unassigned@example.invalid' })
@@ -177,6 +187,10 @@ test(
       assert(assignedShift);
       assert.equal(assignedShift.assignedParticipantCount, 2);
       assert.equal(assignedShift.currentUserAssigned, true);
+      assert.deepEqual(assignedShift.assignments, [
+        { displayName: 'Moonbeam', currentUser: true },
+        { displayName: 'Alex R.', currentUser: false },
+      ]);
       assert.equal(
         assignedShift.slots.length,
         assignedShift.requiredParticipants,
@@ -196,6 +210,15 @@ test(
           ({ id }) => id === generatedShift.shiftID,
         )?.currentUserAssigned,
         false,
+      );
+      assert.deepEqual(
+        unassignedMemberView.shifts.find(
+          ({ id }) => id === generatedShift.shiftID,
+        )?.assignments,
+        [
+          { displayName: 'Moonbeam', currentUser: false },
+          { displayName: 'Alex R.', currentUser: false },
+        ],
       );
 
       const availableShift = openView.shifts.find(
