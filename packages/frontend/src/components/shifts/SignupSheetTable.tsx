@@ -37,6 +37,7 @@ const EVENT_PERIODS = [
   { key: '6p-9p', label: '6 pm - 9 pm' },
   { key: '9p-12a', label: '9 pm - 12 am' },
   { key: '12a-3a', label: '12 am - 3 am' },
+  { key: '3a-6a', label: '3 am - 6 am' },
 ] as const;
 const EVENT_PERIOD_KEYS = new Set<string>(EVENT_PERIODS.map(({ key }) => key));
 
