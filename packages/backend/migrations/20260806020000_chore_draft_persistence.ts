@@ -236,5 +236,9 @@ export async function up(knex: Knex): Promise<void> {
 // Persisted drafts and their audit history are application data. Any future
 // schema replacement must use a separately reviewed forward migration.
 export function down(_knex: Knex): Promise<void> {
-  return Promise.resolve();
+  return Promise.reject(
+    new Error(
+      '20260806020000_chore_draft_persistence is forward-only because persisted drafts and audit history are application data.',
+    ),
+  );
 }

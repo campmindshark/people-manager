@@ -4,6 +4,22 @@ import { DateTime } from 'luxon';
 
 const timezone = 'America/Los_Angeles';
 
+interface IDRow {
+  id: number;
+}
+
+interface ScheduleFixture {
+  rosterID: number;
+  name: string;
+  description: string;
+}
+
+interface ShiftFixture {
+  startTime: Date;
+  endTime: Date;
+  requiredParticipants: number;
+}
+
 // getBMTime expects a string in the format "MMMM dd, yyyy hh:mm". ex. (August 24, 2024 10:00)
 const getBMTime = (time: string) =>
   DateTime.fromFormat(time, 'MMMM dd, yyyy hh:mm').setZone(timezone).toJSDate();
@@ -12,122 +28,111 @@ const generateShiftsAtIntervalOverRange = (
   intervalMins: number,
   startTime: Date,
   endTime: Date,
-  startID: number,
-  targetScheduleID: number,
 ) => {
-  const shifts: object[] = [];
+  const shifts: ShiftFixture[] = [];
   let currTime = startTime;
-  let currentStartID = startID;
   while (currTime < endTime) {
     shifts.push({
-      id: currentStartID,
-      scheduleID: targetScheduleID,
       startTime: currTime,
       endTime: new Date(currTime.getTime() + intervalMins * 60000),
       requiredParticipants: 2,
     });
     currTime = new Date(currTime.getTime() + intervalMins * 60000);
-    currentStartID += 1;
   }
 
   return shifts;
 };
 
-export async function seed(knex: Knex): Promise<void> {
-  // Delete dependents before their parents so this seed remains safe to rerun.
-  await knex('shift_participants').del();
-  await knex('shifts').del();
-  await knex('schedules').del();
+async function upsertFixtureSchedule(
+  knex: Knex.Transaction,
+  fixture: ScheduleFixture,
+): Promise<number> {
+  const existing = (await knex('schedules')
+    .select('id')
+    .where({ rosterID: fixture.rosterID, name: fixture.name })
+    .whereNull('chorePlanID')
+    .orderBy('id')
+    .first()) as IDRow | undefined;
+  if (existing) {
+    await knex('schedules')
+      .where({ id: existing.id })
+      .update({ description: fixture.description });
+    return existing.id;
+  }
 
-  // Inserts seed entries
-  await knex('schedules').insert([
-    {
-      id: 1,
+  const [created] = (await knex('schedules')
+    .insert(fixture)
+    .returning('id')) as IDRow[];
+  return created.id;
+}
+
+async function upsertFixtureShift(
+  knex: Knex.Transaction,
+  scheduleID: number,
+  fixture: ShiftFixture,
+): Promise<void> {
+  const existing = (await knex('shifts')
+    .select('id')
+    .where({
+      scheduleID,
+      startTime: fixture.startTime,
+      endTime: fixture.endTime,
+    })
+    .whereNull('plannerKey')
+    .orderBy('id')
+    .first()) as IDRow | undefined;
+  if (existing) {
+    await knex('shifts')
+      .where({ id: existing.id })
+      .update({ requiredParticipants: fixture.requiredParticipants });
+    return;
+  }
+
+  await knex('shifts').insert({ scheduleID, ...fixture });
+}
+
+export async function seed(knex: Knex): Promise<void> {
+  await knex.transaction(async (transaction) => {
+    const barScheduleID = await upsertFixtureSchedule(transaction, {
       rosterID: 1,
       name: 'Bar Wench',
       description: 'Prepare the bar for battle.',
-    },
-    { id: 2, rosterID: 1, name: 'Ice Bitch', description: 'Keep us cool.' },
-  ]);
+    });
+    const iceScheduleID = await upsertFixtureSchedule(transaction, {
+      rosterID: 1,
+      name: 'Ice Bitch',
+      description: 'Keep us cool.',
+    });
 
-  // Add 90 minute shifts for all hours.
-  const wenchShifts = generateShiftsAtIntervalOverRange(
-    90,
-    getBMTime('August 24, 2024 16:00'),
-    getBMTime('August 29, 2024 18:00'),
-    1,
-    1,
-  );
-  await knex('shifts').insert(wenchShifts);
+    const barShifts = generateShiftsAtIntervalOverRange(
+      90,
+      getBMTime('August 24, 2024 16:00'),
+      getBMTime('August 29, 2024 18:00'),
+    );
+    const iceShifts: ShiftFixture[] = [
+      ['August 24, 2024 10:00', 'August 24, 2024 11:00'],
+      ['August 24, 2024 18:00', 'August 24, 2024 19:00'],
+      ['August 25, 2024 10:00', 'August 25, 2024 11:00'],
+      ['August 25, 2024 18:00', 'August 25, 2024 19:00'],
+      ['August 26, 2024 10:00', 'August 26, 2024 11:00'],
+      ['August 26, 2024 18:00', 'August 26, 2024 19:00'],
+    ].map(([startTime, endTime]) => ({
+      startTime: getBMTime(startTime),
+      endTime: getBMTime(endTime),
+      requiredParticipants: 2,
+    }));
 
-  DateTime.fromFormat('August 24, 2024 10:00', 'MMMM dd, yyyy hh:mm').setZone(
-    timezone,
-  );
-
-  // Add a couple shifts here and there for the Ice Bitch schedule.
-  const iceShifts = [
-    {
-      id: wenchShifts.length + 1,
-      scheduleID: 2,
-      startTime: getBMTime('August 24, 2024 10:00'),
-      endTime: getBMTime('August 24, 2024 11:00'),
-      requiredParticipants: 2,
-    },
-    {
-      id: wenchShifts.length + 2,
-      scheduleID: 2,
-      startTime: getBMTime('August 24, 2024 18:00'),
-      endTime: getBMTime('August 24, 2024 19:00'),
-      requiredParticipants: 2,
-    },
-    {
-      id: wenchShifts.length + 3,
-      scheduleID: 2,
-      startTime: getBMTime('August 25, 2024 10:00'),
-      endTime: getBMTime('August 25, 2024 11:00'),
-      requiredParticipants: 2,
-    },
-    {
-      id: wenchShifts.length + 4,
-      scheduleID: 2,
-      startTime: getBMTime('August 25, 2024 18:00'),
-      endTime: getBMTime('August 25, 2024 19:00'),
-      requiredParticipants: 2,
-    },
-    {
-      id: wenchShifts.length + 5,
-      scheduleID: 2,
-      startTime: getBMTime('August 26, 2024 10:00'),
-      endTime: getBMTime('August 26, 2024 11:00'),
-      requiredParticipants: 2,
-    },
-    {
-      id: wenchShifts.length + 6,
-      scheduleID: 2,
-      startTime: getBMTime('August 26, 2024 18:00'),
-      endTime: getBMTime('August 26, 2024 19:00'),
-      requiredParticipants: 2,
-    },
-  ];
-  console.log(iceShifts);
-  await knex('shifts').insert(iceShifts);
-
-  // These fixtures use stable explicit IDs. Keep PostgreSQL's sequences ahead
-  // of them so application-created schedules and shifts receive new IDs.
-  await knex.raw(`
-    SELECT setval(
-      pg_get_serial_sequence('schedules', 'id'),
-      COALESCE(MAX("id"), 1),
-      MAX("id") IS NOT NULL
-    )
-    FROM "schedules"
-  `);
-  await knex.raw(`
-    SELECT setval(
-      pg_get_serial_sequence('shifts', 'id'),
-      COALESCE(MAX("id"), 1),
-      MAX("id") IS NOT NULL
-    )
-    FROM "shifts"
-  `);
+    // Do not delete or replace application-created schedules, generated chore
+    // shifts, or participant assignments when refreshing development fixtures.
+    await Promise.all(
+      barShifts.map((shift) =>
+        upsertFixtureShift(transaction, barScheduleID, shift),
+      ),
+    );
+    await Promise.all(
+      iceShifts.map((shift) =>
+        upsertFixtureShift(transaction, iceScheduleID, shift),
+      ),
+    );
+  });
 }
