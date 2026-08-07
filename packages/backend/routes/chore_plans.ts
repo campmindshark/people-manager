@@ -363,7 +363,7 @@ router.post(
     try {
       const user = req.user as User;
       const input = parseChorePlanSignupRequest(req.body);
-      shiftIDs.push(input.shiftID);
+      shiftIDs.push(...input.shiftIDs);
       res.json(
         await signupController.signup(
           parseChorePlanRosterID(req.params.rosterID),
