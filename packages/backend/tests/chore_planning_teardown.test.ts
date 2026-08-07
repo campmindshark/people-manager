@@ -314,6 +314,31 @@ test(
         extension: 'ts',
       });
       assert.deepEqual(repeatedMigrationNames, []);
+
+      const ledgerEntryBeforeRollback = await database('knex_migrations')
+        .select('name', 'batch')
+        .where({ name: TEARDOWN_MIGRATION })
+        .first();
+      assert.deepEqual(ledgerEntryBeforeRollback, {
+        name: TEARDOWN_MIGRATION,
+        batch: 2,
+      });
+      await assert.rejects(
+        database.migrate.rollback(
+          { directory: migrationsDirectory, extension: 'ts' },
+          false,
+        ),
+        /remove_chore_planning is forward-only/i,
+      );
+      assert.deepEqual(
+        await database('knex_migrations')
+          .select('name', 'batch')
+          .where({ name: TEARDOWN_MIGRATION })
+          .first(),
+        ledgerEntryBeforeRollback,
+        'a failed rollback must retain the forward-only migration ledger entry',
+      );
+      await assertTeardownSchema(database, schemaName);
     } finally {
       await database?.destroy();
       await adminDatabase.schema.dropSchemaIfExists(schemaName, true);
