@@ -18,6 +18,7 @@ import {
   ChorePlanRequirementOverrideRequest,
   ChorePlanRequirementOverrideViewResponse,
 } from 'backend/view_models/chore_plan_requirements';
+import { ChorePlanReadinessResponse } from 'backend/view_models/chore_plan_readiness';
 import { ChorePlanShiftViewResponse } from 'backend/view_models/chore_plan_shifts';
 import {
   ChorePlanLifecycleResponse,
@@ -77,6 +78,14 @@ export default class BackendChorePlanClient {
   ): Promise<ChorePlanRequirementOverrideViewResponse> {
     const { data } = await axios.get<ChorePlanRequirementOverrideViewResponse>(
       `${this.baseApiURL}/api/chore-plans/admin/${rosterID}/requirements`,
+      defaultRequestConfig,
+    );
+    return data;
+  }
+
+  async GetReadiness(rosterID: number): Promise<ChorePlanReadinessResponse> {
+    const { data } = await axios.get<ChorePlanReadinessResponse>(
+      `${this.baseApiURL}/api/chore-plans/admin/${rosterID}/readiness`,
       defaultRequestConfig,
     );
     return data;

@@ -329,6 +329,41 @@ changed mutation writes one `admin_assignment_mutated` audit entry in the same
 transaction, containing the operation, exact added/removed pairs, whether it
 was forced, its reason, and stable identifiers for every bypassed rule.
 
+## Readiness and participant notifications
+
+Readiness is an advisory administrative read model. `GET
+/api/chore-plans/admin/:rosterID/readiness` requires a verified user and the
+separate `chorePlans:readiness` permission. It reads the plan, roster
+participants, generated shifts, assignments, profiles, attendance windows, and
+requirement overrides in one read-only repeatable-read transaction. Missing
+rosters and plans return `404`; the endpoint performs no writes and does not
+weaken or replace lifecycle validation.
+
+The response compares the saved planner headcount with the current roster,
+reports per-category complete and incomplete participant counts, classifies
+each generated shift as underfilled, full, or overfilled, lists participants'
+remaining requirements, and records requirement exceptions. Assignment totals
+count distinct generated shift IDs for each participant and category; slot
+snapshots or duplicate joins must never inflate completion. Every effective
+requirement comes from the shared backend requirement helper used by signup and
+administrative assignment validation.
+
+Readiness also identifies incomplete public/private profiles and invalid or
+missing attendance windows. Feasibility findings distinguish no generated
+choice, missing attendance, attendance exclusion, conflicts with any existing
+assignment, and full remaining shifts. They are operational warnings only:
+opening or closing still uses the existing lifecycle transaction and remains
+possible after an administrator reviews the warnings.
+
+The existing signup-status response adds the current participant's effective
+requirements, distinct generated-shift counts, override state, and whether the
+plan is open. These fields remain at disabled defaults when chore planning is
+off. Participant notifications appear only for an open plan and describe the
+remaining chore, event, and dinner shifts with a natural-language list. Draft
+and closed plans do not produce incomplete-signup notifications. The response
+contains only the current user's assignment totals and requirement exception;
+it exposes no other participant identity or readiness detail.
+
 ## Authorization
 
 Authentication, roster membership, verification, permissions, and feature
@@ -340,6 +375,7 @@ The permission groups are deliberately separate:
 - plan preview and draft apply;
 - lifecycle open/close and lifecycle reopen;
 - requirement override management;
+- readiness review;
 - ordinary self-service signup;
 - administrative assignment;
 - force assignment; and

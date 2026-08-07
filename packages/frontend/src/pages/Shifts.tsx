@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
   Box,
@@ -7,7 +7,13 @@ import {
   Stack,
   Typography,
 } from '@mui/material';
-import { useSetRecoilState, useRecoilValue } from 'recoil';
+import {
+  useRecoilRefresher_UNSTABLE,
+  useRecoilValue,
+  useSetRecoilState,
+} from 'recoil';
+import { ChorePlanReadinessResponse } from 'backend/view_models/chore_plan_readiness';
+import ChorePlanReadinessReviewDialog from 'src/components/admin/ChorePlanReadinessDashboard';
 import ChorePlanShiftView from 'src/components/shifts/ChorePlanShiftView';
 import ChoreRequirementOverrides from 'src/components/admin/ChoreRequirementOverrides';
 import ChoreSignupControls, {
@@ -16,19 +22,45 @@ import ChoreSignupControls, {
   useChoreSignupControls,
 } from 'src/components/shifts/ChoreSignupControls';
 import ShiftDisplay from 'src/components/shifts/ShiftDisplay';
+import BackendChorePlanClient from '../api/chore_plans/client';
+import { getFrontendConfig } from '../config/config';
 import Dashboard from '../layouts/dashboard/Dashboard';
 import { FeatureFlagsState } from '../state/features';
 import { CurrentRosterState } from '../state/roster';
-import PageState, { CurrentUserIsVerified, MyRolesState } from '../state/store';
+import PageState, {
+  CurrentUserIsVerified,
+  CurrentUserSignupStatus,
+  MyRolesState,
+} from '../state/store';
+
+const frontendConfig = getFrontendConfig();
+const chorePlanClient = new BackendChorePlanClient(frontendConfig.BackendURL);
+
+function readinessErrorMessage(error: unknown): string {
+  if (error && typeof error === 'object' && 'response' in error) {
+    const { response } = error as {
+      response?: { data?: { error?: string }; status?: number };
+    };
+    if (response?.data?.error) {
+      return response.data.error;
+    }
+    if (response?.status === 403) {
+      return 'You do not have permission to review chore plan readiness.';
+    }
+  }
+  return 'Could not load chore plan readiness. Please try again.';
+}
 
 export function VerifiedShiftExperience({
   rosterID,
   adminEditMode = false,
   canForceAssignments = false,
+  onParticipantStatusChanged,
 }: {
   rosterID: number;
   adminEditMode?: boolean;
   canForceAssignments?: boolean;
+  onParticipantStatusChanged?: () => void;
 }) {
   const featureFlags = useRecoilValue(FeatureFlagsState);
 
@@ -36,6 +68,7 @@ export function VerifiedShiftExperience({
     <ChorePlanShiftView
       adminEditMode={adminEditMode}
       canForceAssignments={canForceAssignments}
+      onParticipantStatusChanged={onParticipantStatusChanged}
       rosterID={rosterID}
     />
   ) : (
@@ -46,6 +79,7 @@ export function VerifiedShiftExperience({
 VerifiedShiftExperience.defaultProps = {
   adminEditMode: false,
   canForceAssignments: false,
+  onParticipantStatusChanged: undefined,
 };
 
 export default function Shifts() {
@@ -54,8 +88,17 @@ export default function Shifts() {
   const currentRoster = useRecoilValue(CurrentRosterState);
   const featureFlags = useRecoilValue(FeatureFlagsState);
   const roles = useRecoilValue(MyRolesState);
+  const refreshSignupStatus = useRecoilRefresher_UNSTABLE(
+    CurrentUserSignupStatus,
+  );
   const [adminEditMode, setAdminEditMode] = useState(false);
   const [requirementRevision, setRequirementRevision] = useState(0);
+  const [readiness, setReadiness] = useState<ChorePlanReadinessResponse | null>(
+    null,
+  );
+  const [readinessLoading, setReadinessLoading] = useState(false);
+  const [readinessError, setReadinessError] = useState<string | null>(null);
+  const [readinessReviewOpen, setReadinessReviewOpen] = useState(false);
   const canManageAssignments =
     featureFlags.chorePlanning &&
     roles.some((role) => role.permissions.includes('chorePlans:assign'));
@@ -67,6 +110,9 @@ export default function Shifts() {
     roles.some((role) =>
       role.permissions.includes('chorePlans:overrideRequirements'),
     );
+  const canReviewReadiness =
+    featureFlags.chorePlanning &&
+    roles.some((role) => role.permissions.includes('chorePlans:readiness'));
   const canAdminEdit = canManageAssignments || canOverrideRequirements;
   const {
     canManageChorePlans,
@@ -79,6 +125,35 @@ export default function Shifts() {
     toggleSignups,
     reopenSignups,
   } = useChoreSignupControls();
+
+  const loadReadiness = useCallback(async () => {
+    setReadinessLoading(true);
+    setReadinessError(null);
+    try {
+      setReadiness(await chorePlanClient.GetReadiness(currentRoster.id));
+    } catch (error) {
+      setReadiness(null);
+      setReadinessError(readinessErrorMessage(error));
+    } finally {
+      setReadinessLoading(false);
+    }
+  }, [currentRoster.id]);
+
+  const reviewLifecycleChange = () => {
+    setReadinessReviewOpen(true);
+    loadReadiness();
+  };
+
+  const confirmLifecycleChange = async () => {
+    setReadinessReviewOpen(false);
+    await toggleSignups();
+    refreshSignupStatus();
+  };
+
+  const handleReopenSignups = async (reason: string) => {
+    await reopenSignups(reason);
+    refreshSignupStatus();
+  };
 
   useEffect(() => {
     setPageState({
@@ -136,7 +211,9 @@ export default function Shifts() {
                   canReopen={canReopenChorePlans}
                   loading={choreSignupLoading}
                   onReviewReopen={() => setReviewingReopen(true)}
-                  onToggleSignups={toggleSignups}
+                  onToggleSignups={
+                    canReviewReadiness ? reviewLifecycleChange : toggleSignups
+                  }
                   plan={chorePlan}
                 />
               )}
@@ -160,7 +237,10 @@ export default function Shifts() {
           />
           {adminEditMode && canOverrideRequirements && userIsVerified && (
             <ChoreRequirementOverrides
-              onChanged={() => setRequirementRevision((current) => current + 1)}
+              onChanged={() => {
+                setRequirementRevision((current) => current + 1);
+                refreshSignupStatus();
+              }}
               rosterID={currentRoster.id}
             />
           )}
@@ -171,6 +251,7 @@ export default function Shifts() {
               key={`${chorePlan?.id ?? 'none'}:${
                 chorePlan?.status ?? 'loading'
               }:${requirementRevision}`}
+              onParticipantStatusChanged={refreshSignupStatus}
               rosterID={currentRoster.id}
             />
           ) : (
@@ -182,9 +263,22 @@ export default function Shifts() {
         <ChoreSignupReopenDialog
           loading={choreSignupLoading}
           onClose={() => setReviewingReopen(false)}
-          onReopen={reopenSignups}
+          onReopen={handleReopenSignups}
           open={reviewingReopen}
         />
+        {canReviewReadiness && chorePlan?.status !== 'closed' && (
+          <ChorePlanReadinessReviewDialog
+            action={chorePlan?.status === 'open' ? 'close' : 'open'}
+            confirming={choreSignupLoading}
+            error={readinessError}
+            loading={readinessLoading}
+            onClose={() => setReadinessReviewOpen(false)}
+            onConfirm={confirmLifecycleChange}
+            onRetry={loadReadiness}
+            open={readinessReviewOpen}
+            readiness={readiness}
+          />
+        )}
       </Container>
     </Dashboard>
   );

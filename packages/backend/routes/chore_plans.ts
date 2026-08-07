@@ -4,6 +4,7 @@ import ChorePlanAssignmentsController from '../controllers/chore_plan_assignment
 import ChorePlanDraftController from '../controllers/chore_plan_draft';
 import ChorePlanLifecycleController from '../controllers/chore_plan_lifecycle';
 import ChorePlanPreviewController from '../controllers/chore_plan_preview';
+import ChorePlanReadinessController from '../controllers/chore_plan_readiness';
 import ChorePlanRequirementsController from '../controllers/chore_plan_requirements';
 import ChorePlanShiftsController from '../controllers/chore_plan_shifts';
 import ChorePlanSignupController from '../controllers/chore_plan_signup';
@@ -28,6 +29,7 @@ import {
   parseChorePlanRosterID,
 } from '../utils/chorePlanPreviewInput';
 import ChorePlanPreviewError from '../utils/chorePlanPreviewError';
+import ChorePlanReadinessError from '../utils/chorePlanReadinessError';
 import ChorePlanRequirementError from '../utils/chorePlanRequirementError';
 import {
   parseChorePlanRequirementOverrideClearRequest,
@@ -49,6 +51,7 @@ const assignmentsController = new ChorePlanAssignmentsController();
 const draftController = new ChorePlanDraftController();
 const lifecycleController = new ChorePlanLifecycleController();
 const previewController = new ChorePlanPreviewController();
+const readinessController = new ChorePlanReadinessController();
 const requirementsController = new ChorePlanRequirementsController();
 const shiftsController = new ChorePlanShiftsController();
 const signupController = new ChorePlanSignupController();
@@ -59,6 +62,7 @@ function sendError(error: unknown, res: Response, operation: string): void {
       error instanceof ChorePlanAssignmentError ||
       error instanceof ChorePlanLifecycleError ||
       error instanceof ChorePlanPreviewError ||
+      error instanceof ChorePlanReadinessError ||
       error instanceof ChorePlanRequirementError ||
       error instanceof ChorePlanShiftViewError ||
       error instanceof ChorePlanSignupError) &&
@@ -71,6 +75,23 @@ function sendError(error: unknown, res: Response, operation: string): void {
   console.error(`Failed to ${operation}:`, error);
   res.status(500).json({ error: `Failed to ${operation}.` });
 }
+
+router.get(
+  '/admin/:rosterID/readiness',
+  userIsVerified(),
+  hasPermission('chorePlans:readiness'),
+  async (req: Request, res: Response) => {
+    try {
+      res.json(
+        await readinessController.getByRosterID(
+          parseChorePlanRosterID(req.params.rosterID),
+        ),
+      );
+    } catch (error) {
+      sendError(error, res, 'load chore plan readiness');
+    }
+  },
+);
 
 router.get(
   '/admin/:rosterID/requirements',

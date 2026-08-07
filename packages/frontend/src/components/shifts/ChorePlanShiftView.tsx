@@ -48,11 +48,13 @@ interface ChorePlanShiftViewProps {
   rosterID: number;
   adminEditMode?: boolean;
   canForceAssignments?: boolean;
+  onParticipantStatusChanged?: () => void;
   planClient?: ChorePlanShiftClient;
 }
 
 interface MemberChorePlanShiftViewProps {
   rosterID: number;
+  onParticipantStatusChanged?: () => void;
   planClient?: ChorePlanShiftClient;
 }
 
@@ -425,6 +427,7 @@ function SignupCategory({
 
 function MemberChorePlanShiftView({
   rosterID,
+  onParticipantStatusChanged,
   planClient,
 }: MemberChorePlanShiftViewProps) {
   const client = useMemo<ChorePlanShiftClient>(
@@ -438,6 +441,7 @@ function MemberChorePlanShiftView({
 
   const loadShifts = async () => {
     setResponse(await client.GetShifts(rosterID));
+    onParticipantStatusChanged?.();
   };
 
   useEffect(() => {
@@ -546,6 +550,7 @@ function MemberChorePlanShiftView({
 }
 
 MemberChorePlanShiftView.defaultProps = {
+  onParticipantStatusChanged: undefined,
   planClient: undefined,
 };
 
@@ -553,6 +558,7 @@ export default function ChorePlanShiftView({
   rosterID,
   adminEditMode = false,
   canForceAssignments = false,
+  onParticipantStatusChanged,
   planClient,
 }: ChorePlanShiftViewProps) {
   if (adminEditMode) {
@@ -565,12 +571,17 @@ export default function ChorePlanShiftView({
   }
 
   return (
-    <MemberChorePlanShiftView rosterID={rosterID} planClient={planClient} />
+    <MemberChorePlanShiftView
+      onParticipantStatusChanged={onParticipantStatusChanged}
+      rosterID={rosterID}
+      planClient={planClient}
+    />
   );
 }
 
 ChorePlanShiftView.defaultProps = {
   adminEditMode: false,
   canForceAssignments: false,
+  onParticipantStatusChanged: undefined,
   planClient: undefined,
 };

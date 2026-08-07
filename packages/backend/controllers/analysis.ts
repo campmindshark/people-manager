@@ -5,6 +5,8 @@ import User from '../models/user/user';
 import PrivateProfile from '../models/user/user_private';
 import RosterParticipant from '../models/roster_participant/roster_participant';
 import DuesPayment from '../models/dues_payment/dues_payment';
+import { getConfig } from '../config/config';
+import { loadChorePlanParticipantSignupStatus } from './chore_plan_participant_status';
 import UserController from './user';
 
 // this is a controller used to analyze things across many tables in the database
@@ -14,6 +16,7 @@ export default class AnalysisController {
     rosterID: number,
   ): Promise<SignupStatus> {
     const tmpResponse: SignupStatus = NewPlaceholderSignupStatus();
+    tmpResponse.rosterID = rosterID;
 
     // Get the user profile to determine if its been completed
     const user = await User.query().findById(userID);
@@ -54,8 +57,16 @@ export default class AnalysisController {
       }
     }
 
-    // TODO: add logic to determine if the user has signed up for shifts
-    // TODO: add logic to determine if the user has completed the required number of shifts
+    if (rosterParticipant && getConfig().ChorePlanningEnabled) {
+      const chorePlanStatus = await loadChorePlanParticipantSignupStatus(
+        User.knex(),
+        userID,
+        rosterID,
+      );
+      if (chorePlanStatus) {
+        Object.assign(tmpResponse, chorePlanStatus);
+      }
+    }
 
     return tmpResponse;
   }

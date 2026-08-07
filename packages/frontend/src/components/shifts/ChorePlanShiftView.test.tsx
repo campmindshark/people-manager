@@ -167,8 +167,13 @@ test('selects signup-sheet slots before signup, removal, and switching', async (
       { ...shift, assignedParticipantCount: 0, currentUserAssigned: false },
     ]),
   );
+  const onParticipantStatusChanged = jest.fn();
   const signupRender = render(
-    <ChorePlanShiftView rosterID={2} planClient={signupClient} />,
+    <ChorePlanShiftView
+      onParticipantStatusChanged={onParticipantStatusChanged}
+      rosterID={2}
+      planClient={signupClient}
+    />,
   );
   userEvent.click(
     await screen.findByRole('button', {
@@ -181,6 +186,7 @@ test('selects signup-sheet slots before signup, removal, and switching', async (
   );
   expect(await screen.findByText(/signed up for AM Chum Wench/i)).toBeVisible();
   expect(signupClient.GetShifts).toHaveBeenCalledTimes(2);
+  expect(onParticipantStatusChanged).toHaveBeenCalledTimes(1);
   signupRender.unmount();
 
   const removeClient = client(openResponse([shift]));
