@@ -9,6 +9,10 @@ import {
   down as restoreLegacyEventTimestamps,
   up as normalizeEventTimestamps,
 } from '../migrations/20260805020000_normalize_event_timestamps';
+import {
+  down as restoreLegacyRosterAttendanceTimestamps,
+  up as normalizeRosterAttendanceTimestamps,
+} from '../migrations/20260805030000_normalize_roster_attendance_timestamps';
 
 const TEST_DATABASE_URL = process.env.CHORE_TEARDOWN_TEST_DATABASE_URL;
 const POSTGRES_TEST_OPTIONS = {
@@ -273,6 +277,84 @@ test(
         startTime: '2026-08-24 16:00:00',
         endTime: '2026-08-24 17:00:00',
       });
+    } finally {
+      await destroyTestDatabase(adminDatabase, database, schemaName);
+    }
+  },
+);
+
+test(
+  'attendance migration restores instants shifted by the legacy roster route',
+  POSTGRES_TEST_OPTIONS,
+  async () => {
+    const databaseURL = assertSafeTestDatabaseURL(TEST_DATABASE_URL);
+    const { adminDatabase, database, schemaName } =
+      await createTestDatabase(databaseURL);
+
+    try {
+      const [historicalUser, activeUser] = (await database('users')
+        .insert([
+          { name: 'Historical attendance migration user' },
+          { name: 'Active attendance migration user' },
+        ])
+        .returning('id')) as IDRow[];
+      const [historicalRoster, activeRoster] = (await database('rosters')
+        .insert([{ year: 2025 }, { year: 2026 }])
+        .returning('id')) as IDRow[];
+      await database('roster_participants').insert([
+        {
+          rosterID: historicalRoster.id,
+          userID: historicalUser.id,
+          estimatedArrivalDate: '2025-08-24T23:00:00.000Z',
+          estimatedDepartureDate: '2025-08-25T01:00:00.000Z',
+        },
+        {
+          rosterID: activeRoster.id,
+          userID: activeUser.id,
+          estimatedArrivalDate: '2026-08-24T23:00:00.000Z',
+          estimatedDepartureDate: '2026-08-25T01:00:00.000Z',
+        },
+      ]);
+
+      await normalizeRosterAttendanceTimestamps(database);
+      const normalized = await database('roster_participants')
+        .select('estimatedArrivalDate', 'estimatedDepartureDate')
+        .where('rosterID', activeRoster.id)
+        .first();
+      assert.equal(
+        new Date(normalized.estimatedArrivalDate).toISOString(),
+        '2026-08-24T16:00:00.000Z',
+      );
+      assert.equal(
+        new Date(normalized.estimatedDepartureDate).toISOString(),
+        '2026-08-24T18:00:00.000Z',
+      );
+      const historical = await database('roster_participants')
+        .select('estimatedArrivalDate', 'estimatedDepartureDate')
+        .where('rosterID', historicalRoster.id)
+        .first();
+      assert.equal(
+        new Date(historical.estimatedArrivalDate).toISOString(),
+        '2025-08-24T23:00:00.000Z',
+      );
+      assert.equal(
+        new Date(historical.estimatedDepartureDate).toISOString(),
+        '2025-08-25T01:00:00.000Z',
+      );
+
+      await restoreLegacyRosterAttendanceTimestamps(database);
+      const restored = await database('roster_participants')
+        .select('estimatedArrivalDate', 'estimatedDepartureDate')
+        .where('rosterID', activeRoster.id)
+        .first();
+      assert.equal(
+        new Date(restored.estimatedArrivalDate).toISOString(),
+        '2026-08-24T23:00:00.000Z',
+      );
+      assert.equal(
+        new Date(restored.estimatedDepartureDate).toISOString(),
+        '2026-08-25T01:00:00.000Z',
+      );
     } finally {
       await destroyTestDatabase(adminDatabase, database, schemaName);
     }

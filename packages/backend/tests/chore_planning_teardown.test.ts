@@ -6,8 +6,8 @@ import test from 'node:test';
 import knexFactory, { Knex } from 'knex';
 
 const TEARDOWN_MIGRATION = '20260805010000_remove_chore_planning.ts';
-const EVENT_TIMESTAMP_MIGRATION =
-  '20260805020000_normalize_event_timestamps.ts';
+const FINAL_MIGRATION =
+  '20260805030000_normalize_roster_attendance_timestamps.ts';
 const TEST_DATABASE_URL = process.env.CHORE_TEARDOWN_TEST_DATABASE_URL;
 const POSTGRES_TEST_OPTIONS = {
   skip: TEST_DATABASE_URL
@@ -171,7 +171,7 @@ test(
         extension: 'ts',
       });
       assert(migrationBatch > 0);
-      assert.equal(migrationNames.at(-1), EVENT_TIMESTAMP_MIGRATION);
+      assert.equal(migrationNames.at(-1), FINAL_MIGRATION);
 
       const [ordinaryRoster] = (await database('rosters')
         .insert({ year: 2025 })
@@ -393,7 +393,7 @@ test(
         directory: migrationsDirectory,
         extension: 'ts',
       });
-      assert.equal(migrationNames.at(-1), EVENT_TIMESTAMP_MIGRATION);
+      assert.equal(migrationNames.at(-1), FINAL_MIGRATION);
       await assertFinalSchema(database, schemaName);
     } finally {
       await database?.destroy();
