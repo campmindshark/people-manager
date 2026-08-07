@@ -156,3 +156,32 @@ test('requires a loaded readiness snapshot before confirming lifecycle changes',
   userEvent.click(screen.getByRole('button', { name: 'Confirm close' }));
   expect(onConfirm).toHaveBeenCalledTimes(1);
 });
+
+(['open', 'close'] as const).forEach((action) => {
+  test(`dismisses the readiness review after confirming ${action}`, () => {
+    const onConfirm = jest.fn();
+
+    function ReadinessReview() {
+      const [open, setOpen] = React.useState(true);
+      return (
+        <ChorePlanReadinessReviewDialog
+          action={action}
+          confirming={false}
+          error={null}
+          loading={false}
+          onClose={() => setOpen(false)}
+          onConfirm={onConfirm}
+          onRetry={jest.fn()}
+          open={open}
+          readiness={readiness()}
+        />
+      );
+    }
+
+    render(<ReadinessReview />);
+    userEvent.click(screen.getByRole('button', { name: `Confirm ${action}` }));
+
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('dialog')).not.toBeVisible();
+  });
+});
