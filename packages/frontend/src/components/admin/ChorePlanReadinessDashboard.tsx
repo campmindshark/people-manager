@@ -326,6 +326,11 @@ export function ChorePlanReadinessReviewDialog({
   onConfirm: () => void;
   onRetry: () => void;
 }) {
+  const confirmLifecycleChange = () => {
+    onClose();
+    onConfirm();
+  };
+
   return (
     <Dialog
       open={open}
@@ -369,7 +374,7 @@ export function ChorePlanReadinessReviewDialog({
           variant="contained"
           color={action === 'close' ? 'warning' : 'primary'}
           disabled={loading || Boolean(error) || !readiness || confirming}
-          onClick={onConfirm}
+          onClick={confirmLifecycleChange}
         >
           {confirming
             ? `${action === 'open' ? 'Opening' : 'Closing'}…`
