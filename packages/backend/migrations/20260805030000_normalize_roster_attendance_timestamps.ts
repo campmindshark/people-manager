@@ -93,12 +93,7 @@ export async function down(knex: Knex): Promise<void> {
   `);
 
   await knex('roster_participants')
-    .whereIn(
-      'rosterID',
-      knex('rosters')
-        .select('id')
-        .where('year', '>=', FIRST_AFFECTED_ROSTER_YEAR),
-    )
+    .where('attendanceTimestampFormat', ABSOLUTE_TIMESTAMP_FORMAT)
     .update({
       estimatedArrivalDate: knex.raw(
         "timezone('America/Los_Angeles', timezone('UTC', ??))",
