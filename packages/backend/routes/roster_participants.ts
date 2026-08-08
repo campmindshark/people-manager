@@ -6,6 +6,7 @@ import RosterParticipant from '../models/roster_participant/roster_participant';
 import hasPermission from '../middleware/rbac';
 import { assertYearsAtCampWithinRoster } from '../utils/campYears';
 import parseEventDateTime from '../utils/eventTime';
+import { prepareRosterAttendanceTimestampWrite } from '../utils/rosterAttendanceTime';
 
 const router: Router = express.Router();
 
@@ -75,6 +76,12 @@ router.post('/:id', async (req: Request, res: Response) => {
 
   const checkCurrent = await RosterParticipant.query().where(signupScope);
 
+  const {
+    id: _id,
+    attendanceTimestampFormat: _attendanceTimestampFormat,
+    ...participantFields
+  } = req.body;
+
   let parsedArrivalDate: Date;
   let parsedDepartureDate: Date;
   try {
@@ -97,14 +104,19 @@ router.post('/:id', async (req: Request, res: Response) => {
   }
 
   try {
+    const attendanceTimestampWrite =
+      await prepareRosterAttendanceTimestampWrite(
+        RosterParticipant.knex(),
+        parsedArrivalDate,
+        parsedDepartureDate,
+      );
+
     if (checkCurrent.length > 0) {
-      delete req.body.id;
       await RosterParticipant.query()
         .where(signupScope)
         .patch({
-          ...req.body,
-          estimatedArrivalDate: parsedArrivalDate,
-          estimatedDepartureDate: parsedDepartureDate,
+          ...participantFields,
+          ...attendanceTimestampWrite,
         });
 
       const rosterParticipant = await RosterParticipant.query().findById(
@@ -116,9 +128,8 @@ router.post('/:id', async (req: Request, res: Response) => {
     }
 
     const rosterParticipant = await RosterParticipant.query().insert({
-      ...req.body,
-      estimatedArrivalDate: parsedArrivalDate,
-      estimatedDepartureDate: parsedDepartureDate,
+      ...participantFields,
+      ...attendanceTimestampWrite,
       userID: user.id,
       rosterID,
     });

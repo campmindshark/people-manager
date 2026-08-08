@@ -3,6 +3,7 @@ import {
   ChoreCatalogDefinitionView,
   ChoreCatalogKind,
 } from '../view_models/chore_catalog';
+import { CHORE_CATALOG_V1 } from '../migrations/data/chore_catalog_v1';
 import {
   ChorePlanPreview,
   ChorePlanPreviewBuildInput,
@@ -31,6 +32,29 @@ const DAY_LABELS = [
 const TIME_PATTERN = /^(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$/;
 const REVISION_PATTERN = /^[1-9][0-9]*$/;
 const STABLE_KEY_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const FIXED_CATALOG_FIELD_SET = {
+  kind: true,
+  shiftLabel: true,
+  positionLabel: true,
+  dayMode: true,
+  dayNumber: true,
+  dayLabel: true,
+  timePeriodLabel: true,
+  periodOrder: true,
+  startLocalTime: true,
+  endLocalTime: true,
+  endDayOffset: true,
+  sourceOrder: true,
+} satisfies Record<
+  Exclude<keyof ChoreCatalogDefinitionView, 'score' | 'stableKey'>,
+  true
+>;
+const FIXED_CATALOG_FIELDS = Object.keys(FIXED_CATALOG_FIELD_SET) as Array<
+  keyof typeof FIXED_CATALOG_FIELD_SET
+>;
+const FIXED_CATALOG_BY_KEY = new Map(
+  CHORE_CATALOG_V1.map((definition) => [definition.stableKey, definition]),
+);
 
 interface PlanningDefinition extends ChoreCatalogDefinitionView {
   scoreCents: number;
@@ -151,6 +175,28 @@ function validateDefinition(
   }
 
   return { ...definition, scoreCents: scoreCents(definition.score) };
+}
+
+function validateFixedCatalog(definitions: PlanningDefinition[]): void {
+  if (definitions.length !== CHORE_CATALOG_V1.length) {
+    invalidCatalog('the definition count does not match the fixed catalog.');
+  }
+
+  definitions.forEach((definition) => {
+    const expectedDefinition = FIXED_CATALOG_BY_KEY.get(definition.stableKey);
+    if (!expectedDefinition) {
+      invalidCatalog(
+        `definition ${definition.stableKey} is not in the fixed catalog.`,
+      );
+    }
+    FIXED_CATALOG_FIELDS.forEach((field) => {
+      if (definition[field] !== expectedDefinition[field]) {
+        invalidCatalog(
+          `definition ${definition.stableKey} does not match the fixed catalog field ${field}.`,
+        );
+      }
+    });
+  });
 }
 
 function definitionGroupKey(definition: PlanningDefinition): string {
@@ -483,6 +529,7 @@ export default function buildChorePlanPreview(
     keys.add(definition.stableKey);
     orders.add(orderKey);
   });
+  validateFixedCatalog(definitions);
   KINDS.forEach((kind) => {
     const kindDefinitions = definitions.filter(
       (definition) => definition.kind === kind,
