@@ -20,13 +20,12 @@ import {
   useRecoilValue_TRANSITION_SUPPORT_UNSTABLE,
   useRecoilRefresher_UNSTABLE,
 } from 'recoil';
-import { DateTime } from 'luxon';
 import Group from 'backend/models/group/group';
 import GroupViewModel from 'backend/view_models/group';
 import GroupsState from '../../state/groups';
 import CreateGroupDialog from './CreateGroupDialog';
 import GroupMembershipManagementDialog from './GroupMemberManagementDialog';
-import utcDateToDateTimeInTimezone from '../../utils/datetime/utils';
+import BurningManDateFormatter from '../../utils/datetime/formatter';
 
 const generateTableRow = (
   group: GroupViewModel,
@@ -43,10 +42,9 @@ const generateTableRow = (
       {group.group.description}
     </TableCell>
     <TableCell component="th" scope="row">
-      {utcDateToDateTimeInTimezone(
+      {BurningManDateFormatter.format(
         new Date(group.group.shiftSignupOpenDate),
-        Intl.DateTimeFormat().resolvedOptions().timeZone,
-      ).toLocaleString(DateTime.DATETIME_MED_WITH_WEEKDAY)}
+      )}
     </TableCell>
     <TableCell component="th" scope="row">
       <List dense>
@@ -112,9 +110,7 @@ function GroupManagementTable() {
             <TableRow>
               <TableCell>Name</TableCell>
               <TableCell>Description</TableCell>
-              <TableCell>
-                Signup Time ({Intl.DateTimeFormat().resolvedOptions().timeZone})
-              </TableCell>
+              <TableCell>Signup Time (Pacific Time)</TableCell>
               <TableCell>Members</TableCell>
               <TableCell />
             </TableRow>

@@ -44,8 +44,8 @@ draft, or closed plan.
    task to exit `0`. The final rebuilt migration is
    `20260806050000_chore_plan_requirement_overrides.ts`.
 5. Dispatch `Audit Chore Planning Release` from `main` without a roster ID.
-   Confirm all six rebuild migrations, the pinned stable-key hash, catalog
-   revision, 326 score rows, and exact definition counts of 32 chore, 240
+   Confirm all seven rebuild migrations, the pinned stable-key hash, catalog
+   revision, 302 score rows, and exact definition counts of 32 chore, 216
    event, and 54 dinner rows.
 6. In an authenticated production browser, inspect
    `GET /api/settings/features` and confirm `chorePlanning` is `false`.
@@ -70,7 +70,7 @@ workflow run, time, and operator in the smoke checklist before proceeding.
 3. Confirm `GET /api/settings/features` reports `chorePlanning: true`. Confirm a
    verified standard user receives `403` from the catalog and planner
    endpoints.
-4. Open Chore Scores as an administrator. Verify the 32/240/54 tab counts.
+4. Open Chore Scores as an administrator. Verify the 32/216/54 tab counts.
    Change one score, record its definition key and new revision, reload it,
    then restore the original score using the new revision. Record both
    revisions; each changed write must have one score audit entry.

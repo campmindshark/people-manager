@@ -2,6 +2,7 @@ import express, { Request, Response, Router } from 'express';
 import Group from '../models/group/group';
 import hasPermission from '../middleware/rbac';
 import GroupController from '../controllers/group';
+import parseEventDateTime from '../utils/eventTime';
 
 const router: Router = express.Router();
 
@@ -40,7 +41,19 @@ router.post(
   '/',
   hasPermission('groups:create'),
   async (req: Request, res: Response) => {
-    const newGroup = req.body;
+    let shiftSignupOpenDate: Date;
+    try {
+      shiftSignupOpenDate = parseEventDateTime(
+        req.body.shiftSignupOpenDate,
+        'Shift signup open date',
+      );
+    } catch (error) {
+      res.status(400).json({
+        error: error instanceof Error ? error.message : 'Invalid signup time.',
+      });
+      return;
+    }
+    const newGroup = { ...req.body, shiftSignupOpenDate };
 
     console.log(newGroup);
 
@@ -55,7 +68,19 @@ router.put(
   '/:id',
   hasPermission('groups:edit'),
   async (req: Request, res: Response) => {
-    const updatedGroup = req.body;
+    let shiftSignupOpenDate: Date;
+    try {
+      shiftSignupOpenDate = parseEventDateTime(
+        req.body.shiftSignupOpenDate,
+        'Shift signup open date',
+      );
+    } catch (error) {
+      res.status(400).json({
+        error: error instanceof Error ? error.message : 'Invalid signup time.',
+      });
+      return;
+    }
+    const updatedGroup = { ...req.body, shiftSignupOpenDate };
     const groupID = req.params.id;
 
     const group = await Group.query().findById(groupID);

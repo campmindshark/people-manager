@@ -6,6 +6,7 @@ import { FeatureFlagsState } from '../state/features';
 import Shifts, { VerifiedShiftExperience } from './Shifts';
 
 let mockLifecycleStatus = 'draft';
+let mockRequirementViewMountCount = 0;
 let mockShiftViewMountCount = 0;
 
 jest.mock('../layouts/dashboard/Dashboard', () => {
@@ -83,11 +84,20 @@ jest.mock('src/components/shifts/ChorePlanShiftView', () => {
   return ChorePlanShiftView;
 });
 jest.mock('src/components/admin/ChoreRequirementOverrides', () => {
+  const ReactModule = jest.requireActual('react') as typeof import('react');
+
   function ChoreRequirementOverrides({ onChanged }: { onChanged: () => void }) {
+    const [mountNumber] = ReactModule.useState(() => {
+      mockRequirementViewMountCount += 1;
+      return mockRequirementViewMountCount;
+    });
     return (
-      <button onClick={onChanged} type="button">
-        Update member requirements
-      </button>
+      <div>
+        <button onClick={onChanged} type="button">
+          Update member requirements
+        </button>
+        <div>Requirement controls mount {mountNumber}</div>
+      </div>
     );
   }
   return ChoreRequirementOverrides;
@@ -125,6 +135,7 @@ jest.mock('src/components/shifts/ChoreSignupControls', () => ({
 
 beforeEach(() => {
   mockLifecycleStatus = 'draft';
+  mockRequirementViewMountCount = 0;
   mockShiftViewMountCount = 0;
 });
 
@@ -220,6 +231,27 @@ test('refreshes the signup sheets when lifecycle status changes', () => {
   rerender(shiftsPage());
 
   expect(screen.getByText('Chore sheet mount 2')).toBeVisible();
+});
+
+test('refreshes requirement controls when lifecycle status changes', () => {
+  const shiftsPage = () => (
+    <RecoilRoot
+      initializeState={({ set }) => {
+        set(FeatureFlagsState, { chorePlanning: true });
+      }}
+    >
+      <Shifts />
+    </RecoilRoot>
+  );
+  const { rerender } = render(shiftsPage());
+
+  userEvent.click(screen.getByRole('button', { name: 'Admin Edit' }));
+  expect(screen.getByText('Requirement controls mount 1')).toBeVisible();
+
+  mockLifecycleStatus = 'open';
+  rerender(shiftsPage());
+
+  expect(screen.getByText('Requirement controls mount 2')).toBeVisible();
 });
 
 test('shows requirement controls in Admin Edit and refreshes assignment needs', () => {

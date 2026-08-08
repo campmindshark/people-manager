@@ -97,7 +97,9 @@ function planClient(view = assignmentView()): ChorePlanAdminAssignmentClient {
 
 async function choosePerson(option: string | RegExp): Promise<void> {
   userEvent.click(
-    screen.getByLabelText(/Person (needing shifts|to force assign)/),
+    screen.getByRole('combobox', {
+      name: /Person (needing shifts|to force assign)/,
+    }),
   );
   userEvent.click(await screen.findByRole('option', { name: option }));
 }
@@ -227,6 +229,41 @@ test('force-assigns a complete participant directly to a full shift', async () =
     }),
   );
   expect(client.MutateAdminAssignments).not.toHaveBeenCalled();
+  expect(
+    await screen.findByText(/Gamma Camper was assigned to PM Chum Wench/),
+  ).toBeVisible();
+  await waitFor(() => {
+    expect(client.GetAdminAssignments).toHaveBeenCalledTimes(2);
+    expect(
+      screen.getByRole('checkbox', {
+        name: 'Force (skip safety constraints)',
+      }),
+    ).toBeEnabled();
+  });
+});
+
+test('clears a force reason when the selected participant changes', async () => {
+  const client = planClient();
+  render(
+    <ChorePlanAssignmentManager
+      canForceAssignments
+      planClient={client}
+      rosterID={2}
+    />,
+  );
+
+  userEvent.click(
+    await screen.findByRole('checkbox', {
+      name: 'Force (skip safety constraints)',
+    }),
+  );
+  await choosePerson(/Alpha Camper \(A\)/);
+  const reason = screen.getByRole('textbox', { name: 'Force reason' });
+  userEvent.type(reason, 'Exception for Alpha');
+  expect(reason).toHaveValue('Exception for Alpha');
+
+  await choosePerson(/Beta Camper/);
+  expect(reason).toHaveValue('');
 });
 
 test('swaps two selected participants in different shifts', async () => {
@@ -303,4 +340,32 @@ test('surfaces authoritative backend conflicts without refreshing', async () => 
 
   expect(await screen.findByText(/exceeds shift capacity/i)).toBeVisible();
   expect(client.GetAdminAssignments).toHaveBeenCalledTimes(1);
+});
+
+test('reports a saved mutation when the follow-up refresh fails', async () => {
+  const client = planClient();
+  client.GetAdminAssignments = jest
+    .fn()
+    .mockResolvedValueOnce(assignmentView())
+    .mockRejectedValueOnce(new Error('refresh failed'));
+  render(<ChorePlanAssignmentManager planClient={client} rosterID={2} />);
+
+  userEvent.click(
+    await screen.findByRole('button', {
+      name: /Select Alpha Camper \(A\).*for admin shift editing/,
+    }),
+  );
+  userEvent.click(
+    screen.getByRole('button', {
+      name: /Select PM Chum Wench.*as move destination/,
+    }),
+  );
+  userEvent.click(screen.getByRole('button', { name: 'Move person' }));
+
+  expect(await screen.findByText(/Alpha Camper \(A\) was moved/)).toBeVisible();
+  expect(
+    await screen.findByText(/assignment change was saved.*refresh the page/i),
+  ).toBeVisible();
+  expect(client.MutateAdminAssignments).toHaveBeenCalledTimes(1);
+  expect(client.GetAdminAssignments).toHaveBeenCalledTimes(2);
 });

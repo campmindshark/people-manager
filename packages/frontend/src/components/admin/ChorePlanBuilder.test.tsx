@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import Roster from 'backend/models/roster/roster';
 import {
@@ -13,6 +13,14 @@ import ChorePlanBuilder, {
 } from './ChorePlanBuilder';
 
 const roster = { id: 1, year: 2026 } as Roster;
+
+function deferred<Value>() {
+  let resolve!: (value: Value | PromiseLike<Value>) => void;
+  const promise = new Promise<Value>((promiseResolve) => {
+    resolve = promiseResolve;
+  });
+  return { promise, resolve };
+}
 
 function preview(overrides: Partial<ChorePlanPreview> = {}): ChorePlanPreview {
   return {
@@ -165,6 +173,92 @@ test('previews and applies a new draft through the narrow request contracts', as
   expect(
     await screen.findByText(/created signup plan draft revision 1/i),
   ).toBeVisible();
+});
+
+test('disables planning inputs while preview and apply requests are pending', async () => {
+  const generated = preview();
+  const savedDraft = draft(generated, { draftRevision: '1' });
+  const previewRequest = deferred<ChorePlanPreview>();
+  const draftRequest = deferred<{ draft: ChorePlanDraftSummary | null }>();
+  const applyRequest = deferred<ChorePlanApplyResponse>();
+  const { planClient, rosterClient } = clients(generated, null);
+  (planClient.Preview as jest.Mock).mockReturnValue(previewRequest.promise);
+  (planClient.GetDraft as jest.Mock).mockReturnValue(draftRequest.promise);
+  (planClient.Apply as jest.Mock).mockReturnValue(applyRequest.promise);
+
+  render(
+    <ChorePlanBuilder planClient={planClient} rosterClient={rosterClient} />,
+  );
+
+  const camperInput = await enterCamperCount('1');
+  const rosterInput = screen.getByLabelText('Camp year');
+  const previewButton = screen.getByRole('button', {
+    name: /preview signup plan/i,
+  });
+  userEvent.click(previewButton);
+
+  await waitFor(() => expect(planClient.Preview).toHaveBeenCalledTimes(1));
+  expect(camperInput).toBeDisabled();
+  expect(rosterInput).toHaveAttribute('aria-disabled', 'true');
+  expect(previewButton).toBeDisabled();
+
+  await act(async () => {
+    previewRequest.resolve(generated);
+    draftRequest.resolve({ draft: null });
+    await Promise.all([previewRequest.promise, draftRequest.promise]);
+  });
+
+  const applyButton = await screen.findByRole('button', {
+    name: /create signup plan/i,
+  });
+  expect(camperInput).not.toBeDisabled();
+  expect(rosterInput).not.toHaveAttribute('aria-disabled', 'true');
+  expect(previewButton).not.toBeDisabled();
+
+  const refreshedPreviewRequest = deferred<ChorePlanPreview>();
+  const refreshedDraftRequest = deferred<{
+    draft: ChorePlanDraftSummary | null;
+  }>();
+  (planClient.Preview as jest.Mock).mockReturnValue(
+    refreshedPreviewRequest.promise,
+  );
+  (planClient.GetDraft as jest.Mock).mockReturnValue(
+    refreshedDraftRequest.promise,
+  );
+  userEvent.click(previewButton);
+
+  await waitFor(() => expect(planClient.Preview).toHaveBeenCalledTimes(2));
+  expect(applyButton).toBeDisabled();
+  expect(planClient.Apply).not.toHaveBeenCalled();
+
+  await act(async () => {
+    refreshedPreviewRequest.resolve(generated);
+    refreshedDraftRequest.resolve({ draft: null });
+    await Promise.all([
+      refreshedPreviewRequest.promise,
+      refreshedDraftRequest.promise,
+    ]);
+  });
+
+  expect(applyButton).not.toBeDisabled();
+  userEvent.click(applyButton);
+
+  await waitFor(() => expect(planClient.Apply).toHaveBeenCalledTimes(1));
+  expect(camperInput).toBeDisabled();
+  expect(rosterInput).toHaveAttribute('aria-disabled', 'true');
+  expect(previewButton).toBeDisabled();
+
+  await act(async () => {
+    applyRequest.resolve(applyResponse(generated, savedDraft));
+    await applyRequest.promise;
+  });
+
+  expect(
+    await screen.findByText(/created signup plan draft revision 1/i),
+  ).toBeVisible();
+  expect(camperInput).not.toBeDisabled();
+  expect(rosterInput).not.toHaveAttribute('aria-disabled', 'true');
+  expect(previewButton).not.toBeDisabled();
 });
 
 test('requires explicit confirmation before replacing an observed draft', async () => {

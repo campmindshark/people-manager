@@ -74,15 +74,6 @@ export default class ChorePlanSignupController {
     rosterID: number,
     userID: number,
   ): Promise<MutationContext> {
-    const user = await transaction('users')
-      .select('id')
-      .where({ id: userID })
-      .forUpdate()
-      .first();
-    if (!user) {
-      throw new ChorePlanSignupError('User not found.', 404, 'user_not_found');
-    }
-
     const roster = await transaction('rosters')
       .select('id')
       .where({ id: rosterID })
@@ -92,6 +83,20 @@ export default class ChorePlanSignupController {
         'Roster not found.',
         404,
         'roster_not_found',
+      );
+    }
+
+    // Reject non-members before returning plan-specific errors. The participant
+    // row is checked and locked again below so a concurrent membership change
+    // cannot bypass mutation-time authorization.
+    const participantMembership = await transaction('roster_participants')
+      .select('id')
+      .where({ rosterID, userID })
+      .first();
+    if (!participantMembership) {
+      throw new ChorePlanSignupError(
+        'Chore plan signup is available only to roster members.',
+        403,
       );
     }
 
@@ -119,6 +124,17 @@ export default class ChorePlanSignupController {
         409,
         'plan_not_open',
       );
+    }
+
+    // Lifecycle transitions lock the plan before they reference their actor's
+    // user row. Keep that order here so the two operations cannot deadlock.
+    const user = await transaction('users')
+      .select('id')
+      .where({ id: userID })
+      .forUpdate()
+      .first();
+    if (!user) {
+      throw new ChorePlanSignupError('User not found.', 404, 'user_not_found');
     }
 
     const participant = (await transaction<ParticipantRow>(

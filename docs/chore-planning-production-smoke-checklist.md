@@ -25,8 +25,8 @@ the release PR or issue. Detailed procedures and stop conditions are in
 - [ ] Production environment flag was recorded as exactly `false`.
 - [ ] Backend and frontend use the recorded reviewed commit.
 - [ ] ECS is healthy and required migration tasks exited `0`.
-- [ ] Read-only audit reports all six rebuild migrations, the pinned stable-key
-      hash, and catalog counts 32 chore / 240 event / 54 dinner / 326 scores.
+- [ ] Read-only audit reports all seven rebuild migrations, the pinned stable-key
+      hash, and catalog counts 32 chore / 216 event / 54 dinner / 302 scores.
 - [ ] Authenticated feature settings report chore planning disabled.
 - [ ] Chore routes return `404`; navigation and network calls are absent.
 - [ ] Ordinary roster, profile, dues, schedule, signup, and removal smoke tests

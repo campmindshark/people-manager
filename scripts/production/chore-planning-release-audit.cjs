@@ -6,17 +6,18 @@ const expectedMigrationNames = [
   '20260806000000_chore_planning_foundation.ts',
   '20260806010000_chore_catalog_score_audit.ts',
   '20260806020000_chore_draft_persistence.ts',
+  '20260806025000_exclude_3a_6a_event_period.ts',
   '20260806030000_chore_plan_lifecycle.ts',
   '20260806040000_chore_plan_admin_assignments.ts',
   '20260806050000_chore_plan_requirement_overrides.ts',
 ];
 const expectedDefinitionCounts = {
   chore: 32,
-  event: 240,
+  event: 216,
   dinner: 54,
 };
 const expectedStableKeySHA256 =
-  'f3d351821a204531152f119f9c5fb61615631dde1b30193d4bea9687b58bfddf';
+  '68a772f3853a7d7f9e6d2bf21457d35f14b304646c0a0ed1da1ab8bdd9fa3c78';
 
 const connectionString = process.env.POSTGRES_CONNECTION_URL;
 if (!connectionString) {
@@ -124,7 +125,7 @@ async function runAudit() {
       scoreCount,
       scoreAuditCount,
     });
-    if (!catalogState || scoreCount !== 326) {
+    if (!catalogState || scoreCount !== 302) {
       throw new Error('The fixed catalog state or score rows are incomplete.');
     }
 

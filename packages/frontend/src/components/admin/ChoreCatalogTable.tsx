@@ -290,7 +290,9 @@ export default function ChoreCatalogTable({
                       aria-label={`Save score for ${definition.stableKey}`}
                       variant="contained"
                       size="small"
-                      disabled={parsedScore === null || unchanged || saving}
+                      disabled={
+                        parsedScore === null || unchanged || savingKey !== null
+                      }
                       onClick={() => handleSave(definition)}
                     >
                       {saving ? 'Saving…' : 'Save'}
