@@ -15,7 +15,7 @@ failed gate. Do not repair production by editing an applied migration,
 | Control                  | Production location                                                         | Expected value before release    |
 | ------------------------ | --------------------------------------------------------------------------- | -------------------------------- |
 | Feature flag             | GitHub `production` environment variable `CHORE_PLANNING_ENABLED`           | `false`                          |
-| Backend deploy           | `Deploy` GitHub Actions workflow                                            | Reviewed `main` commit           |
+| Backend deploy           | `Deploy` workflow with the full `release_sha`                               | Reviewed `main` commit SHA       |
 | Frontend deploy          | `Deploy Frontend to S3` workflow                                            | Same reviewed commit             |
 | Database migration       | `Terraform Apply & Migrate` job or manual `Run ECS Migration Task` workflow | Exit code `0`                    |
 | Read-only database audit | `Audit Chore Planning Release` workflow, dispatched from `main`             | `COMPLETE (READ ONLY)`           |
@@ -38,8 +38,11 @@ draft, or closed plan.
 1. Confirm every rebuild PR, including release readiness, has merged in order
    and all four checks passed at each reviewed head.
 2. Confirm the GitHub `production` environment variable is exactly `false`.
-3. Record the resulting `main` commit and deploy that commit through the normal
-   backend and frontend workflows. Do not substitute a later unreviewed SHA.
+3. Record the resulting 40-character `main` commit SHA. Enter that exact value
+   as `release_sha` for the backend `Deploy` workflow and as `ref` for the
+   frontend workflow. Do not use a branch name or substitute a later SHA. The
+   backend workflow rejects a SHA that is not on `main` and uses the resolved
+   commit for every image build and Terraform operation.
 4. Wait for the ECS service to become healthy and for every required migration
    task to exit `0`. The final rebuilt migration is
    `20260806050000_chore_plan_requirement_overrides.ts`.
@@ -65,8 +68,9 @@ workflow run, time, and operator in the smoke checklist before proceeding.
    their IDs, confirm both attendance windows cover the test shifts, and
    confirm the active roster has no open chore plan.
 2. Change the GitHub `production` environment variable to exactly `true` and
-   manually dispatch `Deploy` from the same reviewed `main` commit. Wait for
-   the ECS service to stabilize.
+   manually dispatch `Deploy` from `main` with `release_sha` set to the same
+   recorded 40-character reviewed `main` commit. Wait for the ECS service to
+   stabilize.
 3. Confirm `GET /api/settings/features` reports `chorePlanning: true`. Confirm a
    verified standard user receives `403` from the catalog and planner
    endpoints.
@@ -169,8 +173,11 @@ filter event in ["chore_plan.capacity_conflict", "chore_plan.admin_force_complet
 
 1. Set the GitHub `production` environment variable
    `CHORE_PLANNING_ENABLED` to `false`.
-2. Manually dispatch `Deploy` from the currently deployed reviewed `main`
-   commit. Do not introduce a code change while operating the kill switch.
+2. Confirm the SHA recorded in the release checklist matches the SHA tag on the
+   currently deployed ECS application image. Manually dispatch `Deploy` with
+   the workflow ref set to `main` and that exact 40-character SHA as
+   `release_sha`. Do not use a branch name for `release_sha` or introduce a code
+   change while operating the kill switch.
 3. Wait for ECS stability, then confirm the authenticated feature response is
    false, chore routes return `404`, and navigation is absent.
 4. Preserve the plan, assignments, score history, and audit rows. Disabling the

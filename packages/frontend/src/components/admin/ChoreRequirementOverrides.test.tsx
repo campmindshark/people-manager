@@ -54,6 +54,33 @@ function planClient(view = requirementView()): ChoreRequirementOverrideClient {
   };
 }
 
+async function expandRequirementExceptions() {
+  userEvent.click(
+    await screen.findByRole('button', {
+      name: 'Member requirement exceptions',
+    }),
+  );
+}
+
+test('starts collapsed and can be expanded and collapsed', async () => {
+  render(<ChoreRequirementOverrides planClient={planClient()} rosterID={2} />);
+
+  const toggle = await screen.findByRole('button', {
+    name: 'Member requirement exceptions',
+  });
+  const guidance = screen.getByText(/Plan defaults are 2 chore/i);
+  expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  expect(guidance).not.toBeVisible();
+
+  userEvent.click(toggle);
+  expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  await waitFor(() => expect(guidance).toBeVisible());
+
+  userEvent.click(toggle);
+  expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  await waitFor(() => expect(guidance).not.toBeVisible());
+});
+
 test('saves a complete zero-capable override with an exact reason contract', async () => {
   const client = planClient();
   const onChanged = jest.fn();
@@ -65,6 +92,7 @@ test('saves a complete zero-capable override with an exact reason contract', asy
     />,
   );
 
+  await expandRequirementExceptions();
   const choreInput = await screen.findByRole('spinbutton', {
     name: 'Alpha Camper (A) chore requirement',
   });
@@ -98,6 +126,7 @@ test('clears all custom values only after collecting a separate reason', async (
   );
   render(<ChoreRequirementOverrides planClient={client} rosterID={2} />);
 
+  await expandRequirementExceptions();
   userEvent.click(await screen.findByRole('button', { name: 'Use defaults' }));
   const dialog = screen.getByRole('dialog', {
     name: 'Use plan defaults for Alpha Camper (A)?',
@@ -143,6 +172,7 @@ test('shows clear failures after closing the confirmation dialog', async () => {
   });
   render(<ChoreRequirementOverrides planClient={client} rosterID={2} />);
 
+  await expandRequirementExceptions();
   userEvent.click(await screen.findByRole('button', { name: 'Use defaults' }));
   const dialog = screen.getByRole('dialog', {
     name: 'Use plan defaults for Alpha Camper (A)?',
@@ -174,6 +204,7 @@ test('keeps closed-plan requirements visible and read-only', async () => {
   );
   render(<ChoreRequirementOverrides planClient={client} rosterID={2} />);
 
+  await expandRequirementExceptions();
   expect(
     await screen.findByText(/read-only while this plan is closed/i),
   ).toBeVisible();

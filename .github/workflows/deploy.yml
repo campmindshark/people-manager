@@ -4,6 +4,11 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      release_sha:
+        description: Full lowercase 40-character main commit SHA to deploy
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -15,12 +20,61 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  resolve-release:
+    name: Resolve Release Commit
+    runs-on: ubuntu-latest
+    outputs:
+      release_sha: ${{ steps.release.outputs.release_sha }}
+    steps:
+      - name: Checkout requested release
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.release_sha || github.sha }}
+          fetch-depth: 0
+
+      - name: Validate immutable main release
+        id: release
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REQUESTED_SHA: ${{ inputs.release_sha || github.sha }}
+          WORKFLOW_REF: ${{ github.ref }}
+        run: |
+          set -euo pipefail
+
+          if [ "$EVENT_NAME" = "workflow_dispatch" ] && [ "$WORKFLOW_REF" != "refs/heads/main" ]; then
+            echo "Manual deployments must dispatch the workflow from main"
+            exit 1
+          fi
+
+          if [[ ! "$REQUESTED_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "release_sha must be a full lowercase 40-character commit SHA"
+            exit 1
+          fi
+
+          RESOLVED_SHA=$(git rev-parse HEAD)
+          if [ "$RESOLVED_SHA" != "$REQUESTED_SHA" ]; then
+            echo "Checked out $RESOLVED_SHA instead of requested SHA $REQUESTED_SHA"
+            exit 1
+          fi
+
+          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+          if ! git merge-base --is-ancestor "$RESOLVED_SHA" origin/main; then
+            echo "Release SHA $RESOLVED_SHA is not a commit on main"
+            exit 1
+          fi
+
+          echo "Deploying immutable release SHA $RESOLVED_SHA"
+          echo "release_sha=$RESOLVED_SHA" >> "$GITHUB_OUTPUT"
+
   build-app:
     name: Build & Push App Image
+    needs: resolve-release
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve-release.outputs.release_sha }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -37,16 +91,19 @@ jobs:
           context: .
           file: ./docker/Dockerfile
           push: true
-          tags: rnavt/people-manager:latest,rnavt/people-manager:${{ github.sha }}
+          tags: rnavt/people-manager:latest,rnavt/people-manager:${{ needs.resolve-release.outputs.release_sha }}
           cache-from: type=gha,scope=app
           cache-to: type=gha,scope=app,mode=max
 
   build-migration:
     name: Build & Push Migration Image
+    needs: resolve-release
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve-release.outputs.release_sha }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -63,7 +120,7 @@ jobs:
           context: .
           file: ./docker/Dockerfile.migration
           push: true
-          tags: rnavt/people-manager:latest-migration,rnavt/people-manager:${{ github.sha }}-migration
+          tags: rnavt/people-manager:latest-migration,rnavt/people-manager:${{ needs.resolve-release.outputs.release_sha }}-migration
           cache-from: type=gha,scope=migration
           cache-to: type=gha,scope=migration,mode=max
 
@@ -71,7 +128,7 @@ jobs:
     name: Terraform Apply & Migrate
     # Wait for both images so Terraform never references a tag that hasn't
     # been pushed yet.
-    needs: [build-app, build-migration]
+    needs: [resolve-release, build-app, build-migration]
     runs-on: ubuntu-latest
     environment: production
     defaults:
@@ -84,6 +141,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
+          ref: ${{ needs.resolve-release.outputs.release_sha }}
           fetch-depth: 0
 
       - name: Configure AWS credentials
@@ -117,8 +175,8 @@ jobs:
       - name: Terraform Plan
         working-directory: terraform/
         env:
-          TF_VAR_docker_image_tag: ${{ github.sha }}
-          TF_VAR_migration_docker_image_tag: ${{ github.sha }}-migration
+          TF_VAR_docker_image_tag: ${{ needs.resolve-release.outputs.release_sha }}
+          TF_VAR_migration_docker_image_tag: ${{ needs.resolve-release.outputs.release_sha }}-migration
           TF_VAR_GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
           TF_VAR_GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
           TF_VAR_JWT_SECRET: ${{ secrets.JWT_SECRET }}
@@ -129,8 +187,8 @@ jobs:
       - name: Terraform Apply
         working-directory: terraform/
         env:
-          TF_VAR_docker_image_tag: ${{ github.sha }}
-          TF_VAR_migration_docker_image_tag: ${{ github.sha }}-migration
+          TF_VAR_docker_image_tag: ${{ needs.resolve-release.outputs.release_sha }}
+          TF_VAR_migration_docker_image_tag: ${{ needs.resolve-release.outputs.release_sha }}-migration
           TF_VAR_GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
           TF_VAR_GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
           TF_VAR_JWT_SECRET: ${{ secrets.JWT_SECRET }}
@@ -144,7 +202,7 @@ jobs:
           set -euo pipefail
 
           BEFORE="${{ github.event.before }}"
-          SHA="${{ github.sha }}"
+          SHA="${{ needs.resolve-release.outputs.release_sha }}"
           ZERO_SHA="0000000000000000000000000000000000000000"
 
           if [ -z "$BEFORE" ] || [ "$BEFORE" = "$ZERO_SHA" ]; then
