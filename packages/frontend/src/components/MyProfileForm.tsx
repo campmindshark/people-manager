@@ -18,6 +18,13 @@ function MyProfileForm() {
     () => new BackendUserClient(frontendConfig.BackendURL),
     [frontendConfig.BackendURL],
   );
+  const formData = useMemo(
+    () => ({
+      ...userState,
+      skillsOfNote: userState.skillsOfNote ?? [],
+    }),
+    [userState],
+  );
 
   const handleClose = (
     event: React.SyntheticEvent | Event,
@@ -32,10 +39,10 @@ function MyProfileForm() {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleSubmit = async (data: any) => {
-    const { formData } = data as { formData: User };
-    formData.skillsOfNote = formData.skillsOfNote || [];
+    const { formData: submittedFormData } = data as { formData: User };
+    submittedFormData.skillsOfNote = submittedFormData.skillsOfNote || [];
 
-    const updatedUser = await userClient.UpdateUser(formData);
+    const updatedUser = await userClient.UpdateUser(submittedFormData);
     setUserState(updatedUser);
     setOpen(true);
   };
@@ -46,7 +53,7 @@ function MyProfileForm() {
         schema={User.formSchema}
         validator={validator}
         onSubmit={handleSubmit}
-        formData={userState}
+        formData={formData}
         uiSchema={User.formUiSchema}
       />
       <Snackbar
