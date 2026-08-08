@@ -5,6 +5,7 @@ import Group from 'backend/models/group/group';
 import Form from '@rjsf/mui';
 import BackendGroupClient from 'src/api/groups/groups';
 import { getFrontendConfig } from 'src/config/config';
+import { browserLocalInputToEventTime } from '../../utils/datetime/utils';
 
 const frontendConfig = getFrontendConfig();
 
@@ -25,7 +26,12 @@ function CreateGroupDialog(props: Props) {
   const handleSubmit = async (data: unknown) => {
     const { formData } = data as { formData: Group };
 
-    await groupClient.CreateGroup(formData);
+    await groupClient.CreateGroup({
+      ...formData,
+      shiftSignupOpenDate: browserLocalInputToEventTime(
+        String(formData.shiftSignupOpenDate),
+      ),
+    } as Group);
     handleSuccess();
   };
 
@@ -35,6 +41,9 @@ function CreateGroupDialog(props: Props) {
         <Typography variant="h4">Create Group</Typography>
       </DialogTitle>
       <DialogContent dividers>
+        <Typography color="text.secondary" sx={{ mb: 2 }} variant="body2">
+          Shift signup times are entered and displayed in Pacific Time.
+        </Typography>
         <Form
           schema={Group.formSchema}
           validator={validator}
