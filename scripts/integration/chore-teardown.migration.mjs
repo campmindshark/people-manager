@@ -117,6 +117,7 @@ async function main() {
           CHORE_TEARDOWN_TEST_DATABASE_URL:
             `postgresql://${databaseUser}:${databasePassword}` +
             `@127.0.0.1:${portMatch[1]}/${databaseName}`,
+          TS_NODE_PROJECT: path.resolve('packages/backend/tsconfig.json'),
         },
         stdio: 'inherit',
       },

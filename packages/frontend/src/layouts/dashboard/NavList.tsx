@@ -1,4 +1,5 @@
 import * as React from 'react';
+import FeatureFlags from 'backend/view_models/feature_flags';
 import ListItemButton from '@mui/material/ListItemButton';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
@@ -11,12 +12,14 @@ import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import HomeIcon from '@mui/icons-material/Home';
 import CelebrationIcon from '@mui/icons-material/Celebration';
 import SettingsIcon from '@mui/icons-material/Settings';
+import PriceChangeIcon from '@mui/icons-material/PriceChange';
 import List from '@mui/material/List';
 import Divider from '@mui/material/Divider';
 import { Link } from 'react-router-dom';
 import { useRecoilValue } from 'recoil';
 import PageState, { MyRolesState } from '../../state/store';
 import { UserCanSignupForShifts } from '../../state/users';
+import { FeatureFlagsState } from '../../state/features';
 
 interface MenuItemLinkData {
   text: string;
@@ -24,6 +27,7 @@ interface MenuItemLinkData {
   icon: React.ReactNode;
   path: string;
   needsRole: string[];
+  feature?: keyof FeatureFlags;
 }
 
 const mainLinks: MenuItemLinkData[] = [
@@ -80,6 +84,14 @@ const utilityLinks: MenuItemLinkData[] = [
     needsRole: ['admin'],
   },
   {
+    text: 'Chore Scores',
+    index: 'admin-chore-scores',
+    icon: <PriceChangeIcon />,
+    path: '/admin/chore-scores',
+    needsRole: ['admin'],
+    feature: 'chorePlanning',
+  },
+  {
     text: 'Profile Edit',
     index: 'profile-edit',
     icon: <SettingsIcon />,
@@ -92,9 +104,14 @@ export default function NavList() {
   const pageState = useRecoilValue(PageState);
   const myRoles = useRecoilValue(MyRolesState);
   const canSignupForShifts = useRecoilValue(UserCanSignupForShifts);
+  const featureFlags = useRecoilValue(FeatureFlagsState);
 
   const isUserAllowed = (link: MenuItemLinkData) => {
     if (link.index === 'shifts' && !canSignupForShifts) {
+      return false;
+    }
+
+    if (link.feature && !featureFlags[link.feature]) {
       return false;
     }
 

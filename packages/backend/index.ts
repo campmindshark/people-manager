@@ -33,6 +33,8 @@ import groupRouter from './routes/groups';
 import duesRouter from './routes/dues';
 import devAuthRouter from './routes/dev_auth';
 import settingsRouter from './routes/settings';
+import chorePlansRouter from './routes/chore_plans';
+import requireFeatureEnabled from './middleware/feature_flag';
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -209,6 +211,12 @@ app.use(
 app.use('/api/groups', checkAuthenticated, groupRouter);
 app.use('/api/dues', checkAuthenticated, duesRouter);
 app.use('/api/settings', checkAuthenticated, settingsRouter);
+app.use(
+  '/api/chore-plans',
+  checkAuthenticated,
+  requireFeatureEnabled(config.ChorePlanningEnabled),
+  chorePlansRouter,
+);
 
 app.use('/api/health', (req: Request, res: Response) => {
   res.status(200).send('healthy');

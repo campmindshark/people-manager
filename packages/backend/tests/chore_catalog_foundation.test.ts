@@ -4,7 +4,7 @@ import path from 'node:path';
 import test from 'node:test';
 import knexFactory, { Knex } from 'knex';
 
-const FOUNDATION_MIGRATION = '20260806000000_chore_planning_foundation.ts';
+const CURRENT_MIGRATION = '20260806010000_chore_catalog_score_audit.ts';
 const TEST_DATABASE_URL = process.env.CHORE_TEARDOWN_TEST_DATABASE_URL;
 const POSTGRES_TEST_OPTIONS = {
   skip: TEST_DATABASE_URL
@@ -157,7 +157,7 @@ test(
         directory: path.resolve(__dirname, '../migrations'),
         extension: 'ts',
       });
-      assert.equal(migrationNames.at(-1), FOUNDATION_MIGRATION);
+      assert.equal(migrationNames.at(-1), CURRENT_MIGRATION);
 
       const catalog = (await database('chore_catalog_definitions as definition')
         .innerJoin(

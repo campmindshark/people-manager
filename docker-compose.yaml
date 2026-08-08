@@ -51,7 +51,7 @@ services:
       - GOOGLE_OAUTH_CLIENT_ID=${GOOGLE_OAUTH_CLIENT_ID:-placeholder}
       - GOOGLE_OAUTH_CLIENT_SECRET=${GOOGLE_OAUTH_CLIENT_SECRET:-placeholder}
       - DEV_AUTH_BYPASS=true
-      - CHORE_PLANNING_ENABLED=false
+      - CHORE_PLANNING_ENABLED=${CHORE_PLANNING_ENABLED:-false}
     command: yarn backend-dev
     depends_on:
       migrate:
