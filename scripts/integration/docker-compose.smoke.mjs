@@ -168,8 +168,8 @@ async function runIntegrationTest() {
         },
         body: JSON.stringify({
           probabilityOfAttending: 100,
-          estimatedArrivalDate: '2024-08-20T00:00:00.000Z',
-          estimatedDepartureDate: '2024-09-10T00:00:00.000Z',
+          estimatedArrivalDate: '2024-08-24T23:00:00.000Z',
+          estimatedDepartureDate: '2024-08-25T00:30:00.000Z',
           sleepingArrangement: 'Smoke-test fixture',
           yearsAtCamp: [],
         }),
@@ -178,6 +178,13 @@ async function runIntegrationTest() {
     assert(
       adminRosterSignupResponse.ok,
       'Could not create the smoke-test roster participant',
+    );
+    const adminRosterSignup = await adminRosterSignupResponse.json();
+    assert(
+      adminRosterSignup.estimatedArrivalDate === '2024-08-24T23:00:00.000Z' &&
+        adminRosterSignup.estimatedDepartureDate ===
+          '2024-08-25T00:30:00.000Z',
+      'Roster attendance timestamps were not preserved as absolute instants',
     );
 
     const groupResponse = await fetch('http://localhost:3001/api/groups', {
@@ -384,10 +391,10 @@ async function runIntegrationTest() {
       `Admin could not load the chore catalog (${catalogResponse.status}): ${catalogBody}`,
     );
     const catalog = JSON.parse(catalogBody);
-    assert(catalog.revision === '1', 'Fresh catalog revision must be 1');
+    assert(catalog.revision === '2', 'Fresh catalog revision must be 2');
     assert(
-      catalog.definitions?.length === 326,
-      'Catalog must contain all 326 source definitions',
+      catalog.definitions?.length === 302,
+      'Catalog must contain all 302 approved definitions',
     );
     const firstDefinition = catalog.definitions[0];
 
@@ -399,12 +406,12 @@ async function runIntegrationTest() {
           cookie: sessionCookie,
           'content-type': 'application/json',
         },
-        body: JSON.stringify({ score: 42.25, expectedRevision: '1' }),
+        body: JSON.stringify({ score: 42.25, expectedRevision: '2' }),
       },
     );
     assert(updateResponse.ok, 'Admin could not update a chore score');
     const update = await updateResponse.json();
-    assert(update.revision === '2', 'A score change must advance the revision');
+    assert(update.revision === '3', 'A score change must advance the revision');
     assert(
       update.definition.score === 42.25,
       'The changed score was not returned',
@@ -420,7 +427,7 @@ async function runIntegrationTest() {
         },
         body: JSON.stringify({
           score: 42.25,
-          expectedRevision: '2',
+          expectedRevision: '3',
           shiftLabel: 'Changed',
         }),
       },
@@ -438,7 +445,7 @@ async function runIntegrationTest() {
           cookie: sessionCookie,
           'content-type': 'application/json',
         },
-        body: JSON.stringify({ score: 41, expectedRevision: '1' }),
+        body: JSON.stringify({ score: 41, expectedRevision: '2' }),
       },
     );
     assert(
@@ -464,7 +471,7 @@ async function runIntegrationTest() {
     assert(previewResponse.ok, 'Admin could not preview a chore plan');
     const preview = await previewResponse.json();
     assert(
-      preview.catalogRevision === '2',
+      preview.catalogRevision === '3',
       'Preview did not report its consistent catalog revision',
     );
     assert(
@@ -499,6 +506,36 @@ async function runIntegrationTest() {
       'Could not read ordinary shifts before applying a draft',
     );
     const ordinaryShiftsBefore = await ordinaryShiftsBeforeResponse.json();
+    assert(
+      ordinarySchedulesBefore.every(
+        (schedule) =>
+          !Object.hasOwn(schedule, 'chorePlanID') &&
+          !Object.hasOwn(schedule, 'plannerKey'),
+      ),
+      'Ordinary schedules exposed internal ownership fields',
+    );
+    assert(
+      ordinaryShiftsBefore.every(
+        (shift) => !Object.hasOwn(shift, 'plannerKey'),
+      ),
+      'Ordinary shifts exposed internal ownership fields',
+    );
+
+    const ordinaryScheduleShiftsResponse = await fetch(
+      'http://localhost:3001/api/schedules/1/shifts',
+      { headers: { cookie: sessionCookie } },
+    );
+    assert(
+      ordinaryScheduleShiftsResponse.ok,
+      'Could not read ordinary schedule shift view models',
+    );
+    const ordinaryScheduleShifts = await ordinaryScheduleShiftsResponse.json();
+    assert(
+      ordinaryScheduleShifts.every(
+        ({ shift }) => !Object.hasOwn(shift, 'plannerKey'),
+      ),
+      'Ordinary shift view models exposed internal ownership fields',
+    );
 
     const forbiddenApplyResponse = await fetch(
       'http://localhost:3001/api/chore-plans/apply',
@@ -512,7 +549,7 @@ async function runIntegrationTest() {
           rosterID: 1,
           camperCount: 1,
           requirements: { chore: 1, event: 1, dinner: 1 },
-          expectedCatalogRevision: '2',
+          expectedCatalogRevision: '3',
           expectedDraftRevision: null,
         }),
       },
@@ -542,7 +579,7 @@ async function runIntegrationTest() {
       rosterID: 1,
       camperCount: 1,
       requirements: { chore: 1, event: 1, dinner: 1 },
-      expectedCatalogRevision: '2',
+      expectedCatalogRevision: '3',
       expectedDraftRevision: null,
     };
     const applyResponse = await fetch(
@@ -566,7 +603,7 @@ async function runIntegrationTest() {
       applied.changed === true &&
         applied.replaced === false &&
         applied.draft?.draftRevision === '1' &&
-        applied.draft?.catalogRevision === '2',
+        applied.draft?.catalogRevision === '3',
       'First draft apply did not return the expected revision state',
     );
     const savedDraftResponse = await fetch(
@@ -577,7 +614,7 @@ async function runIntegrationTest() {
     const savedDraft = await savedDraftResponse.json();
     assert(
       savedDraft.draft?.draftRevision === '1' &&
-        savedDraft.draft?.catalogRevision === '2',
+        savedDraft.draft?.catalogRevision === '3',
       'Saved draft read model did not match the applied draft',
     );
     const memberDraftResponse = await fetch(
@@ -681,7 +718,7 @@ async function runIntegrationTest() {
         body: JSON.stringify({
           ...firstApplyBody,
           camperCount: 2,
-          expectedCatalogRevision: '1',
+          expectedCatalogRevision: '2',
           expectedDraftRevision: '2',
         }),
       },

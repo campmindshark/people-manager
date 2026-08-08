@@ -1,5 +1,4 @@
 import express, { Request, Response, Router } from 'express';
-import { DateTime } from 'luxon';
 import { ValidationError } from 'objection';
 import RosterParticipantController from '../controllers/roster_participant';
 import User from '../models/user/user';
@@ -7,6 +6,7 @@ import Roster from '../models/roster/roster';
 import RosterParticipant from '../models/roster_participant/roster_participant';
 import hasPermission from '../middleware/rbac';
 import { assertYearsAtCampWithinRoster } from '../utils/campYears';
+import parseEventDateTime from '../utils/eventTime';
 
 const router: Router = express.Router();
 
@@ -74,20 +74,26 @@ router.post('/:id', async (req: Request, res: Response) => {
     rosterID,
   };
 
-  // Convert the dates to UTC while preserving the local time
-  const parsedArrivalDate = DateTime.fromJSDate(
-    new Date(proposedRosterParticipant.estimatedArrivalDate),
-  )
-    .setZone('America/Los_Angeles', { keepLocalTime: true })
-    .toUTC()
-    .toJSDate();
-
-  const parsedDepartureDate = DateTime.fromJSDate(
-    new Date(proposedRosterParticipant.estimatedDepartureDate),
-  )
-    .setZone('America/Los_Angeles', { keepLocalTime: true })
-    .toUTC()
-    .toJSDate();
+  let parsedArrivalDate: Date;
+  let parsedDepartureDate: Date;
+  try {
+    parsedArrivalDate = parseEventDateTime(
+      proposedRosterParticipant.estimatedArrivalDate,
+      'Estimated arrival date',
+    );
+    parsedDepartureDate = parseEventDateTime(
+      proposedRosterParticipant.estimatedDepartureDate,
+      'Estimated departure date',
+    );
+  } catch (error) {
+    res.status(400).json({
+      error:
+        error instanceof Error
+          ? error.message
+          : 'Invalid roster attendance time.',
+    });
+    return;
+  }
 
   if (
     !Number.isFinite(parsedArrivalDate.getTime()) ||
