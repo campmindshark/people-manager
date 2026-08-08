@@ -1,12 +1,13 @@
 /* eslint-disable import/prefer-default-export */
 import { Knex } from 'knex';
 import { DateTime } from 'luxon';
+import { BM_TIMEZONE } from '../utils/burnDates';
 
-const timezone = 'America/Los_Angeles';
-
-// getBMTime expects a string in the format "MMMM dd, yyyy hh:mm". ex. (August 24, 2024 10:00)
+// getBMTime expects a string in the format "MMMM dd, yyyy HH:mm". ex. (August 24, 2024 10:00)
 const getBMTime = (time: string) =>
-  DateTime.fromFormat(time, 'MMMM dd, yyyy hh:mm').setZone(timezone).toJSDate();
+  DateTime.fromFormat(time, 'MMMM dd, yyyy HH:mm', {
+    zone: BM_TIMEZONE,
+  }).toJSDate();
 
 const generateShiftsAtIntervalOverRange = (
   intervalMins: number,
@@ -59,10 +60,6 @@ export async function seed(knex: Knex): Promise<void> {
     1,
   );
   await knex('shifts').insert(wenchShifts);
-
-  DateTime.fromFormat('August 24, 2024 10:00', 'MMMM dd, yyyy hh:mm').setZone(
-    timezone,
-  );
 
   // Add a couple shifts here and there for the Ice Bitch schedule.
   const iceShifts = [

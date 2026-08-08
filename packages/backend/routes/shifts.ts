@@ -4,8 +4,20 @@ import User from '../models/user/user';
 import ShiftController from '../controllers/shift';
 import hasPermission from '../middleware/rbac';
 import userIsVerified from '../middleware/verified_user';
+import ShiftSignupError, { parseShiftID } from '../utils/shiftSignupError';
+import parseEventDateTime from '../utils/eventTime';
 
 const router: Router = express.Router();
+
+function sendShiftSignupError(error: unknown, res: Response): void {
+  if (error instanceof ShiftSignupError) {
+    res.status(error.status).json({ error: error.message });
+    return;
+  }
+
+  console.error('Failed to update shift signup:', error);
+  res.status(500).json({ error: 'Failed to update shift signup.' });
+}
 
 /* GET Shift(s). */
 router.get(
@@ -64,17 +76,33 @@ router.post(
   hasPermission('shifts:create'),
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async (req: Request, res: Response, next: NextFunction) => {
-    const newSchedule: Shift = req.body;
-    const query = Shift.query().insert(newSchedule);
+    let startTime: Date;
+    let endTime: Date;
+    try {
+      startTime = parseEventDateTime(req.body.startTime, 'Shift start time');
+      endTime = parseEventDateTime(req.body.endTime, 'Shift end time');
+    } catch (error) {
+      res.status(400).json({
+        error: error instanceof Error ? error.message : 'Invalid shift time.',
+      });
+      return;
+    }
+    if (startTime >= endTime) {
+      res.status(400).json({ error: 'Shift end time must follow start time.' });
+      return;
+    }
+    const newShift: Shift = { ...req.body, startTime, endTime };
+    const query = Shift.query().insert(newShift);
 
-    const schedules = await query;
-    res.json(schedules);
+    const shift = await query;
+    res.json(shift);
   },
 );
 
 /* Sign up for a shift with the current user. */
 router.get(
   '/:id/signup',
+  userIsVerified(),
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
@@ -88,22 +116,22 @@ router.get(
 
     console.log(`Signing up user ${user.id} for shift ${id}`);
 
-    const success = await ShiftController.RegisterParticipantForShift(
-      parseInt(id, 10),
-      user.id,
-    );
-
-    if (!success) {
-      res.status(500).json({ error: 'Failed to register user for shift' });
-      return;
+    try {
+      const result = await ShiftController.RegisterParticipantForShift(
+        parseShiftID(id),
+        user.id,
+      );
+      res.json({ success: true, ...result });
+    } catch (error) {
+      sendShiftSignupError(error, res);
     }
-    res.json({ success: true });
   },
 );
 
 /* Unregister the current user from a specific shift. */
 router.get(
   '/:id/unregister',
+  userIsVerified(),
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
@@ -116,17 +144,15 @@ router.get(
 
     console.log(`Unregister user ${user.id} from shift ${id}`);
 
-    const success = await ShiftController.UnregisterParticipantFromShift(
-      parseInt(id, 10),
-      user.id,
-    );
-
-    if (!success) {
-      res.status(500).json({ error: 'Failed to unregister user from shift' });
-      return;
+    try {
+      await ShiftController.UnregisterParticipantFromShift(
+        parseShiftID(id),
+        user.id,
+      );
+      res.json({ success: true });
+    } catch (error) {
+      sendShiftSignupError(error, res);
     }
-
-    res.json({ success: true });
   },
 );
 

@@ -114,38 +114,113 @@ async function runIntegrationTest() {
       'Disabled chore-planning routes must appear absent',
     );
 
+    const verificationResponse = await fetch(
+      `http://localhost:3001/api/users/verify/${authCheck.user.id}`,
+      {
+        method: 'POST',
+        headers: { cookie: sessionCookie },
+      },
+    );
+    assert(verificationResponse.ok, 'Could not verify the smoke-test user');
+
+    const adminRosterSignupResponse = await fetch(
+      'http://localhost:3001/api/roster_participants/1',
+      {
+        method: 'POST',
+        headers: {
+          cookie: sessionCookie,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          probabilityOfAttending: 100,
+          estimatedArrivalDate: '2024-08-24T23:00:00.000Z',
+          estimatedDepartureDate: '2024-08-25T00:30:00.000Z',
+          sleepingArrangement: 'Smoke-test fixture',
+          yearsAtCamp: [],
+        }),
+      },
+    );
+    assert(
+      adminRosterSignupResponse.ok,
+      'Could not create the smoke-test roster participant',
+    );
+    const adminRosterSignup = await adminRosterSignupResponse.json();
+    assert(
+      adminRosterSignup.estimatedArrivalDate === '2024-08-24T23:00:00.000Z' &&
+        adminRosterSignup.estimatedDepartureDate ===
+          '2024-08-25T00:30:00.000Z',
+      'Roster attendance timestamps were not preserved as absolute instants',
+    );
+
+    const groupResponse = await fetch('http://localhost:3001/api/groups', {
+      method: 'POST',
+      headers: {
+        cookie: sessionCookie,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        name: 'Smoke-test signup group',
+        description: 'Disposable ordinary-shift signup access',
+        rosterID: 1,
+        shiftSignupOpenDate: '2020-01-01T00:00:00.000Z',
+      }),
+    });
+    assert(groupResponse.ok, 'Could not create a shift signup group');
+    const group = await groupResponse.json();
+
+    const groupMemberResponse = await fetch(
+      `http://localhost:3001/api/groups/${group.id}/members/${authCheck.user.id}`,
+      {
+        method: 'POST',
+        headers: { cookie: sessionCookie },
+      },
+    );
+    assert(groupMemberResponse.ok, 'Could not add the user to a signup group');
+
+    const signupResponse = await fetch(
+      'http://localhost:3001/api/shifts/1/signup',
+      { headers: { cookie: sessionCookie } },
+    );
+    assert(signupResponse.ok, 'Ordinary shift signup failed');
+    const signupResult = await signupResponse.json();
+    assert(
+      signupResult.registeredShiftIDs?.[0] === 1,
+      'Ordinary shift signup did not register the selected shift',
+    );
+
+    const duplicateSignupResponse = await fetch(
+      'http://localhost:3001/api/shifts/1/signup',
+      { headers: { cookie: sessionCookie } },
+    );
+    assert(duplicateSignupResponse.ok, 'Duplicate signup was not idempotent');
+    const duplicateSignupResult = await duplicateSignupResponse.json();
+    assert(
+      duplicateSignupResult.registeredShiftIDs?.length === 0,
+      'Duplicate signup created another assignment',
+    );
+
+    const unregisterResponse = await fetch(
+      'http://localhost:3001/api/shifts/1/unregister',
+      { headers: { cookie: sessionCookie } },
+    );
+    assert(unregisterResponse.ok, 'Ordinary shift removal failed');
+
+    const rosterCleanupResponse = await fetch(
+      `http://localhost:3001/api/roster_participants/1/users/${authCheck.user.id}`,
+      {
+        method: 'DELETE',
+        headers: { cookie: sessionCookie },
+      },
+    );
+    assert(
+      rosterCleanupResponse.ok,
+      'Could not remove the smoke-test roster participant',
+    );
+
     const rosterResponse = await fetch('http://localhost:3001/api/rosters/2', {
       headers: { cookie: sessionCookie },
     });
     assert(rosterResponse.ok, 'Expected roster 2 to exist after seed step');
-
-    const shiftsResponse = await fetch('http://localhost:3001/api/shifts', {
-      headers: { cookie: sessionCookie },
-    });
-    assert(shiftsResponse.ok, 'Expected ordinary shifts after seed step');
-    const shifts = await shiftsResponse.json();
-    assert(shifts.length > 0, 'Expected at least one ordinary shift');
-
-    const signupURL = `http://localhost:3001/api/shifts/${shifts[0].id}/signup`;
-    const firstSignupResponse = await fetch(signupURL, {
-      headers: { cookie: sessionCookie },
-    });
-    assert(firstSignupResponse.ok, 'Initial ordinary shift signup failed');
-    const repeatedSignupResponse = await fetch(signupURL, {
-      headers: { cookie: sessionCookie },
-    });
-    assert(
-      repeatedSignupResponse.ok,
-      'Repeated ordinary shift signup must be idempotent',
-    );
-
-    const healthAfterSignupResponse = await fetch(
-      'http://localhost:3001/api/health',
-    );
-    assert(
-      healthAfterSignupResponse.ok,
-      'Backend became unhealthy after repeated ordinary shift signup',
-    );
 
     console.log('Integration smoke test passed.');
   } finally {
