@@ -1,6 +1,7 @@
 import express, { Request, Response, Router } from 'express';
 import ChoreCatalogController from '../controllers/chore_catalog';
 import ChorePlanAssignmentsController from '../controllers/chore_plan_assignments';
+import ChorePlanChangeHistoryController from '../controllers/chore_plan_change_history';
 import ChorePlanDraftController from '../controllers/chore_plan_draft';
 import ChorePlanFinalAssignmentsController from '../controllers/chore_plan_final_assignments';
 import ChorePlanLifecycleController from '../controllers/chore_plan_lifecycle';
@@ -15,6 +16,7 @@ import User from '../models/user/user';
 import ChoreCatalogError from '../utils/choreCatalogError';
 import { parseChoreCatalogScoreUpdate } from '../utils/choreCatalogInput';
 import ChorePlanAssignmentError from '../utils/chorePlanAssignmentError';
+import ChorePlanChangeHistoryError from '../utils/chorePlanChangeHistoryError';
 import {
   parseChorePlanAdminAssignmentMutation,
   parseChorePlanForceAssignmentRequest,
@@ -51,6 +53,7 @@ import {
 const router: Router = express.Router();
 const controller = new ChoreCatalogController();
 const assignmentsController = new ChorePlanAssignmentsController();
+const changeHistoryController = new ChorePlanChangeHistoryController();
 const draftController = new ChorePlanDraftController();
 const finalAssignmentsController = new ChorePlanFinalAssignmentsController();
 const lifecycleController = new ChorePlanLifecycleController();
@@ -67,6 +70,7 @@ function isChorePlanClientError(error: unknown): error is ChorePlanClientError {
   return (
     error instanceof ChoreCatalogError ||
     error instanceof ChorePlanAssignmentError ||
+    error instanceof ChorePlanChangeHistoryError ||
     error instanceof ChorePlanFinalAssignmentsError ||
     error instanceof ChorePlanLifecycleError ||
     error instanceof ChorePlanPreviewError ||
@@ -173,6 +177,23 @@ function sendError(error: unknown, res: Response, operation: string): void {
   console.error(`Failed to ${operation}:`, error);
   res.status(500).json({ error: `Failed to ${operation}.` });
 }
+
+router.get(
+  '/admin/:rosterID/change-history',
+  userIsVerified(),
+  hasPermission('chorePlans:viewHistory'),
+  async (req: Request, res: Response) => {
+    try {
+      res.json(
+        await changeHistoryController.getByRosterID(
+          parseChorePlanRosterID(req.params.rosterID),
+        ),
+      );
+    } catch (error) {
+      sendError(error, res, 'load chore plan change history');
+    }
+  },
+);
 
 router.get(
   '/admin/:rosterID/readiness',

@@ -1,13 +1,18 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { RecoilRoot } from 'recoil';
+import { RecoilRoot, RecoilState } from 'recoil';
 import { FeatureFlagsState } from '../state/features';
+import { MyRolesState } from '../state/store';
 import Shifts, { VerifiedShiftExperience } from './Shifts';
 
 let mockLifecycleStatus = 'draft';
 let mockRequirementViewMountCount = 0;
 let mockShiftViewMountCount = 0;
+
+interface TestRole {
+  permissions: string[];
+}
 
 jest.mock('../layouts/dashboard/Dashboard', () => {
   function Dashboard({ children }: { children: React.ReactNode }) {
@@ -50,6 +55,7 @@ jest.mock('../state/store', () => {
             'chorePlans:assign',
             'chorePlans:forceAssign',
             'chorePlans:overrideRequirements',
+            'chorePlans:viewHistory',
           ],
         },
       ],
@@ -101,6 +107,14 @@ jest.mock('src/components/admin/ChoreRequirementOverrides', () => {
     );
   }
   return ChoreRequirementOverrides;
+});
+jest.mock('src/components/admin/ChorePlanChangeHistoryDialog', () => {
+  function ChorePlanChangeHistoryDialog({ open }: { open: boolean }) {
+    return open ? (
+      <div aria-label="Administrator change history" role="dialog" />
+    ) : null;
+  }
+  return ChorePlanChangeHistoryDialog;
 });
 jest.mock('src/components/shifts/ShiftDisplay', () => {
   function ShiftDisplay() {
@@ -199,10 +213,14 @@ test('keeps PR 58 lifecycle and Admin Edit controls above signup sheets', () => 
     name: 'Open Chore Signups',
   });
   const adminEditButton = screen.getByRole('button', { name: 'Admin Edit' });
+  const changeHistoryButton = screen.getByRole('button', {
+    name: 'Change History',
+  });
   const status = screen.getByText('Chore signup status');
   const shifts = screen.getByText(/Chore signup sheets — member/);
   expect(lifecycleButton).toBeVisible();
   expect(adminEditButton).toBeVisible();
+  expect(changeHistoryButton).toBeVisible();
   expect(status).toBeVisible();
   expect(shifts).toBeVisible();
   expect(lifecycleButton.compareDocumentPosition(adminEditButton)).toBe(
@@ -211,6 +229,42 @@ test('keeps PR 58 lifecycle and Admin Edit controls above signup sheets', () => 
   expect(status.compareDocumentPosition(shifts)).toBe(
     Node.DOCUMENT_POSITION_FOLLOWING,
   );
+});
+
+test('opens change history only for administrators with its permission', () => {
+  const { rerender } = render(
+    <RecoilRoot
+      initializeState={({ set }) => {
+        set(FeatureFlagsState, { chorePlanning: true });
+      }}
+    >
+      <Shifts />
+    </RecoilRoot>,
+  );
+
+  userEvent.click(screen.getByRole('button', { name: 'Change History' }));
+  expect(
+    screen.getByRole('dialog', { name: 'Administrator change history' }),
+  ).toBeVisible();
+
+  rerender(
+    <RecoilRoot
+      key="without-history-permission"
+      initializeState={({ set }) => {
+        set(FeatureFlagsState, { chorePlanning: true });
+        set(MyRolesState as unknown as RecoilState<TestRole[]>, [
+          {
+            permissions: ['chorePlans:assign'],
+          },
+        ]);
+      }}
+    >
+      <Shifts />
+    </RecoilRoot>,
+  );
+  expect(
+    screen.queryByRole('button', { name: 'Change History' }),
+  ).not.toBeInTheDocument();
 });
 
 test('refreshes the signup sheets when lifecycle status changes', () => {

@@ -451,6 +451,7 @@ The permission groups are deliberately separate:
 - lifecycle open/close and lifecycle reopen;
 - requirement override management;
 - readiness review;
+- administrative change-history review;
 - ordinary self-service signup;
 - administrative assignment;
 - force assignment.
@@ -459,11 +460,13 @@ Endpoints receive only the narrow permissions they need. Reading a preview does
 not imply permission to apply it; ordinary assignment permission does not imply
 force permission; and score editing does not imply definition editing.
 
-Production audit access is not an application permission or public API. It is
-provided by a manual, `main`-only GitHub Actions workflow protected by the
-production environment. The workflow runs an aggregate-only database audit in
-a read-only transaction and never returns participant identities or audit
-detail text to the application.
+Administrators with the separate `chorePlans:viewHistory` permission can read
+the newest roster-scoped immutable audit entries from the Shifts page through
+`GET /api/chore-plans/admin/:rosterID/change-history`. The read-only endpoint
+exposes actor, timestamp, reason, affected assignments, and forced-operation
+details for operational review. The manual, `main`-only GitHub Actions release
+audit remains an aggregate production safeguard and is not a replacement for
+the administrator change history.
 
 ## Audit and failure behavior
 
