@@ -16,6 +16,10 @@ import {
   shiftTimeRangeContains,
   shiftTimeRangesOverlap,
 } from '../utils/shiftTime';
+import {
+  ABSOLUTE_ATTENDANCE_TIMESTAMP_INPUT,
+  prepareRosterAttendanceTimestampWrite,
+} from '../utils/rosterAttendanceTime';
 
 const TEST_DATABASE_URL = process.env.CHORE_TEARDOWN_TEST_DATABASE_URL;
 const POSTGRES_TEST_OPTIONS = {
@@ -287,7 +291,7 @@ test(
 );
 
 test(
-  'attendance migration restores instants shifted by the legacy roster route',
+  'attendance migration safely normalizes writes from old and new tasks',
   POSTGRES_TEST_OPTIONS,
   async () => {
     const databaseURL = assertSafeTestDatabaseURL(TEST_DATABASE_URL);
@@ -295,12 +299,15 @@ test(
       await createTestDatabase(databaseURL);
 
     try {
-      const [historicalUser, activeUser] = (await database('users')
-        .insert([
-          { name: 'Historical attendance migration user' },
-          { name: 'Active attendance migration user' },
-        ])
-        .returning('id')) as IDRow[];
+      const [historicalUser, activeUser, cutoverUser, postMigrationOldUser] =
+        (await database('users')
+          .insert([
+            { name: 'Historical attendance migration user' },
+            { name: 'Active attendance migration user' },
+            { name: 'Cutover attendance migration user' },
+            { name: 'Post-migration old task user' },
+          ])
+          .returning('id')) as IDRow[];
       const [historicalRoster, activeRoster] = (await database('rosters')
         .insert([{ year: 2025 }, { year: 2026 }])
         .returning('id')) as IDRow[];
@@ -319,10 +326,34 @@ test(
         },
       ]);
 
+      const preMigrationNewTaskWrite =
+        await prepareRosterAttendanceTimestampWrite(
+          database,
+          new Date('2026-08-24T16:00:00.000Z'),
+          new Date('2026-08-24T18:00:00.000Z'),
+        );
+      assert.equal(
+        preMigrationNewTaskWrite.attendanceTimestampFormat,
+        undefined,
+      );
+      assert.equal(
+        preMigrationNewTaskWrite.estimatedArrivalDate.toISOString(),
+        '2026-08-24T23:00:00.000Z',
+      );
+      await database('roster_participants').insert({
+        rosterID: activeRoster.id,
+        userID: cutoverUser.id,
+        ...preMigrationNewTaskWrite,
+      });
+
       await normalizeRosterAttendanceTimestamps(database);
       const normalized = await database('roster_participants')
-        .select('estimatedArrivalDate', 'estimatedDepartureDate')
-        .where('rosterID', activeRoster.id)
+        .select(
+          'estimatedArrivalDate',
+          'estimatedDepartureDate',
+          'attendanceTimestampFormat',
+        )
+        .where({ rosterID: activeRoster.id, userID: activeUser.id })
         .first();
       assert.equal(
         new Date(normalized.estimatedArrivalDate).toISOString(),
@@ -332,8 +363,29 @@ test(
         new Date(normalized.estimatedDepartureDate).toISOString(),
         '2026-08-24T18:00:00.000Z',
       );
+      assert.equal(normalized.attendanceTimestampFormat, 'absolute');
+      const normalizedCutoverWrite = await database('roster_participants')
+        .select(
+          'estimatedArrivalDate',
+          'estimatedDepartureDate',
+          'attendanceTimestampFormat',
+        )
+        .where({ rosterID: activeRoster.id, userID: cutoverUser.id })
+        .first();
+      assert.equal(
+        new Date(normalizedCutoverWrite.estimatedArrivalDate).toISOString(),
+        '2026-08-24T16:00:00.000Z',
+      );
+      assert.equal(
+        normalizedCutoverWrite.attendanceTimestampFormat,
+        'absolute',
+      );
       const historical = await database('roster_participants')
-        .select('estimatedArrivalDate', 'estimatedDepartureDate')
+        .select(
+          'estimatedArrivalDate',
+          'estimatedDepartureDate',
+          'attendanceTimestampFormat',
+        )
         .where('rosterID', historicalRoster.id)
         .first();
       assert.equal(
@@ -344,6 +396,53 @@ test(
         new Date(historical.estimatedDepartureDate).toISOString(),
         '2025-08-25T01:00:00.000Z',
       );
+      assert.equal(
+        historical.attendanceTimestampFormat,
+        'legacy-pacific-reinterpretation',
+      );
+
+      const postMigrationNewTaskWrite =
+        await prepareRosterAttendanceTimestampWrite(
+          database,
+          new Date('2026-08-24T16:00:00.000Z'),
+          new Date('2026-08-24T18:00:00.000Z'),
+        );
+      assert.equal(
+        postMigrationNewTaskWrite.attendanceTimestampFormat,
+        ABSOLUTE_ATTENDANCE_TIMESTAMP_INPUT,
+      );
+      await database('roster_participants')
+        .where({ rosterID: activeRoster.id, userID: cutoverUser.id })
+        .update(postMigrationNewTaskWrite);
+
+      // An old task omits the marker and still writes the legacy-shifted
+      // representation after the backfill. The trigger must normalize both an
+      // update of an existing row and an insert that receives the legacy
+      // column default.
+      await database('roster_participants')
+        .where({ rosterID: activeRoster.id, userID: activeUser.id })
+        .update({
+          estimatedArrivalDate: '2026-08-24T23:00:00.000Z',
+          estimatedDepartureDate: '2026-08-25T01:00:00.000Z',
+        });
+      await database('roster_participants').insert({
+        rosterID: activeRoster.id,
+        userID: postMigrationOldUser.id,
+        estimatedArrivalDate: '2026-08-24T23:00:00.000Z',
+        estimatedDepartureDate: '2026-08-25T01:00:00.000Z',
+      });
+      const mixedVersionRows = await database('roster_participants')
+        .select('estimatedArrivalDate', 'attendanceTimestampFormat')
+        .where('rosterID', activeRoster.id)
+        .orderBy('userID');
+      assert.equal(mixedVersionRows.length, 3);
+      mixedVersionRows.forEach((row) => {
+        assert.equal(
+          new Date(row.estimatedArrivalDate).toISOString(),
+          '2026-08-24T16:00:00.000Z',
+        );
+        assert.equal(row.attendanceTimestampFormat, 'absolute');
+      });
 
       await restoreLegacyRosterAttendanceTimestamps(database);
       const restored = await database('roster_participants')
@@ -357,6 +456,13 @@ test(
       assert.equal(
         new Date(restored.estimatedDepartureDate).toISOString(),
         '2026-08-25T01:00:00.000Z',
+      );
+      assert.equal(
+        await database.schema.hasColumn(
+          'roster_participants',
+          'attendanceTimestampFormat',
+        ),
+        false,
       );
     } finally {
       await destroyTestDatabase(adminDatabase, database, schemaName);
