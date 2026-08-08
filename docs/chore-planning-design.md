@@ -25,6 +25,11 @@ disabled unless its value is exactly `true`.
 - A slice that is not ready for use must not be mounted or linked merely
   because the broad feature flag is enabled. It remains unreachable until its
   implementation PR declares it complete.
+- Before the first draft is persisted, application code may be rolled back
+  while leaving unused forward schema in place. After a draft is persisted,
+  disable the feature flag while retaining the ordinary-route ownership guards
+  from the draft-persistence slice and recover with a forward fix; do not roll
+  application code back below that compatibility boundary.
 
 ## Plan ownership and lifecycle
 

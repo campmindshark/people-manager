@@ -9,6 +9,7 @@ import { getConfig } from '../config/config';
 import ShiftSignupError from '../utils/shiftSignupError';
 import { shiftTimeRangesOverlap, ShiftTimeRange } from '../utils/shiftTime';
 import hasChorePlanOwnershipColumns from '../utils/chorePlanSchema';
+import { PUBLIC_SHIFT_COLUMNS } from '../utils/scheduleApiColumns';
 
 const knex = Knex(knexConfig[getConfig().Environment]);
 
@@ -62,7 +63,7 @@ export default class ShiftController {
       .join('shifts', 'shift_participants.shiftID', '=', 'shifts.id')
       .join('schedules', 'shifts.scheduleID', '=', 'schedules.id')
       .where('rosterID', rosterID)
-      .select('shifts.*');
+      .select(...PUBLIC_SHIFT_COLUMNS);
 
     if (await hasChorePlanOwnershipColumns(knex)) {
       query.whereNull('schedules.chorePlanID');
@@ -80,7 +81,7 @@ export default class ShiftController {
       .from('shift_participants')
       .where('userID', participantID)
       .join('shifts', 'shift_participants.shiftID', '=', 'shifts.id')
-      .select('shifts.*');
+      .select(...PUBLIC_SHIFT_COLUMNS);
 
     if (await hasChorePlanOwnershipColumns(knex)) {
       query
@@ -109,6 +110,7 @@ export default class ShiftController {
       }
     }
     const query = knex<Shift>('shifts')
+      .select(...PUBLIC_SHIFT_COLUMNS)
       .where('scheduleID', scheduleID)
       .orderBy('startTime', 'asc');
 
@@ -125,9 +127,9 @@ export default class ShiftController {
     database: KnexInstance = knex,
   ): Promise<boolean> {
     if (
-      !Number.isInteger(shiftID) ||
+      !Number.isSafeInteger(shiftID) ||
       shiftID < 1 ||
-      !Number.isInteger(userID) ||
+      !Number.isSafeInteger(userID) ||
       userID < 1
     ) {
       throw new ShiftSignupError('Choose a valid shift.', 400);
@@ -161,9 +163,9 @@ export default class ShiftController {
     database: KnexInstance = knex,
   ): Promise<ShiftSignupResult> {
     if (
-      !Number.isInteger(shiftID) ||
+      !Number.isSafeInteger(shiftID) ||
       shiftID < 1 ||
-      !Number.isInteger(userID) ||
+      !Number.isSafeInteger(userID) ||
       userID < 1
     ) {
       throw new ShiftSignupError('Choose a valid shift.', 400);
