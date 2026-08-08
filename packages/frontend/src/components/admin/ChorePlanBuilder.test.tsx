@@ -175,6 +175,40 @@ test('previews and applies a new draft through the narrow request contracts', as
   ).toBeVisible();
 });
 
+test('counts signup slots instead of grouped shifts in the preview labels', async () => {
+  const generated = preview();
+  generated.shifts[0].requiredParticipants = 3;
+  generated.shifts[0].slots = [
+    {
+      definitionKey: 'chore-am-chum-wench-first',
+      positionLabel: 'First',
+      score: 100,
+    },
+    {
+      definitionKey: 'chore-am-chum-wench-second',
+      positionLabel: 'Second',
+      score: 50,
+    },
+    {
+      definitionKey: 'chore-am-chum-wench-third',
+      positionLabel: 'Third',
+      score: 25,
+    },
+  ];
+  const { planClient, rosterClient } = clients(generated, null);
+  render(
+    <ChorePlanBuilder planClient={planClient} rosterClient={rosterClient} />,
+  );
+
+  await enterCamperCount('1');
+  userEvent.click(screen.getByRole('button', { name: /preview signup plan/i }));
+
+  expect(
+    await screen.findByText(/3 signup slots across 1 dated shift/i),
+  ).toBeVisible();
+  expect(screen.getByText('3 signup slots')).toBeVisible();
+});
+
 test('disables planning inputs while preview and apply requests are pending', async () => {
   const generated = preview();
   const savedDraft = draft(generated, { draftRevision: '1' });

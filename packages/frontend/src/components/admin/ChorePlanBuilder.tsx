@@ -227,6 +227,14 @@ function signupSheetShift(
   };
 }
 
+function signupSlotCount(shifts: ChorePlanShiftPreview[]): number {
+  return shifts.reduce((total, shift) => total + shift.slots.length, 0);
+}
+
+function countLabel(count: number, singular: string): string {
+  return `${count} ${singular}${count === 1 ? '' : 's'}`;
+}
+
 export default function ChorePlanBuilder({
   planClient = defaultPlanClient,
   rosterClient = defaultRosterClient,
@@ -502,8 +510,9 @@ export default function ChorePlanBuilder({
                   {selectedRoster?.year ?? preview.year} signup sheet preview
                 </Typography>
                 <Typography color="text.secondary">
-                  {preview.shifts.length} dated shifts · {preview.camperCount}{' '}
-                  prospective campers
+                  {countLabel(signupSlotCount(preview.shifts), 'signup slot')}{' '}
+                  across {countLabel(preview.shifts.length, 'dated shift')} ·{' '}
+                  {preview.camperCount} prospective campers
                 </Typography>
               </Box>
               <Button
@@ -544,9 +553,11 @@ export default function ChorePlanBuilder({
             )}
 
             {KINDS.map((kind) => {
-              const shifts = preview.shifts
-                .filter((shift) => shift.kind === kind)
-                .map(signupSheetShift);
+              const previewShifts = preview.shifts.filter(
+                (shift) => shift.kind === kind,
+              );
+              const shifts = previewShifts.map(signupSheetShift);
+              const slotCount = signupSlotCount(previewShifts);
               return (
                 <Accordion key={kind} defaultExpanded={kind === 'chore'}>
                   <AccordionSummary expandIcon={<ExpandMoreIcon />}>
@@ -554,7 +565,10 @@ export default function ChorePlanBuilder({
                       <Typography variant="h6">
                         {CATEGORY_LABELS[kind]}
                       </Typography>
-                      <Chip label={`${shifts.length} shifts`} size="small" />
+                      <Chip
+                        label={countLabel(slotCount, 'signup slot')}
+                        size="small"
+                      />
                     </Stack>
                   </AccordionSummary>
                   <AccordionDetails>
