@@ -26,7 +26,7 @@ import GroupViewModel from 'backend/view_models/group';
 import GroupsState from '../../state/groups';
 import CreateGroupDialog from './CreateGroupDialog';
 import GroupMembershipManagementDialog from './GroupMemberManagementDialog';
-import { utcDateToDateTimeInTimezone } from '../../utils/datetime/utils';
+import utcDateToDateTimeInTimezone from '../../utils/datetime/utils';
 
 const generateTableRow = (
   group: GroupViewModel,

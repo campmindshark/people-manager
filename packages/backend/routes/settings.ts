@@ -1,7 +1,9 @@
 import express, { Request, Response, Router } from 'express';
+import { getConfig } from '../config/config';
 import AppSetting from '../models/app_setting/app_setting';
 import Roster from '../models/roster/roster';
 import hasPermission from '../middleware/rbac';
+import FeatureFlags from '../view_models/feature_flags';
 
 const router: Router = express.Router();
 const ActiveRosterSettingKey = 'active_roster_id';
@@ -11,6 +13,15 @@ const DefaultEssentialMindSharkURL = 'https://rb.gy/zmxncc';
 interface FrontendLinksResponse {
   essentialMindSharkURL: string;
 }
+
+router.get('/features', (_req: Request, res: Response) => {
+  const config = getConfig();
+  const featureFlags: FeatureFlags = {
+    chorePlanning: config.ChorePlanningEnabled,
+  };
+
+  res.json(featureFlags);
+});
 
 async function ensureActiveRosterSetting(): Promise<AppSetting | undefined> {
   await AppSetting.query()

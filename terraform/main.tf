@@ -50,6 +50,10 @@ resource "aws_ecs_task_definition" "app_task" {
           "value": "https://${var.domain}"
         },
         {
+          "name": "CHORE_PLANNING_ENABLED",
+          "value": "${var.chore_planning_enabled}"
+        },
+        {
           "name": "GOOGLE_OAUTH_CALLBACK_URL",
           "value": "https://people-manager.${var.domain}/api/auth/google/callback"
         },

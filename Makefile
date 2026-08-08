@@ -71,10 +71,10 @@ build-frontend-and-upload:
 build: build-backend build-frontend
 
 test-backend:
-	cd packages/backend && yarn test --all
+	cd packages/backend && yarn test
 
 test-frontend:
-	cd packages/frontend && yarn test --all
+	cd packages/frontend && yarn test
 
 test-integration-docker:
 	yarn test:integration:docker

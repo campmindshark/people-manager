@@ -90,6 +90,30 @@ async function runIntegrationTest() {
     assert(authCheck.success === true, 'Dev login did not authenticate user');
     assert(authCheck.user, 'Auth check did not return a user payload');
 
+    const featureFlagsResponse = await fetch(
+      'http://localhost:3001/api/settings/features',
+      {
+        headers: { cookie: sessionCookie },
+      },
+    );
+    assert(featureFlagsResponse.ok, 'Feature flags endpoint failed');
+    const featureFlags = await featureFlagsResponse.json();
+    assert(
+      featureFlags.chorePlanning === false,
+      'Chore planning must be disabled in the smoke-test environment',
+    );
+
+    const chorePlanningResponse = await fetch(
+      'http://localhost:3001/api/chore-plans',
+      {
+        headers: { cookie: sessionCookie },
+      },
+    );
+    assert(
+      chorePlanningResponse.status === 404,
+      'Disabled chore-planning routes must appear absent',
+    );
+
     const rosterResponse = await fetch('http://localhost:3001/api/rosters/2', {
       headers: { cookie: sessionCookie },
     });

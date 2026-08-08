@@ -8,6 +8,12 @@ import knexFactory, { Knex } from 'knex';
 const TEARDOWN_MIGRATION = '20260805010000_remove_chore_planning.ts';
 const RESET_MIGRATION = '20260805000000_reset_chore_planning_data.ts';
 const TEST_DATABASE_URL = process.env.CHORE_TEARDOWN_TEST_DATABASE_URL;
+const POSTGRES_TEST_OPTIONS = {
+  skip: TEST_DATABASE_URL
+    ? false
+    : 'CHORE_TEARDOWN_TEST_DATABASE_URL is not configured.',
+  timeout: 120_000,
+};
 
 interface DatabaseError {
   code?: string;
@@ -120,7 +126,7 @@ async function assertFinalSchema(
 
 test(
   'teardown removes only chore-owned rows and preserves generic shift integrity',
-  { timeout: 120_000 },
+  POSTGRES_TEST_OPTIONS,
   async () => {
     const databaseURL = assertSafeTestDatabaseURL(TEST_DATABASE_URL);
     const adminDatabase = knexFactory({
@@ -343,7 +349,7 @@ test(
 
 test(
   'the full migration history builds the same final schema from scratch',
-  { timeout: 120_000 },
+  POSTGRES_TEST_OPTIONS,
   async () => {
     const databaseURL = assertSafeTestDatabaseURL(TEST_DATABASE_URL);
     const adminDatabase = knexFactory({
@@ -381,7 +387,7 @@ test(
 
 test(
   'an unexpected chore schema aborts before destructive changes',
-  { timeout: 120_000 },
+  POSTGRES_TEST_OPTIONS,
   async () => {
     const databaseURL = assertSafeTestDatabaseURL(TEST_DATABASE_URL);
     const adminDatabase = knexFactory({
