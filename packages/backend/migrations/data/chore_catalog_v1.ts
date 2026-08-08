@@ -17,9 +17,7 @@ export interface ChoreCatalogSeedRow {
   score: number;
 }
 
-// These hashes pin the accepted catalog CSVs reviewed on 2026-08-05. The raw
-// event workbook hash is retained separately because the accepted event catalog
-// applies the camp decision to exclude the 3a-6a period. These values are
+// These hashes pin the exact CSV responses reviewed on 2026-08-05. They are
 // documentation only; the running application never fetches the workbook.
 export const CHORE_CATALOG_V1_SOURCE = {
   sheetID: '12QBFgX_jb9vdli-txNK4M2nkMt7TZ_FCHtX_gbEG9BM',
@@ -28,10 +26,7 @@ export const CHORE_CATALOG_V1_SOURCE = {
     '78533d7bef2de145afd20be3e3d8376d116405e947558db6b097b13a50a87c99',
   eventTab: 'Event scores table (Week)',
   eventSHA256:
-    'fdfa5ddfc67b46f5aa1ee1e82c82396664bbb2c7f20f4e564b78d92d13668c2a',
-  rawEventSHA256:
     'b4b71cf171823ddd4aac697c0c1d38c51150ee5e8abdb75a1a4d4b5701792de5',
-  excludedEventTimePeriods: ['3a-6a'],
   dinnerTab: 'Dinner scores table (Week)',
   dinnerSHA256:
     '4fb719a8549e81bed82b968b709b7335032e9de288464e62ab83f8eff06e3b42',
@@ -66,10 +61,6 @@ interface EventPeriod {
     positionLabel: string;
     score: number;
   }>;
-}
-
-interface AcceptedEventPeriod extends EventPeriod {
-  stablePeriodOrder: number;
 }
 
 const DAY_NUMBERS: Record<DayLabel, number> = {
@@ -271,7 +262,7 @@ function eventPeriod(
   return { dayNumber, dayLabel, timePeriodLabel, positions };
 }
 
-const EVENT_PERIODS: AcceptedEventPeriod[] = [
+const EVENT_PERIODS: EventPeriod[] = [
   eventPeriod('Sunday', '6p-9p', barPositions(DAY_EVENT_POSITIONS)),
   eventPeriod('Sunday', '9p-12a', NIGHT_EVENT_POSITIONS),
   ...EVENT_WEEKDAYS.flatMap((dayLabel) => [
@@ -283,14 +274,7 @@ const EVENT_PERIODS: AcceptedEventPeriod[] = [
     eventPeriod(dayLabel, '9p-12a', NIGHT_EVENT_POSITIONS),
   ]),
   eventPeriod('Sunday', '12a-3a', AFTER_MIDNIGHT_EVENT_POSITIONS, 8),
-]
-  .map((period, periodIndex) => ({
-    ...period,
-    stablePeriodOrder: periodIndex + 1,
-  }))
-  // Keep excluded periods in the identity sequence so surviving stable keys
-  // retain their original meaning. Accepted periodOrder values stay contiguous.
-  .filter(({ timePeriodLabel }) => timePeriodLabel !== '3a-6a');
+];
 
 const choreRows: ChoreCatalogSeedRow[] = POSITION_LABELS.flatMap(
   (positionLabel, positionIndex) =>
@@ -314,7 +298,7 @@ const eventRows: ChoreCatalogSeedRow[] = EVENT_PERIODS.flatMap(
   (period, periodIndex) =>
     period.positions.map(({ shiftLabel, positionLabel, score }) => ({
       stableKey:
-        `event-${String(period.stablePeriodOrder).padStart(2, '0')}-` +
+        `event-${String(periodIndex + 1).padStart(2, '0')}-` +
         `${slug(shiftLabel)}-${slug(positionLabel)}`,
       kind: 'event' as const,
       shiftLabel,
@@ -361,7 +345,7 @@ const stableKeys = new Set(CHORE_CATALOG_V1.map(({ stableKey }) => stableKey));
 
 if (
   choreRows.length !== 32 ||
-  eventRows.length !== 216 ||
+  eventRows.length !== 240 ||
   dinnerRows.length !== 54 ||
   stableKeys.size !== CHORE_CATALOG_V1.length
 ) {

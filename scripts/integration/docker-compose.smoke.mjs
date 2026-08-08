@@ -376,7 +376,7 @@ async function runIntegrationTest() {
       `Admin could not load the chore catalog (${catalogResponse.status}): ${catalogBody}`,
     );
     const catalog = JSON.parse(catalogBody);
-    assert(catalog.revision === '1', 'Fresh catalog revision must be 1');
+    assert(catalog.revision === '2', 'Fresh catalog revision must be 2');
     assert(
       catalog.definitions?.length === 302,
       'Catalog must contain all 302 approved definitions',
@@ -391,12 +391,12 @@ async function runIntegrationTest() {
           cookie: sessionCookie,
           'content-type': 'application/json',
         },
-        body: JSON.stringify({ score: 42.25, expectedRevision: '1' }),
+        body: JSON.stringify({ score: 42.25, expectedRevision: '2' }),
       },
     );
     assert(updateResponse.ok, 'Admin could not update a chore score');
     const update = await updateResponse.json();
-    assert(update.revision === '2', 'A score change must advance the revision');
+    assert(update.revision === '3', 'A score change must advance the revision');
     assert(
       update.definition.score === 42.25,
       'The changed score was not returned',
@@ -412,7 +412,7 @@ async function runIntegrationTest() {
         },
         body: JSON.stringify({
           score: 42.25,
-          expectedRevision: '2',
+          expectedRevision: '3',
           shiftLabel: 'Changed',
         }),
       },
@@ -430,7 +430,7 @@ async function runIntegrationTest() {
           cookie: sessionCookie,
           'content-type': 'application/json',
         },
-        body: JSON.stringify({ score: 41, expectedRevision: '1' }),
+        body: JSON.stringify({ score: 41, expectedRevision: '2' }),
       },
     );
     assert(
@@ -456,7 +456,7 @@ async function runIntegrationTest() {
     assert(previewResponse.ok, 'Admin could not preview a chore plan');
     const preview = await previewResponse.json();
     assert(
-      preview.catalogRevision === '2',
+      preview.catalogRevision === '3',
       'Preview did not report its consistent catalog revision',
     );
     assert(
@@ -534,7 +534,7 @@ async function runIntegrationTest() {
           rosterID: 1,
           camperCount: 1,
           requirements: { chore: 1, event: 1, dinner: 1 },
-          expectedCatalogRevision: '2',
+          expectedCatalogRevision: '3',
           expectedDraftRevision: null,
         }),
       },
@@ -564,7 +564,7 @@ async function runIntegrationTest() {
       rosterID: 1,
       camperCount: 1,
       requirements: { chore: 1, event: 1, dinner: 1 },
-      expectedCatalogRevision: '2',
+      expectedCatalogRevision: '3',
       expectedDraftRevision: null,
     };
     const applyResponse = await fetch(
@@ -588,7 +588,7 @@ async function runIntegrationTest() {
       applied.changed === true &&
         applied.replaced === false &&
         applied.draft?.draftRevision === '1' &&
-        applied.draft?.catalogRevision === '2',
+        applied.draft?.catalogRevision === '3',
       'First draft apply did not return the expected revision state',
     );
     const savedDraftResponse = await fetch(
@@ -599,7 +599,7 @@ async function runIntegrationTest() {
     const savedDraft = await savedDraftResponse.json();
     assert(
       savedDraft.draft?.draftRevision === '1' &&
-        savedDraft.draft?.catalogRevision === '2',
+        savedDraft.draft?.catalogRevision === '3',
       'Saved draft read model did not match the applied draft',
     );
     const memberDraftResponse = await fetch(
@@ -688,7 +688,7 @@ async function runIntegrationTest() {
         body: JSON.stringify({
           ...firstApplyBody,
           camperCount: 2,
-          expectedCatalogRevision: '1',
+          expectedCatalogRevision: '2',
           expectedDraftRevision: '2',
         }),
       },

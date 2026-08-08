@@ -1,10 +1,13 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
+import { promises as fs } from 'node:fs';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import knexFactory, { Knex } from 'knex';
-import { up as excludeThreeToSixEventPeriod } from '../migrations/20260806025000_exclude_3a_6a_event_period';
 
+const PRE_EXCLUSION_MIGRATION = '20260806020000_chore_draft_persistence.ts';
+const EXCLUSION_MIGRATION = '20260806025000_exclude_3a_6a_event_period.ts';
 const CURRENT_MIGRATION = '20260806030000_chore_plan_lifecycle.ts';
 const TEST_DATABASE_URL = process.env.CHORE_TEARDOWN_TEST_DATABASE_URL;
 const POSTGRES_TEST_OPTIONS = {
@@ -15,6 +18,8 @@ const POSTGRES_TEST_OPTIONS = {
 };
 const STABLE_KEY_SHA256 =
   '68a772f3853a7d7f9e6d2bf21457d35f14b304646c0a0ed1da1ab8bdd9fa3c78';
+const V1_STABLE_KEY_SHA256 =
+  'f3d351821a204531152f119f9c5fb61615631dde1b30193d4bea9687b58bfddf';
 const CATALOG_SHA256 = {
   chore: '78533d7bef2de145afd20be3e3d8376d116405e947558db6b097b13a50a87c99',
   event: 'fdfa5ddfc67b46f5aa1ee1e82c82396664bbb2c7f20f4e564b78d92d13668c2a',
@@ -49,45 +54,6 @@ interface IDRow {
   id: number;
 }
 
-const LEGACY_EXCLUDED_EVENT_PERIODS = [
-  { dayLabel: 'Monday', dayNumber: 2, stablePeriodOrder: 4 },
-  { dayLabel: 'Tuesday', dayNumber: 3, stablePeriodOrder: 10 },
-  { dayLabel: 'Wednesday', dayNumber: 4, stablePeriodOrder: 16 },
-  { dayLabel: 'Thursday', dayNumber: 5, stablePeriodOrder: 22 },
-  { dayLabel: 'Friday', dayNumber: 6, stablePeriodOrder: 28 },
-  { dayLabel: 'Saturday', dayNumber: 7, stablePeriodOrder: 34 },
-] as const;
-const LEGACY_EXCLUDED_EVENT_POSITIONS = [
-  'Manager',
-  'Bartender',
-  'Bouncer',
-  'Float',
-] as const;
-
-function legacyExcludedEventDefinitions() {
-  return LEGACY_EXCLUDED_EVENT_PERIODS.flatMap(
-    ({ dayLabel, dayNumber, stablePeriodOrder }, dayIndex) =>
-      LEGACY_EXCLUDED_EVENT_POSITIONS.map((positionLabel, positionIndex) => ({
-        stableKey: `event-${String(stablePeriodOrder).padStart(2, '0')}-bar-${positionLabel.toLowerCase()}`,
-        kind: 'event',
-        shiftLabel: 'Bar',
-        positionLabel,
-        dayMode: 'explicit',
-        dayNumber,
-        dayLabel,
-        timePeriodLabel: '3a-6a',
-        periodOrder: stablePeriodOrder,
-        startLocalTime: '03:00:00',
-        endLocalTime: '06:00:00',
-        endDayOffset: 0,
-        sourceOrder:
-          216 +
-          dayIndex * LEGACY_EXCLUDED_EVENT_POSITIONS.length +
-          positionIndex,
-      })),
-  );
-}
-
 function validPlanInput(rosterID: number) {
   return {
     rosterID,
@@ -96,7 +62,7 @@ function validPlanInput(rosterID: number) {
     choreRequirement: 1,
     eventRequirement: 1,
     dinnerRequirement: 1,
-    catalogRevision: '1',
+    catalogRevision: '2',
     draftRevision: '1',
     generationHash: 'a'.repeat(64),
   };
@@ -121,6 +87,59 @@ function assertSafeTestDatabaseURL(databaseURL: string | undefined): string {
 
 function sha256(value: string): string {
   return createHash('sha256').update(value).digest('hex');
+}
+
+async function stableKeyHash(database: Knex): Promise<string> {
+  const rows = (await database('chore_catalog_definitions')
+    .select('stableKey')
+    .orderBy('stableKey')) as Array<{ stableKey: string }>;
+  return sha256(rows.map(({ stableKey }) => stableKey).join('\n'));
+}
+
+async function copyMigrationsThrough(
+  destinationDirectory: string,
+  lastIncludedMigration: string,
+): Promise<void> {
+  const sourceDirectory = path.resolve(__dirname, '../migrations');
+  await fs.symlink(
+    path.resolve(__dirname, '../../../node_modules'),
+    path.join(destinationDirectory, 'node_modules'),
+    'dir',
+  );
+  const migrationNames = (await fs.readdir(sourceDirectory))
+    .filter((migrationName) => migrationName.endsWith('.ts'))
+    .filter((migrationName) => migrationName <= lastIncludedMigration);
+  await Promise.all(
+    migrationNames.map((migrationName) =>
+      fs.copyFile(
+        path.join(sourceDirectory, migrationName),
+        path.join(destinationDirectory, migrationName),
+      ),
+    ),
+  );
+  await fs.mkdir(path.join(destinationDirectory, 'data'));
+  await fs.copyFile(
+    path.join(sourceDirectory, 'data/chore_catalog_v1.ts'),
+    path.join(destinationDirectory, 'data/chore_catalog_v1.ts'),
+  );
+}
+
+async function addCurrentCatalogMigrations(
+  destinationDirectory: string,
+): Promise<void> {
+  const sourceDirectory = path.resolve(__dirname, '../migrations');
+  await Promise.all(
+    [EXCLUSION_MIGRATION, CURRENT_MIGRATION].map((migrationName) =>
+      fs.copyFile(
+        path.join(sourceDirectory, migrationName),
+        path.join(destinationDirectory, migrationName),
+      ),
+    ),
+  );
+  await fs.copyFile(
+    path.join(sourceDirectory, 'data/chore_catalog_v2.ts'),
+    path.join(destinationDirectory, 'data/chore_catalog_v2.ts'),
+  );
 }
 
 function csvCell(value: string | number | null): string {
@@ -432,7 +451,7 @@ test(
       );
       assert.deepEqual(
         await database('chore_catalog_state').select('id', 'revision').first(),
-        { id: 1, revision: '1' },
+        { id: 1, revision: '2' },
       );
 
       const [actor] = (await database('users')
@@ -498,7 +517,7 @@ test(
 );
 
 test(
-  'excluding the legacy event period advances the catalog revision',
+  'the forward exclusion upgrades the immutable V1 catalog',
   POSTGRES_TEST_OPTIONS,
   async () => {
     const databaseURL = assertSafeTestDatabaseURL(TEST_DATABASE_URL);
@@ -508,9 +527,13 @@ test(
       pool: { max: 2, min: 0 },
     });
     const schemaName = `chore_catalog_exclusion_${Date.now()}`;
+    const migrationsDirectory = await fs.mkdtemp(
+      path.join(tmpdir(), 'people-manager-catalog-upgrade-'),
+    );
     let database: Knex | undefined;
 
     try {
+      await copyMigrationsThrough(migrationsDirectory, PRE_EXCLUSION_MIGRATION);
       await adminDatabase.schema.createSchema(schemaName);
       database = knexFactory({
         client: 'postgresql',
@@ -519,35 +542,32 @@ test(
         pool: { max: 2, min: 0 },
         searchPath: [schemaName],
       });
-      await database.migrate.latest({
-        directory: path.resolve(__dirname, '../migrations'),
+      const [, previousMigrationNames] = await database.migrate.latest({
+        directory: migrationsDirectory,
         extension: 'ts',
       });
-
-      await database.raw(`
-        ALTER TABLE "chore_catalog_definitions"
-        DROP CONSTRAINT "chore_catalog_definitions_event_period_valid"
-      `);
-      const legacyDefinitions = legacyExcludedEventDefinitions();
-      await database('chore_catalog_definitions').insert(legacyDefinitions);
-      await database('chore_catalog_scores').insert(
-        legacyDefinitions.map(({ stableKey }) => ({
-          definitionKey: stableKey,
-          score: 0,
-        })),
-      );
+      assert.equal(previousMigrationNames.at(-1), PRE_EXCLUSION_MIGRATION);
 
       assert.equal(
         (await database('chore_catalog_definitions').select('stableKey'))
           .length,
         326,
       );
+      assert.equal(await stableKeyHash(database), V1_STABLE_KEY_SHA256);
       assert.deepEqual(
         await database('chore_catalog_state').select('id', 'revision').first(),
         { id: 1, revision: '1' },
       );
 
-      await excludeThreeToSixEventPeriod(database);
+      await addCurrentCatalogMigrations(migrationsDirectory);
+      const [, currentMigrationNames] = await database.migrate.latest({
+        directory: migrationsDirectory,
+        extension: 'ts',
+      });
+      assert.deepEqual(currentMigrationNames, [
+        EXCLUSION_MIGRATION,
+        CURRENT_MIGRATION,
+      ]);
 
       assert.equal(
         (await database('chore_catalog_definitions').select('stableKey'))
@@ -560,14 +580,37 @@ test(
           .first(),
         undefined,
       );
+      assert.equal(await stableKeyHash(database), STABLE_KEY_SHA256);
       assert.deepEqual(
         await database('chore_catalog_state').select('id', 'revision').first(),
         { id: 1, revision: '2' },
+      );
+
+      const firstEventDefinition = await database('chore_catalog_definitions')
+        .where({ kind: 'event' })
+        .first();
+      await assert.rejects(
+        database('chore_catalog_definitions').insert({
+          ...firstEventDefinition,
+          stableKey: 'event-camp-excluded-period-upgrade',
+          timePeriodLabel: '3 am - 6 am',
+          startLocalTime: '03:00:00',
+          endLocalTime: '06:00:00',
+          periodOrder: 999,
+          sourceOrder: 999,
+        }),
+        (error) =>
+          isConstraint(
+            error,
+            '23514',
+            'chore_catalog_definitions_event_period_valid',
+          ),
       );
     } finally {
       await database?.destroy();
       await adminDatabase.schema.dropSchemaIfExists(schemaName, true);
       await adminDatabase.destroy();
+      await fs.rm(migrationsDirectory, { force: true, recursive: true });
     }
   },
 );

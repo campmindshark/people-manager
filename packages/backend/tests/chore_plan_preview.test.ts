@@ -3,7 +3,7 @@ import path from 'node:path';
 import test from 'node:test';
 import knexFactory, { Knex } from 'knex';
 import ChorePlanPreviewController from '../controllers/chore_plan_preview';
-import { CHORE_CATALOG_V1 } from '../migrations/data/chore_catalog_v1';
+import { CHORE_CATALOG_V2 } from '../migrations/data/chore_catalog_v2';
 import RoleConfigCollection from '../roles/role';
 import buildChorePlanPreview from '../utils/chorePlanPreview';
 import ChorePlanPreviewError from '../utils/chorePlanPreviewError';
@@ -48,7 +48,7 @@ function assertSafeTestDatabaseURL(databaseURL: string | undefined): string {
 }
 
 function catalogDefinitions(): ChoreCatalogDefinitionView[] {
-  return CHORE_CATALOG_V1.map((definition) => ({
+  return CHORE_CATALOG_V2.map((definition) => ({
     ...definition,
     endDayOffset: definition.endDayOffset as 0 | 1,
   }));
@@ -61,7 +61,7 @@ function build(
   return buildChorePlanPreview({
     ...request,
     year: 2026,
-    catalogRevision: '1',
+    catalogRevision: '2',
     definitions,
   });
 }
@@ -425,7 +425,7 @@ test(
       };
 
       const initial = await controller.preview(request);
-      assert.equal(initial.catalogRevision, '1');
+      assert.equal(initial.catalogRevision, '2');
       assert.equal(
         initial.shifts[0].slots[0].definitionKey,
         'event-01-bar-manager',
@@ -457,10 +457,10 @@ test(
         .update({ score: 0 });
       await scoreTransaction('chore_catalog_state')
         .where({ id: 1 })
-        .update({ revision: 2 });
+        .update({ revision: 3 });
 
       const whileUncommitted = await controller.preview(request);
-      assert.equal(whileUncommitted.catalogRevision, '1');
+      assert.equal(whileUncommitted.catalogRevision, '2');
       assert.equal(
         whileUncommitted.shifts[0].slots[0].definitionKey,
         'event-01-bar-manager',
@@ -469,7 +469,7 @@ test(
       await scoreTransaction.commit();
       scoreTransaction = undefined;
       const afterCommit = await controller.preview(request);
-      assert.equal(afterCommit.catalogRevision, '2');
+      assert.equal(afterCommit.catalogRevision, '3');
       assert.equal(
         afterCommit.shifts[0].slots[0].definitionKey,
         'event-02-audio-manager',

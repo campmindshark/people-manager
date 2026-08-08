@@ -1,5 +1,5 @@
 import { Knex } from 'knex';
-import { CHORE_CATALOG_V1 } from './data/chore_catalog_v1';
+import { CHORE_CATALOG_V2 } from './data/chore_catalog_v2';
 
 interface CountRow {
   count: string;
@@ -54,10 +54,10 @@ export async function up(knex: Knex): Promise<void> {
   await knex('chore_catalog_scores').delete();
   await knex('chore_catalog_definitions').delete();
   await knex('chore_catalog_definitions').insert(
-    CHORE_CATALOG_V1.map(({ score: _score, ...definition }) => definition),
+    CHORE_CATALOG_V2.map(({ score: _score, ...definition }) => definition),
   );
   await knex('chore_catalog_scores').insert(
-    CHORE_CATALOG_V1.map(({ stableKey, score }) => ({
+    CHORE_CATALOG_V2.map(({ stableKey, score }) => ({
       definitionKey: stableKey,
       score,
     })),
