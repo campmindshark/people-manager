@@ -97,6 +97,7 @@ export default class ChorePlanSignupController {
       throw new ChorePlanSignupError(
         'Chore plan signup is available only to roster members.',
         403,
+        'not_roster_member',
       );
     }
 
