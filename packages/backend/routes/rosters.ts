@@ -23,16 +23,25 @@ router.get(
 );
 
 /* GET Roster by ID. */
-router.get(
-  '/:id',
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  async (req: Request, res: Response, next: NextFunction) => {
-    const query = Roster.query().findById(req.params.id);
+router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
+  const rosterID = Number(req.params.id);
+  if (!Number.isSafeInteger(rosterID) || rosterID < 1) {
+    res.status(400).json({ error: 'Roster ID must be valid' });
+    return;
+  }
 
-    const roster = await query;
+  try {
+    const roster = await Roster.query().findById(rosterID);
+    if (!roster) {
+      res.status(404).json({ error: 'Roster not found' });
+      return;
+    }
+
     res.json(roster);
-  },
-);
+  } catch (error) {
+    next(error);
+  }
+});
 
 /* POST drop-out this user from the specific roster. */
 router.post('/:id/drop-out', async (req: Request, res: Response) => {
