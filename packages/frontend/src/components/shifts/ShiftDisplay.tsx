@@ -19,6 +19,16 @@ import BackendShiftClient from '../../api/shifts/shifts';
 import { getFrontendConfig } from '../../config/config';
 import ShiftBlock from './ShiftBlock';
 import ShiftStack from './ShiftStack';
+import {
+  addEventCalendarDays,
+  endOfEventDay,
+  eventCalendarDate,
+  startOfEventDay,
+} from '../../utils/datetime/utils';
+import {
+  EventDayFormatter,
+  EventGridTimeFormatter,
+} from '../../utils/datetime/formatter';
 
 interface DayBounds {
   start: Date;
@@ -34,9 +44,9 @@ const generateTimeSlotsByInterval = (
 ) => {
   const timeSlots: Date[] = [];
   for (
-    let time = start;
-    time <= end;
-    time.setMinutes(time.getMinutes() + intervalMins)
+    let time = start.getTime();
+    time <= end.getTime();
+    time += intervalMins * 60_000
   ) {
     timeSlots.push(new Date(time));
   }
@@ -44,30 +54,16 @@ const generateTimeSlotsByInterval = (
 };
 
 const generateDailyTimeSlots = (startDay: Date, endDay: Date) => {
-  const start = new Date(startDay);
-  start.setHours(0, 0, 0, 0);
-  const end = new Date(endDay);
-  end.setHours(23, 59, 59, 999);
+  const start = startOfEventDay(startDay);
+  const end = endOfEventDay(endDay);
   const timeSlots = generateTimeSlotsByInterval(60, start, end);
   return timeSlots;
 };
 
 const getDefaultDayBounds = (year: number): DayBounds => ({
-  start: new Date(year, 7, 24),
-  end: new Date(year, 8, 1),
+  start: eventCalendarDate(year, 8, 24),
+  end: endOfEventDay(eventCalendarDate(year, 9, 1)),
 });
-
-const startOfDay = (date: Date) => {
-  const newDate = new Date(date);
-  newDate.setHours(0, 0, 0, 0);
-  return newDate;
-};
-
-const endOfDay = (date: Date) => {
-  const newDate = new Date(date);
-  newDate.setHours(23, 59, 59, 999);
-  return newDate;
-};
 
 export default function ShiftDisplay() {
   const currentRoster = useRecoilValue(CurrentRosterState);
@@ -132,8 +128,8 @@ export default function ShiftDisplay() {
       });
 
       setDayBounds({
-        start: startOfDay(minStart),
-        end: endOfDay(maxEnd),
+        start: startOfEventDay(minStart),
+        end: endOfEventDay(maxEnd),
       });
     };
 
@@ -161,9 +157,7 @@ export default function ShiftDisplay() {
   );
 
   const handleDayChange = (change: number) => {
-    const newDate = new Date(currentDay);
-    newDate.setDate(newDate.getDate() + change);
-    setCurrentDay(newDate);
+    setCurrentDay(addEventCalendarDays(currentDay, change));
   };
 
   const handleNextDay = () => {
@@ -203,12 +197,7 @@ export default function ShiftDisplay() {
         <AppBar position="static">
           <Toolbar>
             <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-              {currentDay.toLocaleDateString('en-US', {
-                weekday: 'long',
-                day: 'numeric',
-                month: 'short',
-              })}{' '}
-              Shifts
+              {EventDayFormatter.format(currentDay)} Shifts (Pacific Time)
             </Typography>
             <IconButton onClick={handlePreviousDay}>
               <ArrowLeftIcon />
@@ -224,11 +213,7 @@ export default function ShiftDisplay() {
               <ShiftBlock />
               {timeSlots.map((timeSlot) => (
                 <ShiftBlock key={`time-slot-${timeSlot}`}>
-                  {timeSlot.toLocaleTimeString('en-US', {
-                    hour: 'numeric',
-                    minute: 'numeric',
-                    weekday: 'short',
-                  })}
+                  {EventGridTimeFormatter.format(timeSlot)}
                 </ShiftBlock>
               ))}
             </Stack>
