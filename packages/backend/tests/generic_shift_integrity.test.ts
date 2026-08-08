@@ -398,6 +398,38 @@ test(
         'legacy-pacific-reinterpretation',
       );
 
+      const postMigrationHistoricalWrite =
+        await prepareRosterAttendanceTimestampWrite(
+          database,
+          new Date('2025-08-24T16:00:00.000Z'),
+          new Date('2025-08-24T18:00:00.000Z'),
+        );
+      await database('roster_participants')
+        .where({ rosterID: historicalRoster.id, userID: historicalUser.id })
+        .update(postMigrationHistoricalWrite);
+      const normalizedHistoricalWrite = await database('roster_participants')
+        .select(
+          'estimatedArrivalDate',
+          'estimatedDepartureDate',
+          'attendanceTimestampFormat',
+        )
+        .where({ rosterID: historicalRoster.id, userID: historicalUser.id })
+        .first();
+      assert.equal(
+        new Date(normalizedHistoricalWrite.estimatedArrivalDate).toISOString(),
+        '2025-08-24T16:00:00.000Z',
+      );
+      assert.equal(
+        new Date(
+          normalizedHistoricalWrite.estimatedDepartureDate,
+        ).toISOString(),
+        '2025-08-24T18:00:00.000Z',
+      );
+      assert.equal(
+        normalizedHistoricalWrite.attendanceTimestampFormat,
+        'absolute',
+      );
+
       const postMigrationNewTaskWrite =
         await prepareRosterAttendanceTimestampWrite(
           database,
@@ -453,6 +485,18 @@ test(
       assert.equal(
         new Date(restored.estimatedDepartureDate).toISOString(),
         '2026-08-25T01:00:00.000Z',
+      );
+      const restoredHistoricalWrite = await database('roster_participants')
+        .select('estimatedArrivalDate', 'estimatedDepartureDate')
+        .where({ rosterID: historicalRoster.id, userID: historicalUser.id })
+        .first();
+      assert.equal(
+        new Date(restoredHistoricalWrite.estimatedArrivalDate).toISOString(),
+        '2025-08-24T23:00:00.000Z',
+      );
+      assert.equal(
+        new Date(restoredHistoricalWrite.estimatedDepartureDate).toISOString(),
+        '2025-08-25T01:00:00.000Z',
       );
       assert.equal(
         await database.schema.hasColumn(
