@@ -304,7 +304,8 @@ test('pure preview rejects incomplete or internally invalid stored catalogs', ()
   };
   assert.throws(
     () => build(DEFAULT_REQUEST, inconsistentGroup),
-    (error) => isPreviewError(error, 500, /inconsistent/i),
+    (error) =>
+      isPreviewError(error, 500, /fixed catalog field timePeriodLabel/i),
   );
 
   const invalidPeriodOrder = catalogDefinitions().map((definition) =>
@@ -317,8 +318,41 @@ test('pure preview rejects incomplete or internally invalid stored catalogs', ()
   );
   assert.throws(
     () => build(DEFAULT_REQUEST, invalidPeriodOrder),
-    (error) => isPreviewError(error, 500, /contiguous from 1/i),
+    (error) => isPreviewError(error, 500, /fixed catalog field periodOrder/i),
   );
+});
+
+test('pure preview enforces fixed catalog metadata while allowing score edits', () => {
+  const changedPosition = catalogDefinitions();
+  changedPosition[0] = {
+    ...changedPosition[0],
+    positionLabel: 'Tampered Position',
+  };
+  assert.throws(
+    () => build(DEFAULT_REQUEST, changedPosition),
+    (error) => isPreviewError(error, 500, /fixed catalog field positionLabel/i),
+  );
+
+  const changedKey = catalogDefinitions();
+  changedKey[0] = {
+    ...changedKey[0],
+    stableKey: 'chore-am-chum-wench-tampered',
+  };
+  assert.throws(
+    () => build(DEFAULT_REQUEST, changedKey),
+    (error) => isPreviewError(error, 500, /not in the fixed catalog/i),
+  );
+
+  const changedScore = catalogDefinitions();
+  changedScore[0] = { ...changedScore[0], score: 99 };
+  const preview = build(
+    {
+      ...DEFAULT_REQUEST,
+      requirements: { chore: 1, event: 0, dinner: 0 },
+    },
+    changedScore,
+  );
+  assert.equal(preview.shifts[0].slots[0].score, 99);
 });
 
 test('admin role has a preview permission separate from catalog editing', () => {
