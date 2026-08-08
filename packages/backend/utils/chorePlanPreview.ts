@@ -3,7 +3,7 @@ import {
   ChoreCatalogDefinitionView,
   ChoreCatalogKind,
 } from '../view_models/chore_catalog';
-import { CHORE_CATALOG_V1 } from '../migrations/data/chore_catalog_v1';
+import { CHORE_CATALOG_V2 } from '../migrations/data/chore_catalog_v2';
 import {
   ChorePlanPreview,
   ChorePlanPreviewBuildInput,
@@ -53,7 +53,7 @@ const FIXED_CATALOG_FIELDS = Object.keys(FIXED_CATALOG_FIELD_SET) as Array<
   keyof typeof FIXED_CATALOG_FIELD_SET
 >;
 const FIXED_CATALOG_BY_KEY = new Map(
-  CHORE_CATALOG_V1.map((definition) => [definition.stableKey, definition]),
+  CHORE_CATALOG_V2.map((definition) => [definition.stableKey, definition]),
 );
 
 interface PlanningDefinition extends ChoreCatalogDefinitionView {
@@ -198,7 +198,7 @@ function validateDefinition(
 }
 
 function validateFixedCatalog(definitions: PlanningDefinition[]): void {
-  if (definitions.length !== CHORE_CATALOG_V1.length) {
+  if (definitions.length !== CHORE_CATALOG_V2.length) {
     invalidCatalog('the definition count does not match the fixed catalog.');
   }
 
