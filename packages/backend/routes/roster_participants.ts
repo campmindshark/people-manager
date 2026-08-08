@@ -7,6 +7,7 @@ import RosterParticipant from '../models/roster_participant/roster_participant';
 import hasPermission from '../middleware/rbac';
 import { assertYearsAtCampWithinRoster } from '../utils/campYears';
 import parseEventDateTime from '../utils/eventTime';
+import { prepareRosterAttendanceTimestampWrite } from '../utils/rosterAttendanceTime';
 import { parseRosterParticipantBulkRemovalInput } from '../utils/rosterParticipantInput';
 
 const router: Router = express.Router();
@@ -112,6 +113,7 @@ router.post('/:id', async (req: Request, res: Response) => {
       id: _id,
       userID: _userId,
       rosterID: _rosterId,
+      attendanceTimestampFormat: _attendanceTimestampFormat,
       ...participantFields
     } = req.body;
     const { rosterParticipant, removedAssignmentCount } =
@@ -125,10 +127,15 @@ router.post('/:id', async (req: Request, res: Response) => {
           .where(signupScope)
           .orderBy('id')
           .forUpdate();
+        const attendanceTimestampWrite =
+          await prepareRosterAttendanceTimestampWrite(
+            transaction,
+            parsedArrivalDate,
+            parsedDepartureDate,
+          );
         const participantData = {
           ...participantFields,
-          estimatedArrivalDate: parsedArrivalDate,
-          estimatedDepartureDate: parsedDepartureDate,
+          ...attendanceTimestampWrite,
         };
         let savedParticipant: RosterParticipant;
         if (currentParticipants.length > 0) {

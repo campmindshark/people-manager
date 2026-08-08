@@ -6,6 +6,7 @@ import ChorePlanDraftController from '../controllers/chore_plan_draft';
 import ChorePlanLifecycleController from '../controllers/chore_plan_lifecycle';
 import ChorePlanShiftsController from '../controllers/chore_plan_shifts';
 import ChorePlanShiftViewError from '../utils/chorePlanShiftViewError';
+import { prepareRosterAttendanceTimestampWrite } from '../utils/rosterAttendanceTime';
 import { CHORE_PLAN_SIGNUP_RESTRICTION_MESSAGES } from '../view_models/chore_plan_shifts';
 
 const TEST_DATABASE_URL = process.env.CHORE_TEARDOWN_TEST_DATABASE_URL;
@@ -52,12 +53,17 @@ async function addRosterParticipant(
   rosterID: number,
   userID: number,
 ): Promise<void> {
+  const attendanceTimestampWrite = await prepareRosterAttendanceTimestampWrite(
+    database,
+    new Date('2026-08-20T00:00:00.000Z'),
+    new Date('2026-09-10T00:00:00.000Z'),
+  );
+
   await database('roster_participants').insert({
     rosterID,
     userID,
     probabilityOfAttending: 100,
-    estimatedArrivalDate: new Date('2026-08-20T00:00:00.000Z'),
-    estimatedDepartureDate: new Date('2026-09-10T00:00:00.000Z'),
+    ...attendanceTimestampWrite,
     sleepingArrangement: 'Test fixture',
   });
 }
@@ -227,9 +233,15 @@ test(
           assignedParticipantCount < requiredParticipants,
       );
       assert(availableShift);
+      const restrictedAttendanceTimestampWrite =
+        await prepareRosterAttendanceTimestampWrite(
+          database,
+          new Date(availableShift.endTime),
+          new Date('2026-09-10T00:00:00.000Z'),
+        );
       await database('roster_participants')
         .where({ rosterID: roster.id, userID: unassignedMember.id })
-        .update({ estimatedArrivalDate: new Date(availableShift.endTime) });
+        .update(restrictedAttendanceTimestampWrite);
       const attendanceRestrictedView = await shiftsController.getForUser(
         roster.id,
         unassignedMember.id,
@@ -241,11 +253,15 @@ test(
         CHORE_PLAN_SIGNUP_RESTRICTION_MESSAGES.outsideAttendanceWindow,
       );
 
+      const restoredAttendanceTimestampWrite =
+        await prepareRosterAttendanceTimestampWrite(
+          database,
+          new Date('2026-08-20T00:00:00.000Z'),
+          new Date('2026-09-10T00:00:00.000Z'),
+        );
       await database('roster_participants')
         .where({ rosterID: roster.id, userID: unassignedMember.id })
-        .update({
-          estimatedArrivalDate: new Date('2026-08-20T00:00:00.000Z'),
-        });
+        .update(restoredAttendanceTimestampWrite);
       const [ordinarySchedule] = (await database('schedules')
         .insert({
           rosterID: roster.id,
