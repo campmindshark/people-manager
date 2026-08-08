@@ -17,11 +17,11 @@ disabled unless its value is exactly `true`.
 - Every chore-planning route, navigation item, page, and mutation control must
   be rendered through the frontend feature gate. The backend remains
   authoritative even when the frontend displays a control.
-- The production deploy workflow pins the Terraform variable to `false` in
-  version-controlled configuration. Enable or disable the feature only through
-  a focused, reviewed PR. Merging that PR to `main` runs the ordinary deploy
-  workflow and replaces the ECS task because the backend reads configuration
-  at startup.
+- The production deploy workflow pins the Terraform variable to an explicit
+  value in version-controlled configuration. The implementation stack keeps it
+  `false`; enable or disable the feature only through a focused, reviewed PR.
+  Merging that PR to `main` runs the ordinary deploy workflow and replaces the
+  ECS task because the backend reads configuration at startup.
 - A slice that is not ready for use must not be mounted or linked merely
   because the broad feature flag is enabled. It remains unreachable until its
   implementation PR declares it complete.
