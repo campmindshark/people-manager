@@ -1,5 +1,10 @@
 import { Knex } from 'knex';
 import RosterParticipant from '../models/roster_participant/roster_participant';
+import { shiftTimeRangeContains, ShiftTimeRange } from '../utils/shiftTime';
+
+interface RosterAssignmentRow extends ShiftTimeRange {
+  assignmentID: number;
+}
 
 interface RosterParticipantRow {
   id: number;
@@ -12,6 +17,42 @@ export interface RosterParticipantRemovalResult {
 }
 
 export default class RosterParticipantController {
+  public static async ReconcileAttendanceWindow(
+    transaction: Knex.Transaction,
+    rosterID: number,
+    userID: number,
+    attendanceWindow: ShiftTimeRange,
+  ): Promise<number> {
+    const assignments = await transaction<RosterAssignmentRow>(
+      'shift_participants as assignment',
+    )
+      .innerJoin('shifts as shift', 'shift.id', 'assignment.shiftID')
+      .innerJoin('schedules as schedule', 'schedule.id', 'shift.scheduleID')
+      .select(
+        'assignment.id as assignmentID',
+        'shift.startTime',
+        'shift.endTime',
+      )
+      .where('assignment.userID', userID)
+      .where('schedule.rosterID', rosterID)
+      .orderBy('assignment.id')
+      .forUpdate('assignment');
+
+    const invalidAssignmentIDs = assignments
+      .filter(
+        (assignment) => !shiftTimeRangeContains(attendanceWindow, assignment),
+      )
+      .map(({ assignmentID }) => Number(assignmentID));
+
+    if (invalidAssignmentIDs.length === 0) {
+      return 0;
+    }
+
+    return transaction('shift_participants')
+      .whereIn('id', invalidAssignmentIDs)
+      .del();
+  }
+
   public static async RemoveFromRoster(
     rosterID: number,
     userIDs: number[],

@@ -3,7 +3,7 @@ import path from 'node:path';
 import test from 'node:test';
 import knexFactory, { Knex } from 'knex';
 import ChorePlanPreviewController from '../controllers/chore_plan_preview';
-import { CHORE_CATALOG_V1 } from '../migrations/data/chore_catalog_v1';
+import { CHORE_CATALOG_V2 } from '../migrations/data/chore_catalog_v2';
 import RoleConfigCollection from '../roles/role';
 import buildChorePlanPreview from '../utils/chorePlanPreview';
 import ChorePlanPreviewError from '../utils/chorePlanPreviewError';
@@ -48,7 +48,7 @@ function assertSafeTestDatabaseURL(databaseURL: string | undefined): string {
 }
 
 function catalogDefinitions(): ChoreCatalogDefinitionView[] {
-  return CHORE_CATALOG_V1.map((definition) => ({
+  return CHORE_CATALOG_V2.map((definition) => ({
     ...definition,
     endDayOffset: definition.endDayOffset as 0 | 1,
   }));
@@ -61,7 +61,7 @@ function build(
   return buildChorePlanPreview({
     ...request,
     year: 2026,
-    catalogRevision: '1',
+    catalogRevision: '2',
     definitions,
   });
 }
@@ -171,6 +171,33 @@ test('apply input accepts only preview inputs and both observed revisions', () =
   );
 });
 
+test('filtered event periods preserve surviving stable identities', () => {
+  const definitions = catalogDefinitions();
+  assert.equal(
+    definitions.find(({ stableKey }) => stableKey === 'event-04-bar-manager'),
+    undefined,
+  );
+  assert.deepEqual(
+    definitions.find(({ stableKey }) => stableKey === 'event-05-bar-manager'),
+    {
+      stableKey: 'event-05-bar-manager',
+      kind: 'event',
+      shiftLabel: 'Bar',
+      positionLabel: 'Manager',
+      dayMode: 'explicit',
+      dayNumber: 2,
+      dayLabel: 'Monday',
+      timePeriodLabel: '12p-3p',
+      periodOrder: 4,
+      startLocalTime: '12:00:00',
+      endLocalTime: '15:00:00',
+      endDayOffset: 0,
+      sourceOrder: 24,
+      score: 100,
+    },
+  );
+});
+
 test('pure preview is deterministic, ordered, offline, and identifies every slot', async () => {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async () => {
@@ -235,7 +262,7 @@ test('preview reports exact shortages at maximum input capacity', () => {
   });
   assert.deepEqual(preview.categories, {
     chore: { target: 4000, selected: 224, shortage: 3776 },
-    event: { target: 4000, selected: 240, shortage: 3760 },
+    event: { target: 4000, selected: 216, shortage: 3784 },
     dinner: { target: 4000, selected: 54, shortage: 3946 },
   });
 });
@@ -275,7 +302,7 @@ test('closing Sunday event periods retain Saturday display grouping and actual t
     displayDayLabel: 'Saturday, Sep 5',
     calendarDay: 8,
     timePeriodLabel: '12a-3a',
-    periodOrder: 39,
+    periodOrder: 33,
     startTime: '2026-09-06T07:00:00.000Z',
     endTime: '2026-09-06T10:00:00.000Z',
     requiredParticipants: 1,
@@ -324,6 +351,20 @@ test('pure preview rejects incomplete or internally invalid stored catalogs', ()
   assert.throws(
     () => build(DEFAULT_REQUEST, invalidPeriodOrder),
     (error) => isPreviewError(error, 500, /contiguous from 1/i),
+  );
+
+  const excludedEventPeriod = catalogDefinitions();
+  const firstEventIndex = excludedEventPeriod.findIndex(
+    ({ kind }) => kind === 'event',
+  );
+  assert.notEqual(firstEventIndex, -1);
+  excludedEventPeriod[firstEventIndex] = {
+    ...excludedEventPeriod[firstEventIndex],
+    timePeriodLabel: '3 am - 6 am',
+  };
+  assert.throws(
+    () => build(DEFAULT_REQUEST, excludedEventPeriod),
+    (error) => isPreviewError(error, 500, /camp-excluded 3a-6a/i),
   );
 });
 
@@ -384,7 +425,7 @@ test(
       };
 
       const initial = await controller.preview(request);
-      assert.equal(initial.catalogRevision, '1');
+      assert.equal(initial.catalogRevision, '2');
       assert.equal(
         initial.shifts[0].slots[0].definitionKey,
         'event-01-bar-manager',
@@ -416,10 +457,10 @@ test(
         .update({ score: 0 });
       await scoreTransaction('chore_catalog_state')
         .where({ id: 1 })
-        .update({ revision: 2 });
+        .update({ revision: 3 });
 
       const whileUncommitted = await controller.preview(request);
-      assert.equal(whileUncommitted.catalogRevision, '1');
+      assert.equal(whileUncommitted.catalogRevision, '2');
       assert.equal(
         whileUncommitted.shifts[0].slots[0].definitionKey,
         'event-01-bar-manager',
@@ -428,7 +469,7 @@ test(
       await scoreTransaction.commit();
       scoreTransaction = undefined;
       const afterCommit = await controller.preview(request);
-      assert.equal(afterCommit.catalogRevision, '2');
+      assert.equal(afterCommit.catalogRevision, '3');
       assert.equal(
         afterCommit.shifts[0].slots[0].definitionKey,
         'event-02-audio-manager',

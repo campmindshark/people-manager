@@ -219,7 +219,7 @@ test(
           rosterID: roster.id,
           camperCount: 3,
           requirements: { chore: 1, event: 1, dinner: 1 },
-          expectedCatalogRevision: '1',
+          expectedCatalogRevision: '2',
           expectedDraftRevision: null,
         },
         users[0].id,

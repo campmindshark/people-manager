@@ -4,6 +4,7 @@ import ShiftController from '../controllers/shift';
 import hasPermission from '../middleware/rbac';
 import userIsVerified from '../middleware/verified_user';
 import hasChorePlanOwnershipColumns from '../utils/chorePlanSchema';
+import { PUBLIC_SCHEDULE_COLUMNS } from '../utils/scheduleApiColumns';
 
 const router: Router = express.Router();
 
@@ -12,7 +13,7 @@ router.get(
   '/',
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async (req: Request, res: Response, next: NextFunction) => {
-    const query = Schedule.query();
+    const query = Schedule.query().select(...PUBLIC_SCHEDULE_COLUMNS);
     if (await hasChorePlanOwnershipColumns(Schedule.knex())) {
       query.whereNull('chorePlanID');
     }

@@ -144,6 +144,7 @@ export function useChoreSignupLifecycle({
       setPlan(updatedPlan);
       setReviewingReopen(false);
     } catch (reopenError) {
+      setReviewingReopen(false);
       setError(requestErrorMessage(reopenError));
     } finally {
       setLoading(false);
@@ -301,6 +302,8 @@ export function ChoreSignupReopenDialog({
     <Dialog open={open} onClose={loading ? undefined : onClose}>
       <DialogTitle>Reopen chore signups</DialogTitle>
       <DialogContent>
+        {/* PR #73 adds the self-service signup, removal, and switching behavior
+        described by this lifecycle copy. */}
         <DialogContentText>
           Reopening lets verified roster members change their chore signups.
           Record the reason for this administrative change.
