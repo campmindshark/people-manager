@@ -27,7 +27,7 @@ const definition: ChoreCatalogDefinitionView = {
 };
 
 const closingSundayDefinition: ChoreCatalogDefinitionView = {
-  stableKey: 'event-39-audio-manager',
+  stableKey: 'event-33-audio-manager',
   kind: 'event',
   shiftLabel: 'Audio',
   positionLabel: 'Manager',
@@ -35,12 +35,23 @@ const closingSundayDefinition: ChoreCatalogDefinitionView = {
   dayNumber: 8,
   dayLabel: 'Sunday',
   timePeriodLabel: '12a-3a',
-  periodOrder: 39,
+  periodOrder: 33,
   startLocalTime: '00:00:00',
   endLocalTime: '03:00:00',
   endDayOffset: 0,
-  sourceOrder: 230,
+  sourceOrder: 206,
   score: 100,
+};
+
+const secondDefinition: ChoreCatalogDefinitionView = {
+  ...definition,
+  stableKey: 'chore-pm-chum-wench-first',
+  shiftLabel: 'PM Chum Wench',
+  timePeriodLabel: '6:00:00 PM',
+  startLocalTime: '18:00:00',
+  endLocalTime: '19:00:00',
+  sourceOrder: 1,
+  score: 90,
 };
 
 function response(revision = '1', score = 100): ChoreCatalogResponse {
@@ -96,7 +107,7 @@ test('describes the closing Sunday event period as day eight', async () => {
 
   expect(screen.getByText('Sunday (day 8)')).toBeVisible();
   expect(screen.getByText('12a-3a')).toBeVisible();
-  expect(screen.getByText('39')).toBeVisible();
+  expect(screen.getByText('33')).toBeVisible();
 });
 
 test('updates only score with the displayed catalog revision', async () => {
@@ -126,6 +137,46 @@ test('updates only score with the displayed catalog revision', async () => {
   );
   expect(await screen.findByText(/catalog revision 2/i)).toBeVisible();
   expect(screen.getByText(/saved am chum wench/i)).toBeVisible();
+});
+
+test('disables every save while a score update is pending', async () => {
+  const pendingUpdate = new Promise<ChoreCatalogScoreUpdateResponse>(() => {
+    // Keep the request pending while the table-wide save lock is asserted.
+  });
+  const updateScore = jest.fn().mockReturnValue(pendingUpdate);
+  const getCatalog = jest.fn().mockResolvedValue({
+    revision: '1',
+    definitions: [definition, secondDefinition],
+  });
+  render(<ChoreCatalogTable client={clientWith(getCatalog, updateScore)} />);
+
+  const firstInput = await screen.findByRole('spinbutton', {
+    name: 'Score for chore-am-chum-wench-first',
+  });
+  const secondInput = screen.getByRole('spinbutton', {
+    name: 'Score for chore-pm-chum-wench-first',
+  });
+  userEvent.clear(firstInput);
+  userEvent.type(firstInput, '42.25');
+  userEvent.clear(secondInput);
+  userEvent.type(secondInput, '45');
+
+  const firstSave = screen.getByRole('button', {
+    name: 'Save score for chore-am-chum-wench-first',
+  });
+  const secondSave = screen.getByRole('button', {
+    name: 'Save score for chore-pm-chum-wench-first',
+  });
+  expect(firstSave).toBeEnabled();
+  expect(secondSave).toBeEnabled();
+
+  userEvent.click(firstSave);
+
+  await waitFor(() => {
+    expect(firstSave).toBeDisabled();
+    expect(secondSave).toBeDisabled();
+  });
+  expect(updateScore).toHaveBeenCalledTimes(1);
 });
 
 test('blocks invalid precision before calling the API', async () => {

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import test from 'node:test';
+import { setTimeout as sleep } from 'node:timers/promises';
 import knexFactory, { Knex } from 'knex';
 import ChorePlanAssignmentsController from '../controllers/chore_plan_assignments';
 import ChorePlanDraftController from '../controllers/chore_plan_draft';
@@ -8,6 +9,7 @@ import ChorePlanLifecycleController from '../controllers/chore_plan_lifecycle';
 import ChorePlanRequirementsController from '../controllers/chore_plan_requirements';
 import ChorePlanShiftsController from '../controllers/chore_plan_shifts';
 import ChorePlanSignupController from '../controllers/chore_plan_signup';
+import RosterParticipantController from '../controllers/roster_participant';
 import RoleConfigCollection from '../roles/role';
 import ChorePlanAssignmentError from '../utils/chorePlanAssignmentError';
 import ChorePlanPreviewError from '../utils/chorePlanPreviewError';
@@ -33,12 +35,14 @@ interface IDRow {
 
 interface GeneratedShiftRow {
   id: number;
+  stableKey: string;
   kind: 'chore' | 'event' | 'dinner';
   startTime: Date | string;
   endTime: Date | string;
 }
 
 interface DatabaseError {
+  code?: string;
   constraint?: string;
 }
 
@@ -73,15 +77,18 @@ async function addParticipant(
   database: Knex,
   rosterID: number,
   userID: number,
-): Promise<void> {
-  await database('roster_participants').insert({
-    rosterID,
-    userID,
-    probabilityOfAttending: 100,
-    estimatedArrivalDate: new Date('2026-08-20T00:00:00.000Z'),
-    estimatedDepartureDate: new Date('2026-09-10T00:00:00.000Z'),
-    sleepingArrangement: 'Test fixture',
-  });
+): Promise<number> {
+  const [participant] = (await database('roster_participants')
+    .insert({
+      rosterID,
+      userID,
+      probabilityOfAttending: 100,
+      estimatedArrivalDate: new Date('2026-08-20T00:00:00.000Z'),
+      estimatedDepartureDate: new Date('2026-09-10T00:00:00.000Z'),
+      sleepingArrangement: 'Test fixture',
+    })
+    .returning('id')) as IDRow[];
+  return participant.id;
 }
 
 test('requirement override input is exact, bounded, and always reasoned', () => {
@@ -223,7 +230,7 @@ test(
           rosterID: roster.id,
           camperCount: 2,
           requirements: { chore: 2, event: 1, dinner: 1 },
-          expectedCatalogRevision: '1',
+          expectedCatalogRevision: '2',
           expectedDraftRevision: null,
         },
         users[0].id,
@@ -258,6 +265,20 @@ test(
           },
         ],
       });
+      const duplicateParticipantID = await addParticipant(
+        database,
+        roster.id,
+        users[1].id,
+      );
+      assert.deepEqual(
+        (await requirementController.getView(roster.id)).participants.map(
+          ({ userID }) => userID,
+        ),
+        [users[1].id, users[2].id],
+      );
+      await database('roster_participants')
+        .where({ id: duplicateParticipantID })
+        .del();
       await assert.rejects(
         requirementController.getView(roster.id + 1000),
         (error) => isRequirementError(error, 404, /roster not found/i),
@@ -339,6 +360,17 @@ test(
         ),
         1,
       );
+      const firstOverrideAudit = await database('chore_plan_audit_entries')
+        .where({ action: 'participant_requirements_overridden' })
+        .first();
+      assert.deepEqual(firstOverrideAudit.details, {
+        participantUserID: users[1].id,
+        previousRequirements: { chore: 2, event: 1, dinner: 1 },
+        requirements: { chore: 1, event: 1, dinner: 1 },
+        previousReason: null,
+        reason: 'Accessibility accommodation',
+        removedAssignments: [],
+      });
 
       await assert.rejects(
         draftController.apply(
@@ -346,7 +378,7 @@ test(
             rosterID: roster.id,
             camperCount: 2,
             requirements: { chore: 2, event: 0, dinner: 1 },
-            expectedCatalogRevision: '1',
+            expectedCatalogRevision: '2',
             expectedDraftRevision: applied.draft.draftRevision,
           },
           users[0].id,
@@ -377,6 +409,65 @@ test(
           error.constraint === 'chore_plans_requirement_override_maxima_v2',
       );
 
+      const [concurrencyRoster] = (await database('rosters')
+        .insert({ year: 2026 })
+        .returning('id')) as IDRow[];
+      const [concurrencyPlan] = (await database('chore_plans')
+        .insert({
+          rosterID: concurrencyRoster.id,
+          status: 'draft',
+          planningYear: 2026,
+          camperCount: 1,
+          choreRequirement: 2,
+          eventRequirement: 1,
+          dinnerRequirement: 1,
+          catalogRevision: 1,
+          generationHash: 'f'.repeat(64),
+        })
+        .returning('id')) as IDRow[];
+      let resolvePlanUpdate: (() => void) | undefined;
+      const planUpdated = new Promise<void>((resolve) => {
+        resolvePlanUpdate = resolve;
+      });
+      let releasePlanUpdate: (() => void) | undefined;
+      const planUpdateRelease = new Promise<void>((resolve) => {
+        releasePlanUpdate = resolve;
+      });
+      const concurrentPlanUpdate = database.transaction(async (transaction) => {
+        await transaction('chore_plans')
+          .where({ id: concurrencyPlan.id })
+          .update({ choreRequirement: 0 });
+        resolvePlanUpdate?.();
+        await planUpdateRelease;
+      });
+      await planUpdated;
+      const concurrentOverrideResult = database
+        .transaction(async (transaction) => {
+          await transaction.raw(`SET LOCAL lock_timeout = '250ms'`);
+          await transaction('chore_plan_requirement_overrides').insert({
+            chorePlanID: concurrencyPlan.id,
+            userID: users[2].id,
+            choreRequirement: 1,
+            eventRequirement: 1,
+            dinnerRequirement: 1,
+            reason: 'Concurrent direct write',
+          });
+        })
+        .then(
+          () => undefined,
+          (error: DatabaseError) => error,
+        );
+      const concurrentOverrideError = await concurrentOverrideResult;
+      releasePlanUpdate?.();
+      await concurrentPlanUpdate;
+      assert.equal(concurrentOverrideError?.code, '55P03');
+      assert.equal(
+        await database('chore_plan_requirement_overrides')
+          .where({ chorePlanID: concurrencyPlan.id })
+          .first(),
+        undefined,
+      );
+
       await requirementController.setOverride(
         roster.id,
         users[1].id,
@@ -397,6 +488,7 @@ test(
         .innerJoin('shifts as shift', 'shift.id', 'generated.shiftID')
         .select(
           'shift.id',
+          'generated.stableKey',
           'generated.kind',
           'shift.startTime',
           'shift.endTime',
@@ -420,6 +512,85 @@ test(
             new Date(secondShift.endTime).getTime(),
       );
       assert(thirdShift);
+
+      let resolvePlanLock: (() => void) | undefined;
+      const planLocked = new Promise<void>((resolve) => {
+        resolvePlanLock = resolve;
+      });
+      const signupLockOrder = database.transaction(async (transaction) => {
+        await transaction('chore_plans')
+          .select('id')
+          .where({ id: applied.draft.id })
+          .forShare()
+          .first();
+        resolvePlanLock?.();
+        await sleep(250);
+        await transaction('users')
+          .select('id')
+          .where({ id: users[2].id })
+          .forUpdate()
+          .first();
+      });
+      await planLocked;
+      await Promise.all([
+        requirementController.setOverride(
+          roster.id,
+          users[1].id,
+          {
+            requirements: { chore: 0, event: 1, dinner: 1 },
+            reason: 'Signup-first concurrency lock test',
+          },
+          users[2].id,
+        ),
+        signupLockOrder,
+      ]);
+
+      await database.raw(`
+        CREATE FUNCTION delay_requirement_actor_audit() RETURNS trigger AS $$
+        BEGIN
+          IF NEW.action = 'participant_requirements_overridden'
+            AND NEW.details ->> 'reason' = 'Concurrency lock test'
+          THEN
+            PERFORM pg_sleep(0.5);
+          END IF;
+          RETURN NEW;
+        END;
+        $$ LANGUAGE plpgsql;
+        CREATE TRIGGER delay_requirement_actor_audit_trigger
+        BEFORE INSERT ON chore_plan_audit_entries
+        FOR EACH ROW EXECUTE FUNCTION delay_requirement_actor_audit();
+      `);
+      const concurrentSignup = (async () => {
+        await sleep(100);
+        return signupController.signup(roster.id, [firstShift.id], users[2].id);
+      })();
+      await Promise.all([
+        requirementController.setOverride(
+          roster.id,
+          users[1].id,
+          {
+            requirements: { chore: 0, event: 1, dinner: 1 },
+            reason: 'Concurrency lock test',
+          },
+          users[2].id,
+        ),
+        concurrentSignup,
+      ]);
+      await database.raw(
+        'DROP TRIGGER delay_requirement_actor_audit_trigger ON chore_plan_audit_entries',
+      );
+      await database.raw('DROP FUNCTION delay_requirement_actor_audit()');
+      await signupController.remove(roster.id, firstShift.id, users[2].id);
+      await requirementController.setOverride(
+        roster.id,
+        users[1].id,
+        {
+          requirements: { chore: 0, event: 1, dinner: 1 },
+          reason: 'Full chore exemption',
+        },
+        users[0].id,
+      );
+
       await assert.rejects(
         signupController.signup(roster.id, [firstShift.id], users[1].id),
         (error) =>
@@ -513,6 +684,106 @@ test(
           /all required chore/i.test(error.message),
       );
 
+      await database.raw(`
+        CREATE FUNCTION reject_requirement_reconciliation_audit()
+        RETURNS trigger AS $$
+        BEGIN
+          IF NEW.action = 'participant_requirements_overridden' THEN
+            RAISE EXCEPTION 'forced reconciliation audit failure';
+          END IF;
+          RETURN NEW;
+        END;
+        $$ LANGUAGE plpgsql;
+        CREATE TRIGGER reject_requirement_reconciliation_audit_trigger
+        BEFORE INSERT ON chore_plan_audit_entries
+        FOR EACH ROW EXECUTE FUNCTION reject_requirement_reconciliation_audit();
+      `);
+      await assert.rejects(
+        requirementController.setOverride(
+          roster.id,
+          users[1].id,
+          {
+            requirements: { chore: 1, event: 1, dinner: 1 },
+            reason: 'Reduced participation',
+          },
+          users[0].id,
+        ),
+        /forced reconciliation audit failure/i,
+      );
+      assert.equal(
+        Number(
+          (
+            await database('shift_participants as assignment')
+              .innerJoin(
+                'chore_plan_generated_shifts as generated',
+                'generated.shiftID',
+                'assignment.shiftID',
+              )
+              .where('assignment.userID', users[1].id)
+              .where('generated.chorePlanID', applied.draft.id)
+              .count('* as count')
+              .first()
+          )?.count ?? 0,
+        ),
+        2,
+      );
+      assert.equal(
+        await database('chore_plan_requirement_overrides')
+          .where({ chorePlanID: applied.draft.id, userID: users[1].id })
+          .first(),
+        undefined,
+      );
+      await database.raw(
+        'DROP TRIGGER reject_requirement_reconciliation_audit_trigger ON chore_plan_audit_entries',
+      );
+      await database.raw(
+        'DROP FUNCTION reject_requirement_reconciliation_audit()',
+      );
+
+      await requirementController.setOverride(
+        roster.id,
+        users[1].id,
+        {
+          requirements: { chore: 1, event: 1, dinner: 1 },
+          reason: 'Reduced participation',
+        },
+        users[0].id,
+      );
+      const retainedAssignments = await database(
+        'shift_participants as assignment',
+      )
+        .innerJoin(
+          'chore_plan_generated_shifts as generated',
+          'generated.shiftID',
+          'assignment.shiftID',
+        )
+        .select('assignment.shiftID')
+        .where('assignment.userID', users[1].id)
+        .where('generated.chorePlanID', applied.draft.id)
+        .orderBy('assignment.id');
+      assert.deepEqual(
+        retainedAssignments.map(({ shiftID }) => Number(shiftID)),
+        [firstShift.id],
+      );
+      const reconciliationAudit = await database('chore_plan_audit_entries')
+        .where({ action: 'participant_requirements_overridden' })
+        .orderBy('id', 'desc')
+        .first();
+      assert.deepEqual(reconciliationAudit.details, {
+        participantUserID: users[1].id,
+        previousRequirements: { chore: 2, event: 1, dinner: 1 },
+        requirements: { chore: 1, event: 1, dinner: 1 },
+        previousReason: null,
+        reason: 'Reduced participation',
+        removedAssignments: [
+          {
+            shiftID: secondShift.id,
+            stableKey: secondShift.stableKey,
+            kind: 'chore',
+          },
+        ],
+      });
+
       const clearedAudit = await database('chore_plan_audit_entries')
         .where({ action: 'participant_requirements_cleared' })
         .first();
@@ -523,6 +794,7 @@ test(
         requirements: { chore: 2, event: 1, dinner: 1 },
         previousReason: 'Full chore exemption',
         reason: 'Accommodation ended',
+        removedAssignments: [],
       });
       await assert.rejects(
         database('chore_plan_audit_entries').insert({
@@ -533,6 +805,85 @@ test(
             participantUserID: users[1].id,
             requirements: { chore: 2, event: 1, dinner: 1 },
             reason: 'Missing required audit fields',
+          },
+        }),
+        /requirement_details_valid/i,
+      );
+      await assert.rejects(
+        database('chore_plan_audit_entries').insert({
+          chorePlanID: applied.draft.id,
+          actorUserID: users[0].id,
+          action: 'participant_requirements_overridden',
+          details: {
+            participantUserID: users[1].id,
+            previousRequirements: { chore: 2, event: 1, dinner: 1 },
+            requirements: { chore: '1', event: 1, dinner: 1 },
+            previousReason: null,
+            reason: 'Invalid requirement type',
+            removedAssignments: [],
+          },
+        }),
+        /requirement_details_valid/i,
+      );
+      await assert.rejects(
+        database('chore_plan_audit_entries').insert({
+          chorePlanID: applied.draft.id,
+          actorUserID: users[0].id,
+          action: 'participant_requirements_overridden',
+          details: {
+            participantUserID: users[1].id,
+            previousRequirements: { chore: 2, event: 1, dinner: 1 },
+            requirements: { chore: 21, event: 1, dinner: 1 },
+            previousReason: null,
+            reason: 'Invalid requirement range',
+            removedAssignments: [],
+          },
+        }),
+        /requirement_details_valid/i,
+      );
+      const validRemovedAssignment = {
+        shiftID: secondShift.id,
+        stableKey: secondShift.stableKey,
+        kind: 'chore',
+      };
+      const validRequirementAuditDetails = {
+        participantUserID: users[1].id,
+        previousRequirements: { chore: 2, event: 1, dinner: 1 },
+        requirements: { chore: 1, event: 1, dinner: 1 },
+        previousReason: null,
+        reason: 'Invalid removed assignment',
+      };
+      const constraintDatabase = database;
+      await Promise.all(
+        [
+          [null],
+          [{ ...validRemovedAssignment, shiftID: String(secondShift.id) }],
+          [{ ...validRemovedAssignment, stableKey: 42 }],
+          [{ ...validRemovedAssignment, kind: 'other' }],
+          [{ ...validRemovedAssignment, unexpected: true }],
+        ].map((removedAssignments) =>
+          assert.rejects(
+            constraintDatabase('chore_plan_audit_entries').insert({
+              chorePlanID: applied.draft.id,
+              actorUserID: users[0].id,
+              action: 'participant_requirements_overridden',
+              details: {
+                ...validRequirementAuditDetails,
+                removedAssignments,
+              },
+            }),
+            /requirement_details_valid/i,
+          ),
+        ),
+      );
+      await assert.rejects(
+        database('chore_plan_audit_entries').insert({
+          chorePlanID: applied.draft.id,
+          actorUserID: users[0].id,
+          action: 'participant_requirements_cleared',
+          details: {
+            ...validRequirementAuditDetails,
+            removedAssignments: [validRemovedAssignment],
           },
         }),
         /requirement_details_valid/i,
@@ -555,6 +906,250 @@ test(
         ),
         (error) => isRequirementError(error, 409, /plan is closed/i),
       );
+
+      const [cleanupRoster] = (await database('rosters')
+        .insert({ year: 2026 })
+        .returning('id')) as IDRow[];
+      await addParticipant(database, cleanupRoster.id, users[2].id);
+      const cleanupDraft = await draftController.apply(
+        {
+          rosterID: cleanupRoster.id,
+          camperCount: 1,
+          requirements: { chore: 2, event: 1, dinner: 1 },
+          expectedCatalogRevision: '2',
+          expectedDraftRevision: null,
+        },
+        users[0].id,
+      );
+      await requirementController.setOverride(
+        cleanupRoster.id,
+        users[2].id,
+        {
+          requirements: { chore: 1, event: 1, dinner: 1 },
+          reason: 'Temporary attendance accommodation',
+        },
+        users[0].id,
+      );
+      const cleanupAudit = await database('chore_plan_audit_entries')
+        .where({
+          chorePlanID: cleanupDraft.draft.id,
+          action: 'participant_requirements_overridden',
+        })
+        .first();
+      assert(cleanupAudit);
+
+      await database.raw(`
+        CREATE FUNCTION reject_roster_requirement_audit()
+        RETURNS trigger AS $$
+        BEGIN
+          IF NEW.action = 'participant_requirements_cleared'
+            AND NEW.details ->> 'reason' = 'Roster membership ended.'
+          THEN
+            RAISE EXCEPTION 'forced roster requirement audit failure';
+          END IF;
+          RETURN NEW;
+        END;
+        $$ LANGUAGE plpgsql;
+
+        CREATE TRIGGER reject_roster_requirement_audit_trigger
+        BEFORE INSERT ON chore_plan_audit_entries
+        FOR EACH ROW EXECUTE FUNCTION reject_roster_requirement_audit();
+      `);
+      await assert.rejects(
+        RosterParticipantController.RemoveFromRoster(
+          cleanupRoster.id,
+          [users[2].id],
+          users[0].id,
+          database,
+        ),
+        /forced roster requirement audit failure/i,
+      );
+      assert(
+        await database('roster_participants')
+          .where({ rosterID: cleanupRoster.id, userID: users[2].id })
+          .first(),
+      );
+      assert(
+        await database('chore_plan_requirement_overrides')
+          .where({
+            chorePlanID: cleanupDraft.draft.id,
+            userID: users[2].id,
+          })
+          .first(),
+      );
+      await database.raw(
+        'DROP TRIGGER reject_roster_requirement_audit_trigger ON chore_plan_audit_entries',
+      );
+      await database.raw('DROP FUNCTION reject_roster_requirement_audit()');
+
+      const cleanupShift = await database('chore_plan_generated_shifts')
+        .select('shiftID')
+        .where({ chorePlanID: cleanupDraft.draft.id })
+        .first();
+      assert(cleanupShift);
+      await database('shift_participants').insert({
+        shiftID: cleanupShift.shiftID,
+        userID: users[2].id,
+      });
+      await database.raw(`
+        CREATE FUNCTION delay_roster_requirement_audit()
+        RETURNS trigger AS $$
+        BEGIN
+          IF NEW.action = 'participant_requirements_cleared'
+            AND NEW.details ->> 'reason' = 'Roster membership ended.'
+          THEN
+            PERFORM pg_sleep(0.5);
+          END IF;
+          RETURN NEW;
+        END;
+        $$ LANGUAGE plpgsql;
+        CREATE TRIGGER delay_roster_requirement_audit_trigger
+        BEFORE INSERT ON chore_plan_audit_entries
+        FOR EACH ROW EXECUTE FUNCTION delay_roster_requirement_audit();
+      `);
+      let resolveRequirementPlanLock: (() => void) | undefined;
+      const requirementPlanLocked = new Promise<void>((resolve) => {
+        resolveRequirementPlanLock = resolve;
+      });
+      const concurrentRequirementLock = database.transaction(
+        async (transaction) => {
+          await transaction('chore_plans')
+            .select('id')
+            .where({ id: cleanupDraft.draft.id })
+            .forUpdate()
+            .first();
+          resolveRequirementPlanLock?.();
+          await sleep(250);
+          await transaction('roster_participants')
+            .select('id')
+            .where({
+              rosterID: cleanupRoster.id,
+              userID: users[2].id,
+            })
+            .forUpdate()
+            .first();
+        },
+      );
+      await requirementPlanLocked;
+      const cleanup = RosterParticipantController.RemoveFromRoster(
+        cleanupRoster.id,
+        [users[2].id],
+        users[0].id,
+        database,
+      );
+      assert.deepEqual(
+        (await Promise.all([cleanup, concurrentRequirementLock]))[0],
+        { deletedCount: 1, removedAssignmentCount: 1 },
+      );
+
+      await addParticipant(database, cleanupRoster.id, users[2].id);
+      await requirementController.setOverride(
+        cleanupRoster.id,
+        users[2].id,
+        {
+          requirements: { chore: 1, event: 1, dinner: 1 },
+          reason: 'Temporary attendance accommodation',
+        },
+        users[0].id,
+      );
+      await database('shift_participants').insert({
+        shiftID: cleanupShift.shiftID,
+        userID: users[2].id,
+      });
+      const actorCleanup = RosterParticipantController.RemoveFromRoster(
+        cleanupRoster.id,
+        [users[2].id],
+        users[0].id,
+        database,
+      );
+      await sleep(100);
+      const concurrentActorAssignmentLock = database.transaction(
+        async (transaction) => {
+          await transaction('users')
+            .select('id')
+            .where({ id: users[0].id })
+            .forUpdate()
+            .first();
+          await transaction('shift_participants')
+            .select('shiftID')
+            .where({
+              shiftID: cleanupShift.shiftID,
+              userID: users[2].id,
+            })
+            .forUpdate()
+            .first();
+        },
+      );
+      assert.deepEqual(
+        (await Promise.all([actorCleanup, concurrentActorAssignmentLock]))[0],
+        { deletedCount: 1, removedAssignmentCount: 1 },
+      );
+      await database.raw(
+        'DROP TRIGGER delay_roster_requirement_audit_trigger ON chore_plan_audit_entries',
+      );
+      await database.raw('DROP FUNCTION delay_roster_requirement_audit()');
+      assert.equal(
+        await database('chore_plan_requirement_overrides')
+          .where({
+            chorePlanID: cleanupDraft.draft.id,
+            userID: users[2].id,
+          })
+          .first(),
+        undefined,
+      );
+      assert(
+        await database('chore_plan_audit_entries')
+          .where({ id: cleanupAudit.id })
+          .first(),
+      );
+      const cleanupClearAudit = await database('chore_plan_audit_entries')
+        .where({
+          chorePlanID: cleanupDraft.draft.id,
+          action: 'participant_requirements_cleared',
+        })
+        .orderBy('id', 'desc')
+        .first();
+      assert(cleanupClearAudit);
+      assert.equal(cleanupClearAudit.actorUserID, users[0].id);
+      assert.deepEqual(cleanupClearAudit.details, {
+        participantUserID: users[2].id,
+        previousRequirements: { chore: 1, event: 1, dinner: 1 },
+        requirements: { chore: 2, event: 1, dinner: 1 },
+        previousReason: 'Temporary attendance accommodation',
+        reason: 'Roster membership ended.',
+        removedAssignments: [],
+      });
+
+      await addParticipant(database, cleanupRoster.id, users[2].id);
+      const rejoinedParticipant = (
+        await requirementController.getView(cleanupRoster.id)
+      ).participants.find(({ userID }) => userID === users[2].id);
+      assert.deepEqual(rejoinedParticipant, {
+        userID: users[2].id,
+        firstName: 'Beta',
+        lastName: 'Camper',
+        playaName: 'B',
+        requirements: { chore: 2, event: 1, dinner: 1 },
+        hasOverride: false,
+        overrideReason: null,
+      });
+
+      const reducedCleanupDraft = await draftController.apply(
+        {
+          rosterID: cleanupRoster.id,
+          camperCount: 1,
+          requirements: { chore: 0, event: 1, dinner: 1 },
+          expectedCatalogRevision: '2',
+          expectedDraftRevision: cleanupDraft.draft.draftRevision,
+        },
+        users[0].id,
+      );
+      assert.equal(reducedCleanupDraft.changed, true);
+      assert.deepEqual(reducedCleanupDraft.draft.requirements, {
+        chore: 0,
+        event: 1,
+        dinner: 1,
+      });
     } finally {
       await database?.destroy();
       await adminDatabase.schema.dropSchemaIfExists(schemaName, true);

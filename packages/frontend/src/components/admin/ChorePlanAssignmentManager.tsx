@@ -72,6 +72,8 @@ const CATEGORY_LABELS: Record<ChoreCatalogKind, string> = {
   event: 'Event crew',
   dinner: 'Dinner crew',
 };
+const REFRESH_AFTER_MUTATION_ERROR =
+  'The assignment change was saved, but the latest assignments could not be loaded. Refresh the page to continue.';
 
 function participantName(
   participant: ChorePlanAdminAssignmentParticipant,
@@ -424,19 +426,27 @@ export default function ChorePlanAssignmentManager({
     setSubmitting(true);
     setError(null);
     setSuccess(null);
+    let result: ChorePlanAdminAssignmentMutationResponse;
     try {
-      const result =
+      result =
         force && allowForce
           ? await planClient.ForceAdminAssignments(rosterID, {
               mutation,
               reason: forceReason.trim(),
             })
           : await planClient.MutateAdminAssignments(rosterID, mutation);
-      setView(await loadView());
-      setSuccess(successMessage(result, changedMessage));
-      resetSelection();
     } catch (mutationError) {
       setError(errorMessage(mutationError));
+      setSubmitting(false);
+      return;
+    }
+
+    setSuccess(successMessage(result, changedMessage));
+    resetSelection();
+    try {
+      setView(await loadView());
+    } catch (_refreshError) {
+      setError(REFRESH_AFTER_MUTATION_ERROR);
     } finally {
       setSubmitting(false);
     }
@@ -448,12 +458,14 @@ export default function ChorePlanAssignmentManager({
     );
     setSelectedParticipants([]);
     setDestinationShiftID(null);
+    setForceReason('');
     setError(null);
     setSuccess(null);
   };
 
   const handleToggleParticipant = (selection: AdminParticipantSelection) => {
     setSelectedAssigneeID(null);
+    setForceReason('');
     setError(null);
     setSuccess(null);
     const selected = selectedParticipants.some(
@@ -764,6 +776,7 @@ export default function ChorePlanAssignmentManager({
                             setDestinationShiftID((current) =>
                               current === shiftID ? null : shiftID,
                             );
+                            setForceReason('');
                             setError(null);
                             setSuccess(null);
                           }}

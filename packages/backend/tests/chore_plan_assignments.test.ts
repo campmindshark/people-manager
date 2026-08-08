@@ -5,6 +5,7 @@ import knexFactory, { Knex } from 'knex';
 import ChorePlanAssignmentsController from '../controllers/chore_plan_assignments';
 import ChorePlanDraftController from '../controllers/chore_plan_draft';
 import ChorePlanLifecycleController from '../controllers/chore_plan_lifecycle';
+import RosterParticipantController from '../controllers/roster_participant';
 import RoleConfigCollection from '../roles/role';
 import ChorePlanAssignmentError from '../utils/chorePlanAssignmentError';
 import {
@@ -186,11 +187,17 @@ test(
             lastName: 'Camper',
             email: 'assignment-late@example.invalid',
           },
+          {
+            firstName: 'Removed',
+            lastName: 'Camper',
+            email: 'assignment-removed@example.invalid',
+          },
         ])
         .returning('id')) as IDRow[];
       const [roster] = (await database('rosters')
         .insert({ year: 2026 })
         .returning('id')) as IDRow[];
+      await addParticipant(database, roster.id, users[1].id);
       await addParticipant(database, roster.id, users[1].id);
       await addParticipant(database, roster.id, users[2].id);
       await addParticipant(
@@ -200,6 +207,7 @@ test(
         '2026-09-05T00:00:00.000Z',
         '2026-09-10T00:00:00.000Z',
       );
+      await addParticipant(database, roster.id, users[4].id);
 
       const draftController = new ChorePlanDraftController(database);
       const lifecycleController = new ChorePlanLifecycleController(database);
@@ -211,7 +219,7 @@ test(
           rosterID: roster.id,
           camperCount: 3,
           requirements: { chore: 1, event: 1, dinner: 1 },
-          expectedCatalogRevision: '1',
+          expectedCatalogRevision: '2',
           expectedDraftRevision: null,
         },
         users[0].id,
@@ -257,7 +265,7 @@ test(
       assert.equal(initialView.mutationsAllowed, true);
       assert.deepEqual(
         initialView.participants.map(({ firstName }) => firstName),
-        ['Alpha', 'Beta', 'Late'],
+        ['Alpha', 'Beta', 'Late', 'Removed'],
       );
       assert(
         initialView.shifts.every(
@@ -266,6 +274,53 @@ test(
             (shift.periodOrder === null || Number.isInteger(shift.periodOrder)),
         ),
       );
+
+      // Align both transactions at the audit insert so conflicting user locks
+      // reproduce the cross-actor deadlock deterministically.
+      await database.raw(`
+        CREATE FUNCTION delay_assignment_audit() RETURNS trigger AS $$
+        BEGIN
+          IF NEW.action = 'admin_assignment_mutated' THEN
+            PERFORM pg_sleep(0.5);
+          END IF;
+          RETURN NEW;
+        END;
+        $$ LANGUAGE plpgsql;
+        CREATE TRIGGER delay_assignment_audit_trigger
+        BEFORE INSERT ON chore_plan_audit_entries
+        FOR EACH ROW EXECUTE FUNCTION delay_assignment_audit();
+      `);
+      const crossActorAssignments = await Promise.all([
+        assignmentsController.mutate(roster.id, users[1].id, {
+          operation: 'assign',
+          userID: users[2].id,
+          shiftID: firstShift.id,
+        }),
+        assignmentsController.mutate(roster.id, users[2].id, {
+          operation: 'assign',
+          userID: users[1].id,
+          shiftID: secondShift.id,
+        }),
+      ]);
+      assert(
+        crossActorAssignments.every(
+          ({ changed, forced }) => changed && !forced,
+        ),
+      );
+      await database.raw(
+        'DROP TRIGGER delay_assignment_audit_trigger ON chore_plan_audit_entries',
+      );
+      await database.raw('DROP FUNCTION delay_assignment_audit()');
+      await assignmentsController.mutate(roster.id, users[0].id, {
+        operation: 'unassign',
+        userID: users[2].id,
+        shiftID: firstShift.id,
+      });
+      await assignmentsController.mutate(roster.id, users[0].id, {
+        operation: 'unassign',
+        userID: users[1].id,
+        shiftID: secondShift.id,
+      });
 
       assert.deepEqual(
         await assignmentsController.mutate(roster.id, users[0].id, {
@@ -317,6 +372,67 @@ test(
         shiftID: ordinaryShift.id,
         userID: users[1].id,
       });
+      await database('shift_participants').insert([
+        { shiftID: ordinaryShift.id, userID: users[4].id },
+        { shiftID: firstShift.id, userID: users[4].id },
+      ]);
+      // Audit foreign keys take this lock on their actor. Roster cleanup must
+      // remain compatible while still serializing assignment changes.
+      let releaseActorKeyShare = () => {};
+      const actorKeyShareRelease = new Promise<void>((resolve) => {
+        releaseActorKeyShare = resolve;
+      });
+      let confirmActorKeyShare = () => {};
+      const actorKeyShareConfirmed = new Promise<void>((resolve) => {
+        confirmActorKeyShare = resolve;
+      });
+      const actorKeyShareTransaction = database.transaction(
+        async (transaction) => {
+          await transaction('users')
+            .select('id')
+            .where({ id: users[4].id })
+            .forKeyShare()
+            .first();
+          confirmActorKeyShare();
+          await actorKeyShareRelease;
+        },
+      );
+      await actorKeyShareConfirmed;
+      try {
+        assert.deepEqual(
+          await database.transaction(async (transaction) => {
+            await transaction.raw("SET LOCAL lock_timeout = '250ms'");
+            return RosterParticipantController.RemoveFromRoster(
+              roster.id,
+              [users[4].id],
+              users[0].id,
+              transaction,
+            );
+          }),
+          { deletedCount: 1, removedAssignmentCount: 2 },
+        );
+      } finally {
+        releaseActorKeyShare();
+        await actorKeyShareTransaction;
+      }
+      assert.equal(
+        await database('roster_participants')
+          .where({ rosterID: roster.id, userID: users[4].id })
+          .first(),
+        undefined,
+      );
+      assert.equal(
+        await database('shift_participants')
+          .where({ userID: users[4].id })
+          .whereIn('shiftID', [ordinaryShift.id, firstShift.id])
+          .first(),
+        undefined,
+      );
+      assert(
+        await database('shift_participants')
+          .where({ shiftID: ordinaryShift.id, userID: users[1].id })
+          .first(),
+      );
 
       const swap = {
         operation: 'swap' as const,

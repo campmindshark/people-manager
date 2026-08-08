@@ -45,10 +45,12 @@ export async function up(knex: Knex): Promise<void> {
     DECLARE
       plan_record RECORD;
     BEGIN
+      -- Serialize direct plan and override writes on their shared plan row.
       SELECT "choreRequirement", "eventRequirement", "dinnerRequirement"
       INTO plan_record
       FROM "chore_plans"
-      WHERE "id" = NEW."chorePlanID";
+      WHERE "id" = NEW."chorePlanID"
+      FOR UPDATE;
 
       IF FOUND AND (
         NEW."choreRequirement" > plan_record."choreRequirement"
@@ -105,6 +107,63 @@ export async function up(knex: Knex): Promise<void> {
   `);
 
   await knex.raw(`
+    CREATE FUNCTION validate_chore_plan_removed_assignments_v2(
+      audit_action text,
+      removed_assignments jsonb
+    )
+    RETURNS boolean AS $$
+    DECLARE
+      removed_assignment jsonb;
+    BEGIN
+      IF jsonb_typeof(removed_assignments) <> 'array' THEN
+        RETURN FALSE;
+      END IF;
+
+      IF audit_action = 'participant_requirements_cleared'
+        AND removed_assignments <> '[]'::jsonb
+      THEN
+        RETURN FALSE;
+      END IF;
+
+      FOR removed_assignment IN
+        SELECT value FROM jsonb_array_elements(removed_assignments)
+      LOOP
+        IF jsonb_typeof(removed_assignment) <> 'object' THEN
+          RETURN FALSE;
+        END IF;
+        IF NOT (
+          jsonb_exists(removed_assignment, 'shiftID')
+          AND jsonb_exists(removed_assignment, 'stableKey')
+          AND jsonb_exists(removed_assignment, 'kind')
+          AND removed_assignment - ARRAY[
+            'shiftID',
+            'stableKey',
+            'kind'
+          ]::text[] = '{}'::jsonb
+        ) THEN
+          RETURN FALSE;
+        END IF;
+        IF jsonb_typeof(removed_assignment -> 'shiftID') <> 'number'
+          OR (removed_assignment ->> 'shiftID') !~ '^[1-9][0-9]*$'
+          OR jsonb_typeof(removed_assignment -> 'stableKey') <> 'string'
+          OR btrim(removed_assignment ->> 'stableKey') = ''
+          OR jsonb_typeof(removed_assignment -> 'kind') <> 'string'
+          OR removed_assignment ->> 'kind' NOT IN (
+            'chore',
+            'event',
+            'dinner'
+          )
+        THEN
+          RETURN FALSE;
+        END IF;
+      END LOOP;
+
+      RETURN TRUE;
+    END;
+    $$ LANGUAGE plpgsql IMMUTABLE STRICT;
+  `);
+
+  await knex.raw(`
     ALTER TABLE "chore_plan_audit_entries"
     DROP CONSTRAINT "chore_plan_audit_entries_action_valid",
     ADD CONSTRAINT "chore_plan_audit_entries_action_valid"
@@ -133,12 +192,14 @@ export async function up(knex: Knex): Promise<void> {
         AND jsonb_exists("details", 'requirements')
         AND jsonb_exists("details", 'previousReason')
         AND jsonb_exists("details", 'reason')
+        AND jsonb_exists("details", 'removedAssignments')
         AND "details" - ARRAY[
           'participantUserID',
           'previousRequirements',
           'requirements',
           'previousReason',
-          'reason'
+          'reason',
+          'removedAssignments'
         ]::text[] = '{}'::jsonb
         AND jsonb_typeof("details" -> 'participantUserID') = 'number'
         AND ("details" ->> 'participantUserID') ~ '^[1-9][0-9]*$'
@@ -151,20 +212,39 @@ export async function up(knex: Knex): Promise<void> {
           'event',
           'dinner'
         ]::text[] = '{}'::jsonb
-        AND (
-          "details" -> 'previousRequirements' = 'null'::jsonb
-          OR (
-            jsonb_typeof("details" -> 'previousRequirements') = 'object'
-            AND jsonb_exists("details" -> 'previousRequirements', 'chore')
-            AND jsonb_exists("details" -> 'previousRequirements', 'event')
-            AND jsonb_exists("details" -> 'previousRequirements', 'dinner')
-            AND ("details" -> 'previousRequirements') - ARRAY[
-              'chore',
-              'event',
-              'dinner'
-            ]::text[] = '{}'::jsonb
-          )
-        )
+        AND jsonb_typeof("details" -> 'requirements' -> 'chore') = 'number'
+        AND ("details" -> 'requirements' ->> 'chore')
+          ~ '^(0|[1-9]|1[0-9]|20)$'
+        AND jsonb_typeof("details" -> 'requirements' -> 'event') = 'number'
+        AND ("details" -> 'requirements' ->> 'event')
+          ~ '^(0|[1-9]|1[0-9]|20)$'
+        AND jsonb_typeof("details" -> 'requirements' -> 'dinner') = 'number'
+        AND ("details" -> 'requirements' ->> 'dinner')
+          ~ '^(0|[1-9]|1[0-9]|20)$'
+        AND jsonb_typeof("details" -> 'previousRequirements') = 'object'
+        AND jsonb_exists("details" -> 'previousRequirements', 'chore')
+        AND jsonb_exists("details" -> 'previousRequirements', 'event')
+        AND jsonb_exists("details" -> 'previousRequirements', 'dinner')
+        AND ("details" -> 'previousRequirements') - ARRAY[
+          'chore',
+          'event',
+          'dinner'
+        ]::text[] = '{}'::jsonb
+        AND jsonb_typeof(
+          "details" -> 'previousRequirements' -> 'chore'
+        ) = 'number'
+        AND ("details" -> 'previousRequirements' ->> 'chore')
+          ~ '^(0|[1-9]|1[0-9]|20)$'
+        AND jsonb_typeof(
+          "details" -> 'previousRequirements' -> 'event'
+        ) = 'number'
+        AND ("details" -> 'previousRequirements' ->> 'event')
+          ~ '^(0|[1-9]|1[0-9]|20)$'
+        AND jsonb_typeof(
+          "details" -> 'previousRequirements' -> 'dinner'
+        ) = 'number'
+        AND ("details" -> 'previousRequirements' ->> 'dinner')
+          ~ '^(0|[1-9]|1[0-9]|20)$'
         AND (
           "details" -> 'previousReason' = 'null'::jsonb
           OR (
@@ -174,6 +254,10 @@ export async function up(knex: Knex): Promise<void> {
         )
         AND jsonb_typeof("details" -> 'reason') = 'string'
         AND char_length(btrim("details" ->> 'reason')) BETWEEN 1 AND 500
+        AND validate_chore_plan_removed_assignments_v2(
+          "action",
+          "details" -> 'removedAssignments'
+        )
       )
     )
   `);

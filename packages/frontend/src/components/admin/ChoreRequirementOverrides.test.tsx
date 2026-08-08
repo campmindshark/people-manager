@@ -122,6 +122,45 @@ test('clears all custom values only after collecting a separate reason', async (
   );
 });
 
+test('shows clear failures after closing the confirmation dialog', async () => {
+  const customParticipant: ChorePlanParticipantRequirements = {
+    ...participant,
+    requirements: { chore: 0, event: 1, dinner: 0 },
+    hasOverride: true,
+    overrideReason: 'Temporary accommodation',
+  };
+  const client = planClient(
+    requirementView({ participants: [customParticipant] }),
+  );
+  client.ClearRequirementOverride = jest.fn().mockRejectedValue({
+    response: {
+      data: {
+        error:
+          'Participant requirements cannot change while the plan is closed.',
+      },
+      status: 409,
+    },
+  });
+  render(<ChoreRequirementOverrides planClient={client} rosterID={2} />);
+
+  userEvent.click(await screen.findByRole('button', { name: 'Use defaults' }));
+  const dialog = screen.getByRole('dialog', {
+    name: 'Use plan defaults for Alpha Camper (A)?',
+  });
+  userEvent.type(
+    within(dialog).getByRole('textbox', { name: 'Clear reason' }),
+    'Plan closed concurrently',
+  );
+  userEvent.click(within(dialog).getByRole('button', { name: 'Use defaults' }));
+
+  expect(await screen.findByRole('alert')).toHaveTextContent(
+    'Participant requirements cannot change while the plan is closed.',
+  );
+  await waitFor(() =>
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument(),
+  );
+});
+
 test('keeps closed-plan requirements visible and read-only', async () => {
   const client = planClient(
     requirementView({
