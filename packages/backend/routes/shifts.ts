@@ -4,8 +4,10 @@ import User from '../models/user/user';
 import ShiftController from '../controllers/shift';
 import hasPermission from '../middleware/rbac';
 import userIsVerified from '../middleware/verified_user';
-import ShiftSignupError from '../utils/shiftSignupError';
+import ShiftSignupError, { parseShiftID } from '../utils/shiftSignupError';
 import hasChorePlanOwnershipColumns from '../utils/chorePlanSchema';
+import parseEventDateTime from '../utils/eventTime';
+import { PUBLIC_SHIFT_COLUMNS } from '../utils/scheduleApiColumns';
 
 const router: Router = express.Router();
 
@@ -37,12 +39,11 @@ router.get(
   '/',
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async (req: Request, res: Response, next: NextFunction) => {
-    const query = Shift.query();
+    const query = Shift.query().select(...PUBLIC_SHIFT_COLUMNS);
     if (await hasChorePlanOwnershipColumns(Shift.knex())) {
       query
         .join('schedules', 'schedules.id', 'shifts.scheduleID')
-        .whereNull('schedules.chorePlanID')
-        .select('shifts.*');
+        .whereNull('schedules.chorePlanID');
     }
 
     const shifts = await query;
@@ -114,11 +115,26 @@ router.post(
         return;
       }
     }
-    const newSchedule: Shift = req.body;
-    const query = Shift.query().insert(newSchedule);
+    let startTime: Date;
+    let endTime: Date;
+    try {
+      startTime = parseEventDateTime(req.body.startTime, 'Shift start time');
+      endTime = parseEventDateTime(req.body.endTime, 'Shift end time');
+    } catch (error) {
+      res.status(400).json({
+        error: error instanceof Error ? error.message : 'Invalid shift time.',
+      });
+      return;
+    }
+    if (startTime >= endTime) {
+      res.status(400).json({ error: 'Shift end time must follow start time.' });
+      return;
+    }
+    const newShift: Shift = { ...req.body, startTime, endTime };
+    const query = Shift.query().insert(newShift);
 
-    const schedules = await query;
-    res.json(schedules);
+    const shift = await query;
+    res.json(shift);
   },
 );
 
@@ -141,7 +157,7 @@ router.get(
 
     try {
       const result = await ShiftController.RegisterParticipantForShift(
-        parseInt(id, 10),
+        parseShiftID(id),
         user.id,
       );
       res.json({ success: true, ...result });
@@ -169,7 +185,7 @@ router.get(
 
     try {
       await ShiftController.UnregisterParticipantFromShift(
-        parseInt(id, 10),
+        parseShiftID(id),
         user.id,
       );
       res.json({ success: true });

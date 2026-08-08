@@ -11,6 +11,7 @@ import {
   parseEmptyLifecycleRequest,
 } from '../utils/chorePlanLifecycleInput';
 import ChorePlanPreviewError from '../utils/chorePlanPreviewError';
+import { ChorePlanLifecycleState } from '../view_models/chore_plan_lifecycle';
 
 const TEST_DATABASE_URL = process.env.CHORE_TEARDOWN_TEST_DATABASE_URL;
 const POSTGRES_TEST_OPTIONS = {
@@ -22,6 +23,18 @@ const POSTGRES_TEST_OPTIONS = {
 
 interface IDRow {
   id: number;
+}
+
+interface ActivityRow {
+  waitEventType: string | null;
+}
+
+interface ApplicationNameRow {
+  applicationName: string;
+}
+
+interface ClockRow {
+  clockTime: Date | string;
 }
 
 function assertSafeTestDatabaseURL(databaseURL: string | undefined): string {
@@ -49,6 +62,27 @@ function isLifecycleError(
     error.status === status &&
     message.test(error.message)
   );
+}
+
+async function waitForLockWait(
+  database: Knex,
+  applicationName: string,
+  attempts = 500,
+): Promise<void> {
+  const activity = (await database('pg_stat_activity')
+    .select(database.raw('wait_event_type AS "waitEventType"'))
+    .where({ application_name: applicationName })
+    .first()) as ActivityRow | undefined;
+  if (activity?.waitEventType === 'Lock') {
+    return;
+  }
+  if (attempts === 0) {
+    throw new Error('The lifecycle transition did not wait for the plan lock.');
+  }
+  await new Promise((resolve) => {
+    setTimeout(resolve, 10);
+  });
+  await waitForLockWait(database, applicationName, attempts - 1);
 }
 
 test('lifecycle input accepts only narrow transition contracts', () => {
@@ -108,6 +142,7 @@ test(
     });
     const schemaName = `chore_plan_lifecycle_${Date.now()}`;
     let database: Knex | undefined;
+    let waitingDatabase: Knex | undefined;
 
     try {
       await adminDatabase.schema.createSchema(schemaName);
@@ -142,6 +177,10 @@ test(
         plan: null,
       });
       await assert.rejects(
+        lifecycleController.getByRosterID(roster.id + 1_000_000),
+        (error) => isLifecycleError(error, 404, /roster not found/i),
+      );
+      await assert.rejects(
         lifecycleController.open(roster.id, opener.id),
         (error) => isLifecycleError(error, 404, /not found/i),
       );
@@ -150,7 +189,7 @@ test(
           rosterID: roster.id,
           camperCount: 1,
           requirements: { chore: 1, event: 1, dinner: 1 },
-          expectedCatalogRevision: '1',
+          expectedCatalogRevision: '2',
           expectedDraftRevision: null,
         },
         opener.id,
@@ -196,7 +235,7 @@ test(
             rosterID: roster.id,
             camperCount: 1,
             requirements: { chore: 1, event: 1, dinner: 1 },
-            expectedCatalogRevision: '1',
+            expectedCatalogRevision: '2',
             expectedDraftRevision: '1',
           },
           opener.id,
@@ -324,6 +363,106 @@ test(
             'chore_plan_audit_entries_lifecycle_details_valid',
       );
 
+      await assert.rejects(
+        database('chore_plan_audit_entries').insert({
+          chorePlanID: applied.draft.id,
+          actorUserID: reopener.id,
+          action: 'plan_reopened',
+          details: {
+            fromStatus: 'closed',
+            toStatus: 'open',
+            reason: ' Padded reason',
+          },
+        }),
+        (error: { code?: string; constraint?: string }) =>
+          error.code === '23514' &&
+          error.constraint ===
+            'chore_plan_audit_entries_lifecycle_details_valid',
+      );
+
+      await assert.rejects(
+        database('chore_plan_audit_entries').insert({
+          chorePlanID: applied.draft.id,
+          actorUserID: reopener.id,
+          action: 'plan_reopened',
+          details: {
+            fromStatus: 'closed',
+            toStatus: 'open',
+            reason: '\t',
+          },
+        }),
+        (error: { code?: string; constraint?: string }) =>
+          error.code === '23514' &&
+          error.constraint ===
+            'chore_plan_audit_entries_lifecycle_details_valid',
+      );
+
+      await assert.rejects(
+        database('chore_plan_audit_entries').insert({
+          chorePlanID: applied.draft.id,
+          actorUserID: reopener.id,
+          action: 'plan_reopened',
+          details: {
+            fromStatus: 'closed',
+            toStatus: 'open',
+            reason: `${'x'.repeat(500)} `,
+          },
+        }),
+        (error: { code?: string; constraint?: string }) =>
+          error.code === '23514' &&
+          error.constraint ===
+            'chore_plan_audit_entries_lifecycle_details_valid',
+      );
+
+      const waitingApplicationName = `chore_lifecycle_wait_${Date.now()}`;
+      const waitingDatabaseURL = new URL(databaseURL);
+      waitingDatabaseURL.searchParams.set(
+        'application_name',
+        waitingApplicationName,
+      );
+      waitingDatabase = knexFactory({
+        client: 'postgresql',
+        connection: waitingDatabaseURL.toString(),
+        pool: { max: 1, min: 0 },
+        searchPath: [schemaName],
+      });
+      const applicationNameResult = (await waitingDatabase.raw(
+        'SELECT current_setting(\'application_name\') AS "applicationName"',
+      )) as { rows: ApplicationNameRow[] };
+      assert.equal(
+        applicationNameResult.rows[0].applicationName,
+        waitingApplicationName,
+      );
+      const waitingController = new ChorePlanLifecycleController(
+        waitingDatabase,
+      );
+      let waitingClose: Promise<ChorePlanLifecycleState> | undefined;
+      const lockReleasedAt = await database.transaction(async (blocker) => {
+        await blocker('chore_plans')
+          .where({ id: applied.draft.id })
+          .forUpdate()
+          .first();
+        waitingClose = waitingController.close(roster.id, closer.id);
+        await waitForLockWait(blocker, waitingApplicationName);
+        const clockResult = (await blocker.raw(
+          'SELECT clock_timestamp() AS "clockTime"',
+        )) as { rows: ClockRow[] };
+        return new Date(clockResult.rows[0].clockTime);
+      });
+      assert(waitingClose);
+      const closedAfterWait = await waitingClose;
+      assert(closedAfterWait.closedAt);
+      assert(
+        new Date(closedAfterWait.closedAt).getTime() >=
+          lockReleasedAt.getTime(),
+        'A lifecycle transition must be timestamped after acquiring its row lock.',
+      );
+      await lifecycleController.reopen(
+        roster.id,
+        reopener.id,
+        'Restore open state after timestamp test',
+      );
+
       const planBeforeAuditFailure = await database('chore_plans')
         .where({ id: applied.draft.id })
         .first();
@@ -357,9 +496,10 @@ test(
               .first()
           )?.count,
         ),
-        4,
+        audits.length + 2,
       );
     } finally {
+      await waitingDatabase?.destroy();
       await database?.destroy();
       await adminDatabase.schema.dropSchemaIfExists(schemaName, true);
       await adminDatabase.destroy();

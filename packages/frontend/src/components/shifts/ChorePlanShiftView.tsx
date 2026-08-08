@@ -1,4 +1,10 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import {
   Accordion,
@@ -144,6 +150,25 @@ function mutationErrorMessage(error: unknown): string {
     }
   }
   return 'Could not update your chore assignment. Please try again.';
+}
+
+function shiftViewErrorMessage(error: unknown): string {
+  if (error && typeof error === 'object' && 'response' in error) {
+    const { response } = error as {
+      response?: { data?: { error?: string }; status?: number };
+    };
+    if (response?.status === 403) {
+      return 'Chore plan shifts are available only to verified roster members.';
+    }
+    if (
+      response?.status !== undefined &&
+      response.status < 500 &&
+      response.data?.error
+    ) {
+      return response.data.error;
+    }
+  }
+  return 'The chore plan shifts could not be loaded. Please try again.';
 }
 
 function signupRestrictionTooltip(
@@ -341,12 +366,20 @@ function SignupCategory({
     setSuccess(null);
     try {
       const result = await action();
-      await onChanged();
       setSuccess(
         result.changed ? successMessage : 'Your assignments are unchanged.',
       );
       setSelectedShiftIDs([]);
       setSelectedRemovalShiftID(null);
+      try {
+        await onChanged();
+      } catch (_refreshFailure) {
+        setError(
+          result.changed
+            ? 'Your assignment update was saved, but the signup sheets could not be refreshed. Refresh the page to see the latest assignments.'
+            : 'Your assignments are unchanged, but the signup sheets could not be refreshed. Refresh the page to try again.',
+        );
+      }
     } catch (mutationFailure) {
       setError(mutationErrorMessage(mutationFailure));
     } finally {
@@ -533,36 +566,54 @@ function MemberChorePlanShiftView({
     null,
   );
   const [error, setError] = useState<string | null>(null);
+  const latestLoadRequestID = useRef(0);
+  const currentLoadScope = useRef({ client, rosterID });
+  currentLoadScope.current = { client, rosterID };
 
-  const loadShifts = async () => {
-    setResponse(await client.GetShifts(rosterID));
-    onParticipantStatusChanged?.();
-  };
+  const loadShifts = useCallback(
+    async (notifyParticipantStatus = false) => {
+      const requestID = latestLoadRequestID.current + 1;
+      latestLoadRequestID.current = requestID;
+      const requestedClient = client;
+      const requestedRosterID = rosterID;
+      const requestIsCurrent = () =>
+        latestLoadRequestID.current === requestID &&
+        currentLoadScope.current.client === requestedClient &&
+        currentLoadScope.current.rosterID === requestedRosterID;
+
+      try {
+        const nextResponse = await requestedClient.GetShifts(requestedRosterID);
+        if (requestIsCurrent()) {
+          setResponse(nextResponse);
+          if (notifyParticipantStatus) {
+            onParticipantStatusChanged?.();
+          }
+        }
+      } catch (loadFailure) {
+        if (requestIsCurrent()) {
+          throw loadFailure;
+        }
+      }
+    },
+    [client, onParticipantStatusChanged, rosterID],
+  );
 
   useEffect(() => {
     let active = true;
     setResponse(null);
     setError(null);
 
-    client
-      .GetShifts(rosterID)
-      .then((nextResponse) => {
-        if (active) {
-          setResponse(nextResponse);
-        }
-      })
-      .catch(() => {
-        if (active) {
-          setError(
-            'Chore plan shifts are available only to verified roster members.',
-          );
-        }
-      });
+    loadShifts().catch((loadError) => {
+      if (active) {
+        setError(shiftViewErrorMessage(loadError));
+      }
+    });
 
     return () => {
       active = false;
+      latestLoadRequestID.current += 1;
     };
-  }, [client, rosterID]);
+  }, [loadShifts]);
 
   if (error) {
     return <Alert severity="error">{error}</Alert>;
@@ -621,7 +672,7 @@ function MemberChorePlanShiftView({
                   <SignupCategory
                     kind={kind}
                     mutationsAllowed={response.selfServiceMutationsAllowed}
-                    onChanged={loadShifts}
+                    onChanged={() => loadShifts(true)}
                     onRemove={(shiftID) => client.Remove(rosterID, shiftID)}
                     onSignup={(shiftIDs) =>
                       client.Signup(rosterID, { shiftIDs })

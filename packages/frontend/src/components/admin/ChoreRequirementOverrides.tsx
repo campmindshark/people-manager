@@ -164,6 +164,7 @@ function ParticipantRequirementRow({
       );
       setClearing(false);
     } catch (clearError) {
+      setClearing(false);
       setError(errorMessage(clearError));
     } finally {
       setSaving(false);
@@ -222,9 +223,9 @@ function ParticipantRequirementRow({
           value={reason}
         />
         {error && (
-          <Typography color="error" display="block" variant="caption">
+          <Alert severity="error" sx={{ mt: 1 }}>
             {error}
-          </Typography>
+          </Alert>
         )}
       </TableCell>
       <TableCell>

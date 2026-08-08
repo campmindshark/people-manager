@@ -34,7 +34,8 @@ export async function up(knex: Knex): Promise<void> {
             AND "details" - 'reason' =
               '{"fromStatus":"closed","toStatus":"open"}'::jsonb
             AND jsonb_typeof("details" -> 'reason') = 'string'
-            AND char_length(btrim("details" ->> 'reason')) BETWEEN 1 AND 500
+            AND char_length("details" ->> 'reason') BETWEEN 1 AND 500
+            AND "details" ->> 'reason' !~ '(^[[:space:]])|([[:space:]]$)'
           )
         )
       )

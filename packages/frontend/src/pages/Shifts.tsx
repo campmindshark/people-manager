@@ -125,6 +125,9 @@ export default function Shifts() {
     toggleSignups,
     reopenSignups,
   } = useChoreSignupControls();
+  const chorePlanLifecycleRevision = `${chorePlan?.id ?? 'none'}:${
+    chorePlan?.status ?? 'loading'
+  }`;
 
   const loadReadiness = useCallback(async () => {
     setReadinessLoading(true);
@@ -236,6 +239,7 @@ export default function Shifts() {
           />
           {adminEditMode && canOverrideRequirements && userIsVerified && (
             <ChoreRequirementOverrides
+              key={chorePlanLifecycleRevision}
               onChanged={() => {
                 setRequirementRevision((current) => current + 1);
                 refreshSignupStatus();
@@ -247,9 +251,7 @@ export default function Shifts() {
             <VerifiedShiftExperience
               adminEditMode={adminEditMode && canManageAssignments}
               canForceAssignments={canForceAssignments}
-              key={`${chorePlan?.id ?? 'none'}:${
-                chorePlan?.status ?? 'loading'
-              }:${requirementRevision}`}
+              key={`${chorePlanLifecycleRevision}:${requirementRevision}`}
               onParticipantStatusChanged={refreshSignupStatus}
               rosterID={currentRoster.id}
             />

@@ -25,6 +25,11 @@ disabled unless its value is exactly `true`.
 - A slice that is not ready for use must not be mounted or linked merely
   because the broad feature flag is enabled. It remains unreachable until its
   implementation PR declares it complete.
+- Before the first draft is persisted, application code may be rolled back
+  while leaving unused forward schema in place. After a draft is persisted,
+  disable the feature flag while retaining the ordinary-route ownership guards
+  from the draft-persistence slice and recover with a forward fix; do not roll
+  application code back below that compatibility boundary.
 
 ## Plan ownership and lifecycle
 
@@ -48,7 +53,7 @@ The lifecycle states are `draft`, `open`, and `closed`:
 - The plan row represents current state. Immutable audit entries preserve every
   lifecycle transition, actor, reason, and timestamp.
 
-Lifecycle operations lock the plan row and use PostgreSQL's transaction time.
+Lifecycle operations lock the plan row and then capture PostgreSQL's clock time.
 Opening accepts only `draft`, closing accepts only `open`, and reopening accepts
 only `closed`; every other attempted transition returns `409`. Reopening starts
 a new open interval by replacing the current open actor/time and clearing the
@@ -78,20 +83,32 @@ edited through an API. Stable keys are never reused for a different semantic
 definition. A catalog migration must assert the exact key set and deterministic
 order.
 
-Catalog v1 contains 326 reviewed definitions: 32 chore template positions, 240
-explicit event positions, and 54 explicit dinner positions. The snapshot was
-verified on 2026-08-05 against workbook
+Catalog v1 contains the 326 definitions installed by the original foundation
+migration: 32 chore template positions, 240 explicit event positions, and 54
+explicit dinner positions. That migration and its data module remain immutable
+so databases that already recorded it can still validate and upgrade. The
+source was reviewed on 2026-08-05 against workbook
 `12QBFgX_jb9vdli-txNK4M2nkMt7TZ_FCHtX_gbEG9BM`, using `Chore template (One
-day)`, `Event scores table (Week)`, and `Dinner scores table (Week)`. The
-migration records each source tab's SHA-256 hash, and the PostgreSQL migration
-test reconstructs the source CSVs from installed rows and requires exact hash
-matches.
+day)`, `Event scores table (Week)`, and `Dinner scores table (Week)`. Camp has
+decided that the workbook's zero-score `3a-6a` event period is not a valid shift
+period. Catalog v2 contains 302 approved definitions: it removes those 24
+positions through a guarded forward migration, advances the catalog revision,
+and adds a database constraint that rejects their reintroduction. The removed
+positions contribute no planning capacity. V2 retains the raw event-tab SHA-256
+for provenance and separately records the accepted, filtered event-catalog
+hash. The PostgreSQL migration tests reconstruct the installed catalog CSVs,
+require exact accepted hashes, and exercise both a clean installation and a
+real V1-to-V2 upgrade. The forward migration refuses to rewrite the catalog
+after plans or score-audit history exist.
 
 Stable keys are lowercase semantic identifiers. Chore keys identify the shift
 and position, dinner keys identify the explicit day, shift, and position, and
-event keys identify the period order, shift, and position. Period order is part
-of event identity because the same shift and position recur throughout the
-week. The migration pins the complete key set with a separate SHA-256 assertion.
+event keys identify the original workbook period, shift, and position. The
+period ordinal is part of event identity because the same shift and position
+recur throughout the week. Stable-key ordinals retain that original identity
+when an excluded period is removed, while the accepted catalog uses a separate,
+contiguous period order for scheduling. The migration pins the complete key set
+with a separate SHA-256 assertion.
 
 Fixed definitions and editable scores use separate tables. Definition identity
 and source order are unique at the database boundary. The score table accepts
@@ -233,6 +250,13 @@ changing, or clearing an override requires a reason and the appropriate admin
 permission, and is audited in the same transaction. A zero value is an explicit
 exemption for that category, not missing data.
 
+Lowering a requirement also reconciles that participant's generated-shift
+assignments in the same transaction. For each reduced category, the oldest
+assignment rows are retained up to the new limit and newer rows are removed.
+The override audit records each removed shift's ID, stable key, and category;
+an audit failure restores both the assignments and the previous requirement
+state.
+
 One shared backend function computes effective requirements. Signup validation,
 readiness, and participant messaging must all use that function. Final
 assignment sheets report persisted assignments rather than inferring
@@ -253,11 +277,20 @@ PostgreSQL constrains every stored value to 0–20 and prevents an override from
 exceeding its plan's corresponding value. Draft replacement also rejects a
 plan reduction that would make an existing override invalid. Each changed set
 or clear and its immutable before/after vector, actor, and reason are written
-in one transaction. In the frontend these controls appear above the signup
-sheets in `Admin Edit`; assignment needs refresh after a change. The member
-shift response exposes only that member's effective vector, while the separate
-administrative assignment response exposes effective vectors without override
-reasons.
+in one transaction. Audit vectors contain exact integer values from `0` through
+`20`; a first override records the inherited plan vector as its previous state.
+In the frontend these controls appear above the signup sheets in `Admin Edit`;
+assignment needs refresh after a change. The member shift response exposes only
+that member's effective vector, while the separate administrative assignment
+response exposes effective vectors without override reasons.
+
+Removing a participant from a roster deletes that participant's active
+requirement override in the same transaction as their assignments and roster
+membership. The deletion writes a `participant_requirements_cleared` audit
+entry attributed to the user who initiated the roster removal, with `Roster
+membership ended.` as its reason. Existing override audit entries remain
+intact. If the participant later rejoins, they inherit the current plan
+defaults until an administrator records a new override.
 
 ## Signup and assignment integrity
 
@@ -291,7 +324,12 @@ assignment unchanged. Category assignment counts may not exceed the effective
 requirement, and overlap checks include ordinary and generated assignments.
 Frontend controls appear only for an open read model and surface backend
 conflicts, but their visibility is never treated as authorization or integrity
-validation.
+validation. Removing a participant from a roster removes that participant's
+assignments for the roster in the same transaction so departed members cannot
+continue consuming shift capacity. Updating a participant's attendance window
+uses the same per-user lock and removes roster assignments that no longer fit
+inside the saved dates before the transaction commits; the roster form reports
+the number removed so the member can review the remaining schedule.
 
 Ordinary shifts share the generic attendance, overlap, capacity, and duplicate
 integrity rules. They do not inherit chore-plan lifecycle, category
