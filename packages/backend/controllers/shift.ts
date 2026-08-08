@@ -105,9 +105,9 @@ export default class ShiftController {
     database: KnexInstance = knex,
   ): Promise<boolean> {
     if (
-      !Number.isInteger(shiftID) ||
+      !Number.isSafeInteger(shiftID) ||
       shiftID < 1 ||
-      !Number.isInteger(userID) ||
+      !Number.isSafeInteger(userID) ||
       userID < 1
     ) {
       throw new ShiftSignupError('Choose a valid shift.', 400);
@@ -129,9 +129,9 @@ export default class ShiftController {
     database: KnexInstance = knex,
   ): Promise<ShiftSignupResult> {
     if (
-      !Number.isInteger(shiftID) ||
+      !Number.isSafeInteger(shiftID) ||
       shiftID < 1 ||
-      !Number.isInteger(userID) ||
+      !Number.isSafeInteger(userID) ||
       userID < 1
     ) {
       throw new ShiftSignupError('Choose a valid shift.', 400);

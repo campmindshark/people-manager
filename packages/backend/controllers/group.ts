@@ -71,13 +71,12 @@ export default class GroupController {
     rosterID: number,
     database: KnexInstance = knex,
   ): Promise<ShiftSignupAccess> {
-    // This legacy column stores a UTC wall-clock value without timezone data.
     const group: ShiftSignupAccessRow | undefined = await database(
       'group_members',
     )
       .join('groups', 'group_members.groupID', '=', 'groups.id')
       .select(
-        database.raw("?? <= timezone('UTC', CURRENT_TIMESTAMP) AS ??", [
+        database.raw('?? <= CURRENT_TIMESTAMP AS ??', [
           'groups.shiftSignupOpenDate',
           'signupOpen',
         ]),
