@@ -1,5 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import {
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
   Alert,
   Button,
   CircularProgress,
@@ -378,12 +382,14 @@ export default function ChoreRequirementOverrides({
   }
 
   return (
-    <Paper sx={{ p: { xs: 1.5, sm: 3 } }}>
-      <Stack spacing={2}>
-        <Stack spacing={0.5}>
-          <Typography component="h2" variant="h5">
-            Member requirement exceptions
-          </Typography>
+    <Accordion>
+      <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+        <Typography component="h2" variant="h5">
+          Member requirement exceptions
+        </Typography>
+      </AccordionSummary>
+      <AccordionDetails sx={{ px: { xs: 1.5, sm: 3 } }}>
+        <Stack spacing={2}>
           <Typography color="text.secondary">
             Plan defaults are {view.plan.requirements.chore} chore,{' '}
             {view.plan.requirements.event} event, and{' '}
@@ -391,52 +397,52 @@ export default function ChoreRequirementOverrides({
             values as a complete override; use 0 for an exemption and record a
             reason.
           </Typography>
-        </Stack>
-        {!view.mutationsAllowed && (
-          <Alert severity="info">
-            Requirements are read-only while this plan is closed. Reopen signups
-            to make changes.
-          </Alert>
-        )}
-        {view.participants.length === 0 ? (
-          <Alert severity="info">No roster participants are available.</Alert>
-        ) : (
-          <TableContainer>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Member</TableCell>
-                  <TableCell>Chore</TableCell>
-                  <TableCell>Event</TableCell>
-                  <TableCell>Dinner</TableCell>
-                  <TableCell>Reason</TableCell>
-                  <TableCell>Actions</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {view.participants.map((participant) => (
-                  <ParticipantRequirementRow
-                    key={participant.userID}
-                    mutationsAllowed={view.mutationsAllowed}
-                    onSaved={handleSaved}
-                    participant={participant}
-                    planClient={planClient}
-                    planRequirements={
-                      view.plan?.requirements ?? {
-                        chore: 0,
-                        event: 0,
-                        dinner: 0,
+          {!view.mutationsAllowed && (
+            <Alert severity="info">
+              Requirements are read-only while this plan is closed. Reopen
+              signups to make changes.
+            </Alert>
+          )}
+          {view.participants.length === 0 ? (
+            <Alert severity="info">No roster participants are available.</Alert>
+          ) : (
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Member</TableCell>
+                    <TableCell>Chore</TableCell>
+                    <TableCell>Event</TableCell>
+                    <TableCell>Dinner</TableCell>
+                    <TableCell>Reason</TableCell>
+                    <TableCell>Actions</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {view.participants.map((participant) => (
+                    <ParticipantRequirementRow
+                      key={participant.userID}
+                      mutationsAllowed={view.mutationsAllowed}
+                      onSaved={handleSaved}
+                      participant={participant}
+                      planClient={planClient}
+                      planRequirements={
+                        view.plan?.requirements ?? {
+                          chore: 0,
+                          event: 0,
+                          dinner: 0,
+                        }
                       }
-                    }
-                    rosterID={rosterID}
-                  />
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        )}
-      </Stack>
-    </Paper>
+                      rosterID={rosterID}
+                    />
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+        </Stack>
+      </AccordionDetails>
+    </Accordion>
   );
 }
 
