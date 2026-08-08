@@ -1007,7 +1007,56 @@ test(
         BEFORE INSERT ON chore_plan_audit_entries
         FOR EACH ROW EXECUTE FUNCTION delay_roster_requirement_audit();
       `);
+      let resolveRequirementPlanLock: (() => void) | undefined;
+      const requirementPlanLocked = new Promise<void>((resolve) => {
+        resolveRequirementPlanLock = resolve;
+      });
+      const concurrentRequirementLock = database.transaction(
+        async (transaction) => {
+          await transaction('chore_plans')
+            .select('id')
+            .where({ id: cleanupDraft.draft.id })
+            .forUpdate()
+            .first();
+          resolveRequirementPlanLock?.();
+          await sleep(250);
+          await transaction('roster_participants')
+            .select('id')
+            .where({
+              rosterID: cleanupRoster.id,
+              userID: users[2].id,
+            })
+            .forUpdate()
+            .first();
+        },
+      );
+      await requirementPlanLocked;
       const cleanup = RosterParticipantController.RemoveFromRoster(
+        cleanupRoster.id,
+        [users[2].id],
+        users[0].id,
+        database,
+      );
+      assert.deepEqual(
+        (await Promise.all([cleanup, concurrentRequirementLock]))[0],
+        { deletedCount: 1, removedAssignmentCount: 1 },
+      );
+
+      await addParticipant(database, cleanupRoster.id, users[2].id);
+      await requirementController.setOverride(
+        cleanupRoster.id,
+        users[2].id,
+        {
+          requirements: { chore: 1, event: 1, dinner: 1 },
+          reason: 'Temporary attendance accommodation',
+        },
+        users[0].id,
+      );
+      await database('shift_participants').insert({
+        shiftID: cleanupShift.shiftID,
+        userID: users[2].id,
+      });
+      const actorCleanup = RosterParticipantController.RemoveFromRoster(
         cleanupRoster.id,
         [users[2].id],
         users[0].id,
@@ -1032,7 +1081,7 @@ test(
         },
       );
       assert.deepEqual(
-        (await Promise.all([cleanup, concurrentActorAssignmentLock]))[0],
+        (await Promise.all([actorCleanup, concurrentActorAssignmentLock]))[0],
         { deletedCount: 1, removedAssignmentCount: 1 },
       );
       await database.raw(

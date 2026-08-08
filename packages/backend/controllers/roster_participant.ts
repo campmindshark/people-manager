@@ -44,6 +44,19 @@ export default class RosterParticipantController {
     );
 
     return database.transaction(async (transaction) => {
+      const chorePlan = (await transaction<ChorePlanRow>('chore_plans')
+        .select(
+          'id',
+          'choreRequirement',
+          'eventRequirement',
+          'dinnerRequirement',
+        )
+        .where('rosterID', rosterID)
+        // Requirement mutations lock the plan before participant rows. Keep
+        // that order here so the removal audit's foreign-key check cannot
+        // deadlock with a concurrent requirement mutation.
+        .forShare()
+        .first()) as ChorePlanRow | undefined;
       await transaction('users')
         .select('id')
         .whereIn('id', lockUserIDs)
@@ -74,15 +87,6 @@ export default class RosterParticipantController {
         .whereIn('shiftID', rosterShiftIDs)
         .del();
 
-      const chorePlan = (await transaction<ChorePlanRow>('chore_plans')
-        .select(
-          'id',
-          'choreRequirement',
-          'eventRequirement',
-          'dinnerRequirement',
-        )
-        .where('rosterID', rosterID)
-        .first()) as ChorePlanRow | undefined;
       if (chorePlan) {
         const overrides = (await transaction<RequirementOverrideRow>(
           'chore_plan_requirement_overrides',
