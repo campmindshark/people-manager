@@ -5,7 +5,6 @@ import User from '../models/user/user';
 import RosterParticipantViewModel, {
   RosterParticipantViewModelWithPrivateFields,
 } from '../view_models/roster_participant';
-import RosterParticipantController from './roster_participant';
 
 const knex = Knex(knexConfig[getConfig().Environment]);
 
@@ -14,12 +13,14 @@ export default class RosterController {
     rosterID: number,
     userID: number,
   ): Promise<boolean> {
-    const result = await RosterParticipantController.RemoveFromRoster(
-      rosterID,
-      [userID],
-    );
+    const query = knex('roster_participants')
+      .where('rosterID', rosterID)
+      .andWhere('userID', userID)
+      .del();
 
-    return result.deletedCount > 0;
+    await query;
+
+    return true;
   }
 
   public static async RegisterParticipantForRoster(

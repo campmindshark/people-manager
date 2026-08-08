@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useRecoilRefresher_UNSTABLE, useRecoilValue } from 'recoil';
+import { useRecoilValue } from 'recoil';
 import {
-  Alert,
   Box,
   Button,
   FormControl,
@@ -26,12 +25,8 @@ import {
   getBurnDates,
   getDateTimePickerBounds,
 } from 'backend/utils/burnDates';
-import { CurrentUserSignupStatus, MyShifts } from '../state/store';
-import {
-  ActiveRosterIDState,
-  CurrentRosterParticipantsState,
-  CurrentRosterState,
-} from '../state/roster';
+import { CurrentUserSignupStatus } from '../state/store';
+import { ActiveRosterIDState, CurrentRosterState } from '../state/roster';
 import { getFrontendConfig } from '../config/config';
 import BackendRosterClient from '../api/roster/roster';
 import BackendSettingsClient from '../api/settings/client';
@@ -70,12 +65,6 @@ interface RosterParticipantFormData {
   agreesToPayDues: boolean;
 }
 
-export function attendanceRemovalMessage(count: number): string {
-  return count === 1
-    ? 'Your attendance update removed 1 shift assignment that is now outside your attendance window.'
-    : `Your attendance update removed ${count} shift assignments that are now outside your attendance window.`;
-}
-
 function RosterSignupFormV2({ handleSuccess, rosterParticipant }: Props) {
   const [formData, setFormData] = useState<RosterParticipantFormData>({
     probabilityOfAttending: rosterParticipant.probabilityOfAttending || 0,
@@ -102,20 +91,12 @@ function RosterSignupFormV2({ handleSuccess, rosterParticipant }: Props) {
     agreesToPayDues: rosterParticipant.agreesToPayDues || false,
   });
   const [snackbarOpen, setSnackbarOpen] = useState(false);
-  const [removedAssignmentCount, setRemovedAssignmentCount] = useState(0);
   const [essentialMindSharkURL, setEssentialMindSharkURL] = useState(
     DefaultEssentialMindSharkURL,
   );
   const userSignupStatus = useRecoilValue(CurrentUserSignupStatus);
   const activeRosterID = useRecoilValue(ActiveRosterIDState);
   const currentRoster = useRecoilValue(CurrentRosterState);
-  const refreshMyShifts = useRecoilRefresher_UNSTABLE(MyShifts);
-  const refreshSignupStatus = useRecoilRefresher_UNSTABLE(
-    CurrentUserSignupStatus,
-  );
-  const refreshRosterParticipants = useRecoilRefresher_UNSTABLE(
-    CurrentRosterParticipantsState,
-  );
 
   const yearsAtCampOptions = useMemo(
     () => getCampYearsOptions(currentRoster.year),
@@ -148,33 +129,22 @@ function RosterSignupFormV2({ handleSuccess, rosterParticipant }: Props) {
       );
   }, []);
 
-  const completeSubmission = () => {
-    if (
-      !userSignupStatus.hasCompletedPrivateProfile ||
-      !userSignupStatus.hasCompletedPublicProfile
-    ) {
-      window.location.href = '/profile-edit';
-    } else {
-      handleSuccess();
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const result = await rosterClient.Signup(
+      await rosterClient.Signup(
         activeRosterID,
         formData as unknown as RosterParticipant,
       );
-      refreshMyShifts();
-      refreshSignupStatus();
-      refreshRosterParticipants();
       setSnackbarOpen(true);
-      if (result.removedAssignmentCount > 0) {
-        setRemovedAssignmentCount(result.removedAssignmentCount);
-        return;
+      if (
+        !userSignupStatus.hasCompletedPrivateProfile ||
+        !userSignupStatus.hasCompletedPublicProfile
+      ) {
+        window.location.href = '/profile-edit';
+      } else {
+        handleSuccess();
       }
-      completeSubmission();
     } catch (error) {
       console.error('Failed to submit form:', error);
     }
@@ -200,20 +170,6 @@ function RosterSignupFormV2({ handleSuccess, rosterParticipant }: Props) {
   return (
     <>
       <Box component="form" onSubmit={handleSubmit} sx={{ mt: 3 }}>
-        {removedAssignmentCount > 0 && (
-          <Alert
-            action={
-              <Button color="inherit" onClick={completeSubmission}>
-                Continue
-              </Button>
-            }
-            severity="warning"
-            sx={{ mb: 2 }}
-          >
-            {attendanceRemovalMessage(removedAssignmentCount)} Review your
-            remaining shifts after continuing.
-          </Alert>
-        )}
         <FormHelperText sx={{ mb: 2, color: 'text.secondary' }}>
           * Required fields
         </FormHelperText>
@@ -516,7 +472,6 @@ function RosterSignupFormV2({ handleSuccess, rosterParticipant }: Props) {
               color="primary"
               fullWidth
               disabled={
-                removedAssignmentCount > 0 ||
                 !formData.probabilityOfAttending ||
                 !formData.estimatedArrivalDate ||
                 !formData.estimatedDepartureDate ||

@@ -8,10 +8,6 @@ import MyProfileForm from './MyProfileForm';
 
 test('renders when skills of note is null', () => {
   const user = new User();
-  user.firstName = 'Dev';
-  user.lastName = 'Admin';
-  user.phoneNumber = '555-0100';
-  user.location = 'Local Dev';
   user.skillsOfNote = null as unknown as string[];
 
   render(

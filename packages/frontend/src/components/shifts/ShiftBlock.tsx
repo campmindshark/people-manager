@@ -34,10 +34,6 @@ const determineBackgroundColor = (
       return '#2D3748';
     }
 
-    if (!shiftViewModel.signupOpen) {
-      return '#59636F';
-    }
-
     switch (shiftSignUpStatus(shiftViewModel)) {
       case 'understaffed':
         return '#F8961E';
@@ -145,12 +141,11 @@ function ShiftBlock(props: RootProps) {
       return '';
     }
     if (shiftViewModel.shift.startTime && shiftViewModel.shift.endTime) {
-      const signupStatus = shiftViewModel.signupOpen ? '' : ' -- Signup closed';
       return `${shiftViewModel.scheduleName} -- ${TimeOfDayFormatter.format(
         new Date(shiftViewModel.shift.startTime),
       )} to ${TimeOfDayFormatter.format(
         new Date(shiftViewModel.shift.endTime),
-      )}${signupStatus}`;
+      )}`;
     }
     return 'unknown time frame';
   }, [shiftViewModel]);

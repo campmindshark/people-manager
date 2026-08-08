@@ -10,10 +10,6 @@ export default class Schedule extends Model {
 
   description!: string;
 
-  chorePlanID?: number;
-
-  plannerKey?: string;
-
   constructor(id: number, name: string, description: string) {
     super();
     this.id = id;

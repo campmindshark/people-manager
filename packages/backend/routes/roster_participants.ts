@@ -6,7 +6,6 @@ import Roster from '../models/roster/roster';
 import RosterParticipant from '../models/roster_participant/roster_participant';
 import hasPermission from '../middleware/rbac';
 import { assertYearsAtCampWithinRoster } from '../utils/campYears';
-import RosterParticipantController from '../controllers/roster_participant';
 
 const router: Router = express.Router();
 
@@ -74,74 +73,51 @@ router.post('/:id', async (req: Request, res: Response) => {
     rosterID,
   };
 
-  const parsedArrivalDate = DateTime.fromISO(
-    String(proposedRosterParticipant.estimatedArrivalDate),
-    { setZone: true },
-  ).toJSDate();
-  const parsedDepartureDate = DateTime.fromISO(
-    String(proposedRosterParticipant.estimatedDepartureDate),
-    { setZone: true },
-  ).toJSDate();
+  const checkCurrent = await RosterParticipant.query().where(signupScope);
 
-  if (
-    !Number.isFinite(parsedArrivalDate.getTime()) ||
-    !Number.isFinite(parsedDepartureDate.getTime()) ||
-    parsedArrivalDate >= parsedDepartureDate
-  ) {
-    res.status(400).json({
-      error: 'Arrival and departure dates must define a valid time window.',
-    });
-    return;
-  }
+  // Convert the dates to UTC while preserving the local time
+  const parsedArrivalDate = DateTime.fromJSDate(
+    new Date(proposedRosterParticipant.estimatedArrivalDate),
+  )
+    .setZone('America/Los_Angeles', { keepLocalTime: true })
+    .toUTC()
+    .toJSDate();
+
+  const parsedDepartureDate = DateTime.fromJSDate(
+    new Date(proposedRosterParticipant.estimatedDepartureDate),
+  )
+    .setZone('America/Los_Angeles', { keepLocalTime: true })
+    .toUTC()
+    .toJSDate();
 
   try {
-    const {
-      id: _id,
-      userID: _userId,
-      rosterID: _rosterId,
-      ...participantFields
-    } = req.body;
-    const { rosterParticipant, removedAssignmentCount } =
-      await RosterParticipant.knex().transaction(async (transaction) => {
-        await transaction('users').where('id', user.id).forUpdate().first();
-        const current = await RosterParticipant.query(transaction)
-          .where(signupScope)
-          .forUpdate()
-          .first();
-        const participantData = {
-          ...participantFields,
+    if (checkCurrent.length > 0) {
+      delete req.body.id;
+      await RosterParticipant.query()
+        .where(signupScope)
+        .patch({
+          ...req.body,
           estimatedArrivalDate: parsedArrivalDate,
           estimatedDepartureDate: parsedDepartureDate,
-        };
-        const savedParticipant = current
-          ? await RosterParticipant.query(transaction).patchAndFetchById(
-              current.id,
-              participantData,
-            )
-          : await RosterParticipant.query(transaction).insert({
-              ...participantData,
-              userID: user.id,
-              rosterID,
-            });
+        });
 
-        const removedCount =
-          await RosterParticipantController.ReconcileAttendanceWindow(
-            transaction,
-            rosterID,
-            user.id,
-            {
-              startTime: parsedArrivalDate,
-              endTime: parsedDepartureDate,
-            },
-          );
+      const rosterParticipant = await RosterParticipant.query().findById(
+        checkCurrent[0].id,
+      );
 
-        return {
-          rosterParticipant: savedParticipant,
-          removedAssignmentCount: removedCount,
-        };
-      });
+      res.json(rosterParticipant);
+      return;
+    }
 
-    res.json({ ...rosterParticipant, removedAssignmentCount });
+    const rosterParticipant = await RosterParticipant.query().insert({
+      ...req.body,
+      estimatedArrivalDate: parsedArrivalDate,
+      estimatedDepartureDate: parsedDepartureDate,
+      userID: user.id,
+      rosterID,
+    });
+
+    res.json(rosterParticipant);
   } catch (error) {
     if (error instanceof ValidationError) {
       res.status(400).json({ error: error.message, details: error.data });
@@ -163,24 +139,26 @@ router.delete(
       return;
     }
 
-    const parsedRosterID = parseInt(rosterId, 10);
-    const parsedUserID = parseInt(userId, 10);
-    if (Number.isNaN(parsedRosterID) || Number.isNaN(parsedUserID)) {
-      res.status(400).json({ error: 'Roster ID and User ID must be valid' });
-      return;
-    }
+    const participant = await RosterParticipant.query()
+      .where({
+        userID: parseInt(userId, 10),
+        rosterID: parseInt(rosterId, 10),
+      })
+      .first();
 
-    const result = await RosterParticipantController.RemoveFromRoster(
-      parsedRosterID,
-      [parsedUserID],
-    );
-
-    if (result.deletedCount === 0) {
+    if (!participant) {
       res.status(404).json({ error: 'User not found in roster' });
       return;
     }
 
-    res.json({ success: true, ...result });
+    const success = await RosterParticipant.query().deleteById(participant.id);
+
+    if (!success) {
+      res.status(500).json({ error: 'Failed to remove user from roster' });
+      return;
+    }
+
+    res.json({ success: true });
   },
 );
 
@@ -199,29 +177,25 @@ router.delete(
       return;
     }
 
-    const parsedRosterID = parseInt(rosterId, 10);
-    const parsedUserIDs = userIds.map(Number);
-    if (
-      Number.isNaN(parsedRosterID) ||
-      parsedUserIDs.some((userID) => !Number.isInteger(userID) || userID < 1)
-    ) {
-      res.status(400).json({ error: 'Roster ID and user IDs must be valid' });
-      return;
-    }
+    const participants = await RosterParticipant.query()
+      .where({
+        rosterID: parseInt(rosterId, 10),
+      })
+      .whereIn('userID', userIds);
 
-    const result = await RosterParticipantController.RemoveFromRoster(
-      parsedRosterID,
-      parsedUserIDs,
-    );
-
-    if (result.deletedCount === 0) {
+    if (participants.length === 0) {
       res
         .status(404)
         .json({ error: 'No participants found for the given user IDs' });
       return;
     }
 
-    res.json({ success: true, ...result });
+    const participantIds = participants.map((p) => p.id);
+    const deletedCount = await RosterParticipant.query()
+      .whereIn('id', participantIds)
+      .delete();
+
+    res.json({ success: true, deletedCount });
   },
 );
 
