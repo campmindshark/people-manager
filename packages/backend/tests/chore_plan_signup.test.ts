@@ -8,6 +8,7 @@ import ChorePlanLifecycleController from '../controllers/chore_plan_lifecycle';
 import ChorePlanSignupController from '../controllers/chore_plan_signup';
 import RosterParticipantController from '../controllers/roster_participant';
 import ChorePlanSignupError from '../utils/chorePlanSignupError';
+import { prepareRosterAttendanceTimestampWrite } from '../utils/rosterAttendanceTime';
 import { shiftTimeRangesOverlap } from '../utils/shiftTime';
 import {
   parseEmptyChorePlanSignupRequest,
@@ -109,12 +110,17 @@ async function addParticipant(
   arrival = '2026-08-20T00:00:00.000Z',
   departure = '2026-09-10T00:00:00.000Z',
 ): Promise<void> {
+  const attendanceTimestampWrite = await prepareRosterAttendanceTimestampWrite(
+    database,
+    new Date(arrival),
+    new Date(departure),
+  );
+
   await database('roster_participants').insert({
     rosterID,
     userID,
     probabilityOfAttending: 100,
-    estimatedArrivalDate: new Date(arrival),
-    estimatedDepartureDate: new Date(departure),
+    ...attendanceTimestampWrite,
     sleepingArrangement: 'Test fixture',
   });
 }
@@ -563,12 +569,15 @@ test(
             .where({ id: users[0].id })
             .forUpdate()
             .first();
+          const attendanceTimestampWrite =
+            await prepareRosterAttendanceTimestampWrite(
+              transaction,
+              attendanceStartAfterShift,
+              attendanceEndAfterShift,
+            );
           await transaction('roster_participants')
             .where({ rosterID: roster.id, userID: users[0].id })
-            .update({
-              estimatedArrivalDate: attendanceStartAfterShift,
-              estimatedDepartureDate: attendanceEndAfterShift,
-            });
+            .update(attendanceTimestampWrite);
           assert.equal(
             await RosterParticipantController.ReconcileAttendanceWindow(
               transaction,
@@ -614,12 +623,15 @@ test(
             .where({ id: users[0].id })
             .forUpdate()
             .first();
+          const attendanceTimestampWrite =
+            await prepareRosterAttendanceTimestampWrite(
+              transaction,
+              attendanceStartAfterShift,
+              attendanceEndAfterShift,
+            );
           await transaction('roster_participants')
             .where({ rosterID: roster.id, userID: users[0].id })
-            .update({
-              estimatedArrivalDate: attendanceStartAfterShift,
-              estimatedDepartureDate: attendanceEndAfterShift,
-            });
+            .update(attendanceTimestampWrite);
           return RosterParticipantController.ReconcileAttendanceWindow(
             transaction,
             roster.id,
@@ -638,14 +650,15 @@ test(
           .first(),
         undefined,
       );
+      const restoredAttendanceTimestampWrite =
+        await prepareRosterAttendanceTimestampWrite(
+          database,
+          new Date(participantBeforeAttendanceUpdate.estimatedArrivalDate),
+          new Date(participantBeforeAttendanceUpdate.estimatedDepartureDate),
+        );
       await database('roster_participants')
         .where({ rosterID: roster.id, userID: users[0].id })
-        .update({
-          estimatedArrivalDate:
-            participantBeforeAttendanceUpdate.estimatedArrivalDate,
-          estimatedDepartureDate:
-            participantBeforeAttendanceUpdate.estimatedDepartureDate,
-        });
+        .update(restoredAttendanceTimestampWrite);
 
       await signupController.signup(roster.id, [sourceShift.id], users[0].id);
       await lifecycleController.close(roster.id, users[0].id);

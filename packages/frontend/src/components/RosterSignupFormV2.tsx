@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useRecoilRefresher_UNSTABLE, useRecoilValue } from 'recoil';
+import { useRecoilValue } from 'recoil';
 import {
   Alert,
   Box,
@@ -26,12 +26,8 @@ import {
   getBurnDates,
   getDateTimePickerBounds,
 } from 'backend/utils/burnDates';
-import { CurrentUserSignupStatus, MyShifts } from '../state/store';
-import {
-  ActiveRosterIDState,
-  CurrentRosterParticipantsState,
-  CurrentRosterState,
-} from '../state/roster';
+import { CurrentUserSignupStatus } from '../state/store';
+import { ActiveRosterIDState, CurrentRosterState } from '../state/roster';
 import { getFrontendConfig } from '../config/config';
 import BackendRosterClient from '../api/roster/roster';
 import BackendSettingsClient from '../api/settings/client';
@@ -109,13 +105,6 @@ function RosterSignupFormV2({ handleSuccess, rosterParticipant }: Props) {
   const userSignupStatus = useRecoilValue(CurrentUserSignupStatus);
   const activeRosterID = useRecoilValue(ActiveRosterIDState);
   const currentRoster = useRecoilValue(CurrentRosterState);
-  const refreshMyShifts = useRecoilRefresher_UNSTABLE(MyShifts);
-  const refreshSignupStatus = useRecoilRefresher_UNSTABLE(
-    CurrentUserSignupStatus,
-  );
-  const refreshRosterParticipants = useRecoilRefresher_UNSTABLE(
-    CurrentRosterParticipantsState,
-  );
 
   const yearsAtCampOptions = useMemo(
     () => getCampYearsOptions(currentRoster.year),
@@ -166,9 +155,6 @@ function RosterSignupFormV2({ handleSuccess, rosterParticipant }: Props) {
         activeRosterID,
         formData as unknown as RosterParticipant,
       );
-      refreshMyShifts();
-      refreshSignupStatus();
-      refreshRosterParticipants();
       setSnackbarOpen(true);
       if (result.removedAssignmentCount > 0) {
         setRemovedAssignmentCount(result.removedAssignmentCount);
