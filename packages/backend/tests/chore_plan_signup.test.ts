@@ -229,7 +229,7 @@ test(
           rosterID: roster.id,
           camperCount: 3,
           requirements: { chore: 3, event: 1, dinner: 1 },
-          expectedCatalogRevision: '1',
+          expectedCatalogRevision: '2',
           expectedDraftRevision: null,
         },
         users[0].id,
@@ -541,6 +541,111 @@ test(
         await signupController.remove(roster.id, capacityShift.id, users[0].id),
         { changed: false, assignedShiftIDs: [] },
       );
+
+      await signupController.signup(roster.id, [sourceShift.id], users[0].id);
+      const participantBeforeAttendanceUpdate = await database(
+        'roster_participants',
+      )
+        .select('estimatedArrivalDate', 'estimatedDepartureDate')
+        .where({ rosterID: roster.id, userID: users[0].id })
+        .first();
+      assert(participantBeforeAttendanceUpdate);
+      const attendanceStartAfterShift = new Date(
+        new Date(sourceShift.endTime).getTime() + 24 * 60 * 60 * 1000,
+      );
+      const attendanceEndAfterShift = new Date(
+        attendanceStartAfterShift.getTime() + 60 * 60 * 1000,
+      );
+      await assert.rejects(
+        database.transaction(async (transaction) => {
+          await transaction('users')
+            .select('id')
+            .where({ id: users[0].id })
+            .forUpdate()
+            .first();
+          await transaction('roster_participants')
+            .where({ rosterID: roster.id, userID: users[0].id })
+            .update({
+              estimatedArrivalDate: attendanceStartAfterShift,
+              estimatedDepartureDate: attendanceEndAfterShift,
+            });
+          assert.equal(
+            await RosterParticipantController.ReconcileAttendanceWindow(
+              transaction,
+              roster.id,
+              users[0].id,
+              {
+                startTime: attendanceStartAfterShift,
+                endTime: attendanceEndAfterShift,
+              },
+            ),
+            1,
+          );
+          throw new Error('Roll back attendance reconciliation fixture.');
+        }),
+        /roll back attendance reconciliation fixture/i,
+      );
+      assert(
+        await database('shift_participants')
+          .where({ shiftID: sourceShift.id, userID: users[0].id })
+          .first(),
+      );
+      const participantAfterRollback = await database('roster_participants')
+        .select('estimatedArrivalDate', 'estimatedDepartureDate')
+        .where({ rosterID: roster.id, userID: users[0].id })
+        .first();
+      assert.equal(
+        new Date(participantAfterRollback.estimatedArrivalDate).getTime(),
+        new Date(
+          participantBeforeAttendanceUpdate.estimatedArrivalDate,
+        ).getTime(),
+      );
+      assert.equal(
+        new Date(participantAfterRollback.estimatedDepartureDate).getTime(),
+        new Date(
+          participantBeforeAttendanceUpdate.estimatedDepartureDate,
+        ).getTime(),
+      );
+
+      assert.equal(
+        await database.transaction(async (transaction) => {
+          await transaction('users')
+            .select('id')
+            .where({ id: users[0].id })
+            .forUpdate()
+            .first();
+          await transaction('roster_participants')
+            .where({ rosterID: roster.id, userID: users[0].id })
+            .update({
+              estimatedArrivalDate: attendanceStartAfterShift,
+              estimatedDepartureDate: attendanceEndAfterShift,
+            });
+          return RosterParticipantController.ReconcileAttendanceWindow(
+            transaction,
+            roster.id,
+            users[0].id,
+            {
+              startTime: attendanceStartAfterShift,
+              endTime: attendanceEndAfterShift,
+            },
+          );
+        }),
+        1,
+      );
+      assert.equal(
+        await database('shift_participants')
+          .where({ shiftID: sourceShift.id, userID: users[0].id })
+          .first(),
+        undefined,
+      );
+      await database('roster_participants')
+        .where({ rosterID: roster.id, userID: users[0].id })
+        .update({
+          estimatedArrivalDate:
+            participantBeforeAttendanceUpdate.estimatedArrivalDate,
+          estimatedDepartureDate:
+            participantBeforeAttendanceUpdate.estimatedDepartureDate,
+        });
 
       await signupController.signup(roster.id, [sourceShift.id], users[0].id);
       await lifecycleController.close(roster.id, users[0].id);

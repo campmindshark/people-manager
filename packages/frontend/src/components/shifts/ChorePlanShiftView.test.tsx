@@ -99,6 +99,47 @@ function openResponse(
   });
 }
 
+function failingClient(error: unknown): ChorePlanShiftClient {
+  const failedClient = client(response());
+  failedClient.GetShifts = jest.fn().mockRejectedValue(error);
+  return failedClient;
+}
+
+test('shows membership guidance for forbidden requests', async () => {
+  render(
+    <ChorePlanShiftView
+      rosterID={2}
+      planClient={failingClient({ response: { status: 403 } })}
+    />,
+  );
+
+  expect(
+    await screen.findByText(
+      'Chore plan shifts are available only to verified roster members.',
+    ),
+  ).toBeVisible();
+});
+
+test('reports server failures as load errors', async () => {
+  render(
+    <ChorePlanShiftView
+      rosterID={2}
+      planClient={failingClient({
+        response: { data: { error: 'Internal server error' }, status: 500 },
+      })}
+    />,
+  );
+
+  expect(
+    await screen.findByText(
+      'The chore plan shifts could not be loaded. Please try again.',
+    ),
+  ).toBeVisible();
+  expect(
+    screen.queryByText(/available only to verified roster members/i),
+  ).not.toBeInTheDocument();
+});
+
 test('shows the empty state when the roster has no chore plan', async () => {
   const planClient = client(response());
   render(<ChorePlanShiftView rosterID={2} planClient={planClient} />);

@@ -138,16 +138,32 @@ export default class ChorePlanLifecycleController {
   }
 
   async getByRosterID(rosterID: number): Promise<ChorePlanLifecycleResponse> {
-    const database = this.getDatabase();
-    const plan = (await database<ChorePlanLifecycleRow>('chore_plans')
-      .where({ rosterID })
-      .first()) as ChorePlanLifecycleRow | undefined;
-    if (!plan) {
-      return { plan: null };
-    }
-    return {
-      plan: lifecycleState(plan, await loadLifecycleCounts(database, plan.id)),
-    };
+    return this.getDatabase().transaction(async (transaction) => {
+      await transaction.raw(
+        'SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY',
+      );
+
+      const roster = await transaction('rosters')
+        .select('id')
+        .where({ id: rosterID })
+        .first();
+      if (!roster) {
+        throw new ChorePlanLifecycleError('Roster not found.', 404);
+      }
+
+      const plan = (await transaction<ChorePlanLifecycleRow>('chore_plans')
+        .where({ rosterID })
+        .first()) as ChorePlanLifecycleRow | undefined;
+      if (!plan) {
+        return { plan: null };
+      }
+      return {
+        plan: lifecycleState(
+          plan,
+          await loadLifecycleCounts(transaction, plan.id),
+        ),
+      };
+    });
   }
 
   async open(
@@ -202,7 +218,7 @@ export default class ChorePlanLifecycleController {
       }
 
       const timeResult = (await transaction.raw(
-        'SELECT CURRENT_TIMESTAMP AS "transitionedAt"',
+        'SELECT clock_timestamp() AS "transitionedAt"',
       )) as { rows: TransitionTimeRow[] };
       const transitionedAt = new Date(timeResult.rows[0].transitionedAt);
       const update = {

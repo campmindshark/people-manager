@@ -16,7 +16,7 @@ const KINDS: ChoreCatalogKind[] = ['chore', 'event', 'dinner'];
 const KIND_ORDER = new Map(KINDS.map((kind, index) => [kind, index]));
 const EXPECTED_DEFINITION_COUNTS: Record<ChoreCatalogKind, number> = {
   chore: 32,
-  event: 240,
+  event: 216,
   dinner: 54,
 };
 const DAY_LABELS = [
@@ -88,6 +88,18 @@ function clockMinutes(value: string): number {
   return hour * 3600 + minute * 60 + second;
 }
 
+function eventPeriodKey(value: string): string {
+  const match = value
+    .trim()
+    .match(/^(\d{1,2})\s*([ap])(?:m)?\s*-\s*(\d{1,2})\s*([ap])(?:m)?$/i);
+  if (!match) {
+    return value.trim().toLowerCase();
+  }
+  return `${Number(match[1])}${match[2].toLowerCase()}-${Number(
+    match[3],
+  )}${match[4].toLowerCase()}`;
+}
+
 function validateDefinition(
   definition: ChoreCatalogDefinitionView,
 ): PlanningDefinition {
@@ -146,6 +158,14 @@ function validateDefinition(
     ) {
       invalidCatalog(
         `definition ${definition.stableKey} has invalid period metadata.`,
+      );
+    }
+    if (
+      definition.kind === 'event' &&
+      eventPeriodKey(definition.timePeriodLabel) === '3a-6a'
+    ) {
+      invalidCatalog(
+        `definition ${definition.stableKey} uses the camp-excluded 3a-6a event period.`,
       );
     }
   }

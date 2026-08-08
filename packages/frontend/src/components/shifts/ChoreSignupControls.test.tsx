@@ -145,6 +145,33 @@ test('requires and trims the audited reason when reopening closed signups', asyn
   expect(screen.getAllByRole('alert')).toHaveLength(1);
 });
 
+test('closes the reopen dialog before showing a request error', async () => {
+  const planClient = client(lifecycle('closed'));
+  planClient.Reopen.mockRejectedValue({
+    response: {
+      data: { error: 'Only a closed chore plan can be reopened.' },
+      status: 409,
+    },
+  });
+  render(<LifecycleHarness planClient={planClient} />);
+
+  userEvent.click(
+    await screen.findByRole('button', { name: 'Reopen Chore Signups' }),
+  );
+  userEvent.type(
+    screen.getByRole('textbox', { name: 'Reopening reason' }),
+    'Scheduling correction',
+  );
+  userEvent.click(screen.getByRole('button', { name: 'Reopen signups' }));
+
+  await waitFor(() =>
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument(),
+  );
+  expect(
+    screen.getByText('Only a closed chore plan can be reopened.'),
+  ).toBeVisible();
+});
+
 test('keeps reopening unavailable without the separate permission', async () => {
   const planClient = client(lifecycle('closed'));
   render(<LifecycleHarness canReopen={false} planClient={planClient} />);

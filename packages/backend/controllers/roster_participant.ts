@@ -4,6 +4,7 @@ import {
   requirementsFromColumns,
   ChorePlanRequirementColumns,
 } from '../utils/chorePlanRequirements';
+import { shiftTimeRangeContains, ShiftTimeRange } from '../utils/shiftTime';
 
 const ROSTER_REMOVAL_REQUIREMENT_CLEAR_REASON = 'Roster membership ended.';
 
@@ -14,6 +15,10 @@ interface ChorePlanRow extends ChorePlanRequirementColumns {
 interface RequirementOverrideRow extends ChorePlanRequirementColumns {
   userID: number;
   reason: string;
+}
+
+interface RosterAssignmentRow extends ShiftTimeRange {
+  assignmentID: number;
 }
 
 interface RosterParticipantRow {
@@ -27,6 +32,42 @@ export interface RosterParticipantRemovalResult {
 }
 
 export default class RosterParticipantController {
+  public static async ReconcileAttendanceWindow(
+    transaction: Knex.Transaction,
+    rosterID: number,
+    userID: number,
+    attendanceWindow: ShiftTimeRange,
+  ): Promise<number> {
+    const assignments = await transaction<RosterAssignmentRow>(
+      'shift_participants as assignment',
+    )
+      .innerJoin('shifts as shift', 'shift.id', 'assignment.shiftID')
+      .innerJoin('schedules as schedule', 'schedule.id', 'shift.scheduleID')
+      .select(
+        'assignment.id as assignmentID',
+        'shift.startTime',
+        'shift.endTime',
+      )
+      .where('assignment.userID', userID)
+      .where('schedule.rosterID', rosterID)
+      .orderBy('assignment.id')
+      .forUpdate('assignment');
+
+    const invalidAssignmentIDs = assignments
+      .filter(
+        (assignment) => !shiftTimeRangeContains(attendanceWindow, assignment),
+      )
+      .map(({ assignmentID }) => Number(assignmentID));
+
+    if (invalidAssignmentIDs.length === 0) {
+      return 0;
+    }
+
+    return transaction('shift_participants')
+      .whereIn('id', invalidAssignmentIDs)
+      .del();
+  }
+
   public static async RemoveFromRoster(
     rosterID: number,
     userIDs: number[],

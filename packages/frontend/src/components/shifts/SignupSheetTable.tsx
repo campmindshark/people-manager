@@ -29,6 +29,8 @@ const DAY_LABELS = [
   'Saturday',
 ] as const;
 const DAYS = DAY_LABELS.length;
+// Camp has decided that 3a-6a is not a valid event period. Keep the signup
+// sheet aligned with the fixed catalog's five approved periods.
 const EVENT_PERIODS = [
   { key: '12p-3p', label: '12 pm - 3 pm' },
   { key: '3p-6p', label: '3 pm - 6 pm' },
