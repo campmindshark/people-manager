@@ -114,6 +114,25 @@ async function runIntegrationTest() {
       chorePlanningResponse.status === 404,
       'Disabled chore-planning routes must appear absent',
     );
+    const disabledLifecycleResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/1/open',
+      {
+        method: 'POST',
+        headers: { cookie: sessionCookie },
+      },
+    );
+    assert(
+      disabledLifecycleResponse.status === 404,
+      'Disabled chore lifecycle routes must appear absent',
+    );
+    const disabledShiftViewResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/1/shifts',
+      { headers: { cookie: sessionCookie } },
+    );
+    assert(
+      disabledShiftViewResponse.status === 404,
+      'Disabled chore shift-view routes must appear absent',
+    );
 
     const verificationResponse = await fetch(
       `http://localhost:3001/api/users/verify/${authCheck.user.id}`,
@@ -253,6 +272,25 @@ async function runIntegrationTest() {
     );
     assert(verifyStandardResponse.ok, 'Could not verify the standard user');
 
+    const rosterSignupResponse = await fetch(
+      'http://localhost:3001/api/roster_participants/1',
+      {
+        method: 'POST',
+        headers: {
+          cookie: standardCookie,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          probabilityOfAttending: 100,
+          yearsAtCamp: [],
+          estimatedArrivalDate: '2026-08-20T00:00:00.000Z',
+          estimatedDepartureDate: '2026-09-10T00:00:00.000Z',
+          sleepingArrangement: 'Smoke test',
+        }),
+      },
+    );
+    assert(rosterSignupResponse.ok, 'Could not add the standard roster member');
+
     run('docker compose up -d --force-recreate --no-deps backend', {
       CHORE_PLANNING_ENABLED: 'true',
     });
@@ -287,6 +325,27 @@ async function runIntegrationTest() {
       'A verified standard user must not read the chore catalog',
     );
 
+    const forbiddenOutsiderShiftViewResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/1/shifts',
+      { headers: { cookie: sessionCookie } },
+    );
+    assert(
+      forbiddenOutsiderShiftViewResponse.status === 403,
+      'A verified non-member must not read chore plan shifts',
+    );
+    const emptyShiftViewResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/1/shifts',
+      { headers: { cookie: standardCookie } },
+    );
+    assert(emptyShiftViewResponse.ok, 'Roster member could not read empty plan');
+    const emptyShiftView = await emptyShiftViewResponse.json();
+    assert(
+      emptyShiftView.plan === null &&
+        emptyShiftView.selfServiceMutationsAllowed === false &&
+        emptyShiftView.shifts?.length === 0,
+      'Empty member shift view returned unexpected state',
+    );
+
     const forbiddenPreviewResponse = await fetch(
       'http://localhost:3001/api/chore-plans/preview',
       {
@@ -317,10 +376,10 @@ async function runIntegrationTest() {
       `Admin could not load the chore catalog (${catalogResponse.status}): ${catalogBody}`,
     );
     const catalog = JSON.parse(catalogBody);
-    assert(catalog.revision === '1', 'Fresh catalog revision must be 1');
+    assert(catalog.revision === '2', 'Fresh catalog revision must be 2');
     assert(
-      catalog.definitions?.length === 326,
-      'Catalog must contain all 326 source definitions',
+      catalog.definitions?.length === 302,
+      'Catalog must contain all 302 approved definitions',
     );
     const firstDefinition = catalog.definitions[0];
 
@@ -332,12 +391,12 @@ async function runIntegrationTest() {
           cookie: sessionCookie,
           'content-type': 'application/json',
         },
-        body: JSON.stringify({ score: 42.25, expectedRevision: '1' }),
+        body: JSON.stringify({ score: 42.25, expectedRevision: '2' }),
       },
     );
     assert(updateResponse.ok, 'Admin could not update a chore score');
     const update = await updateResponse.json();
-    assert(update.revision === '2', 'A score change must advance the revision');
+    assert(update.revision === '3', 'A score change must advance the revision');
     assert(
       update.definition.score === 42.25,
       'The changed score was not returned',
@@ -353,7 +412,7 @@ async function runIntegrationTest() {
         },
         body: JSON.stringify({
           score: 42.25,
-          expectedRevision: '2',
+          expectedRevision: '3',
           shiftLabel: 'Changed',
         }),
       },
@@ -371,7 +430,7 @@ async function runIntegrationTest() {
           cookie: sessionCookie,
           'content-type': 'application/json',
         },
-        body: JSON.stringify({ score: 41, expectedRevision: '1' }),
+        body: JSON.stringify({ score: 41, expectedRevision: '2' }),
       },
     );
     assert(
@@ -397,7 +456,7 @@ async function runIntegrationTest() {
     assert(previewResponse.ok, 'Admin could not preview a chore plan');
     const preview = await previewResponse.json();
     assert(
-      preview.catalogRevision === '2',
+      preview.catalogRevision === '3',
       'Preview did not report its consistent catalog revision',
     );
     assert(
@@ -475,7 +534,7 @@ async function runIntegrationTest() {
           rosterID: 1,
           camperCount: 1,
           requirements: { chore: 1, event: 1, dinner: 1 },
-          expectedCatalogRevision: '2',
+          expectedCatalogRevision: '3',
           expectedDraftRevision: null,
         }),
       },
@@ -505,7 +564,7 @@ async function runIntegrationTest() {
       rosterID: 1,
       camperCount: 1,
       requirements: { chore: 1, event: 1, dinner: 1 },
-      expectedCatalogRevision: '2',
+      expectedCatalogRevision: '3',
       expectedDraftRevision: null,
     };
     const applyResponse = await fetch(
@@ -529,7 +588,7 @@ async function runIntegrationTest() {
       applied.changed === true &&
         applied.replaced === false &&
         applied.draft?.draftRevision === '1' &&
-        applied.draft?.catalogRevision === '2',
+        applied.draft?.catalogRevision === '3',
       'First draft apply did not return the expected revision state',
     );
     const savedDraftResponse = await fetch(
@@ -540,8 +599,20 @@ async function runIntegrationTest() {
     const savedDraft = await savedDraftResponse.json();
     assert(
       savedDraft.draft?.draftRevision === '1' &&
-        savedDraft.draft?.catalogRevision === '2',
+        savedDraft.draft?.catalogRevision === '3',
       'Saved draft read model did not match the applied draft',
+    );
+    const memberDraftResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/1/shifts',
+      { headers: { cookie: standardCookie } },
+    );
+    assert(memberDraftResponse.ok, 'Roster member could not read draft state');
+    const memberDraft = await memberDraftResponse.json();
+    assert(
+      memberDraft.plan?.status === 'draft' &&
+        memberDraft.selfServiceMutationsAllowed === false &&
+        memberDraft.shifts?.length === 0,
+      'Draft generated shifts were exposed to a roster member',
     );
 
     const repeatedApplyResponse = await fetch(
@@ -617,7 +688,7 @@ async function runIntegrationTest() {
         body: JSON.stringify({
           ...firstApplyBody,
           camperCount: 2,
-          expectedCatalogRevision: '1',
+          expectedCatalogRevision: '2',
           expectedDraftRevision: '2',
         }),
       },
@@ -650,6 +721,144 @@ async function runIntegrationTest() {
       JSON.stringify(ordinaryShiftsAfter) ===
         JSON.stringify(ordinaryShiftsBefore),
       'Generated draft shifts leaked into the ordinary shift API',
+    );
+
+    const forbiddenOpenResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/1/open',
+      {
+        method: 'POST',
+        headers: { cookie: standardCookie },
+      },
+    );
+    assert(
+      forbiddenOpenResponse.status === 403,
+      'A verified standard user must not open chore plans',
+    );
+    const openResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/1/open',
+      {
+        method: 'POST',
+        headers: { cookie: sessionCookie },
+      },
+    );
+    assert(openResponse.ok, 'Admin could not open the draft chore plan');
+    const openedPlan = await openResponse.json();
+    assert(
+      openedPlan.status === 'open' &&
+        openedPlan.openedByUserID === authCheck.user.id &&
+        openedPlan.openedAt &&
+        openedPlan.closedAt === null,
+      'Opening did not return the expected lifecycle state',
+    );
+    const memberOpenResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/1/shifts',
+      { headers: { cookie: standardCookie } },
+    );
+    assert(memberOpenResponse.ok, 'Roster member could not read open plan');
+    const memberOpen = await memberOpenResponse.json();
+    assert(
+      memberOpen.plan?.status === 'open' &&
+        memberOpen.selfServiceMutationsAllowed === true &&
+        memberOpen.shifts?.length > 0 &&
+        ['chore', 'event', 'dinner'].every((kind) =>
+          memberOpen.shifts.some((shift) => shift.kind === kind),
+        ),
+      'Open member shift view omitted generated category rows',
+    );
+    assert(
+      !JSON.stringify(memberOpen).includes('userID') &&
+        !JSON.stringify(memberOpen).includes('@localhost'),
+      'Member shift view exposed participant identity fields',
+    );
+
+    const repeatedOpenResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/1/open',
+      {
+        method: 'POST',
+        headers: { cookie: sessionCookie },
+      },
+    );
+    assert(
+      repeatedOpenResponse.status === 409,
+      'Opening an already-open chore plan must be rejected',
+    );
+    const closeResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/1/close',
+      {
+        method: 'POST',
+        headers: { cookie: sessionCookie },
+      },
+    );
+    assert(closeResponse.ok, 'Admin could not close the open chore plan');
+    const closedPlan = await closeResponse.json();
+    assert(
+      closedPlan.status === 'closed' &&
+        closedPlan.closedByUserID === authCheck.user.id &&
+        closedPlan.closedAt,
+      'Closing did not return the expected lifecycle state',
+    );
+    const memberClosedResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/1/shifts',
+      { headers: { cookie: standardCookie } },
+    );
+    assert(memberClosedResponse.ok, 'Roster member could not read closed plan');
+    const memberClosed = await memberClosedResponse.json();
+    assert(
+      memberClosed.plan?.status === 'closed' &&
+        memberClosed.selfServiceMutationsAllowed === false &&
+        memberClosed.shifts?.length === memberOpen.shifts.length,
+      'Closed member shift view did not remain visible and read-only',
+    );
+
+    const invalidReopenResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/1/reopen',
+      {
+        method: 'POST',
+        headers: {
+          cookie: sessionCookie,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ reason: '   ' }),
+      },
+    );
+    assert(
+      invalidReopenResponse.status === 400,
+      'Reopening without a reason must be rejected',
+    );
+    const forbiddenReopenResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/1/reopen',
+      {
+        method: 'POST',
+        headers: {
+          cookie: standardCookie,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ reason: 'Standard user attempt' }),
+      },
+    );
+    assert(
+      forbiddenReopenResponse.status === 403,
+      'A verified standard user must not reopen chore plans',
+    );
+    const reopenResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/1/reopen',
+      {
+        method: 'POST',
+        headers: {
+          cookie: sessionCookie,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ reason: '  Smoke-test correction  ' }),
+      },
+    );
+    assert(reopenResponse.ok, 'Admin could not reopen the closed chore plan');
+    const reopenedPlan = await reopenResponse.json();
+    assert(
+      reopenedPlan.status === 'open' &&
+        reopenedPlan.openedByUserID === authCheck.user.id &&
+        reopenedPlan.closedAt === null &&
+        reopenedPlan.closedByUserID === null,
+      'Reopening did not return the expected lifecycle state',
     );
 
     console.log('Integration smoke test passed.');

@@ -40,13 +40,6 @@ test('renders one canonical set of event periods and keeps after-midnight shifts
       periodOrder: 5,
     },
     {
-      key: 'monday-before-dawn',
-      scheduleName: 'Bar',
-      day: 1,
-      timePeriod: '3a-6a',
-      periodOrder: 6,
-    },
-    {
       key: 'monday-noon',
       scheduleName: 'Bar',
       day: 2,
@@ -54,11 +47,18 @@ test('renders one canonical set of event periods and keeps after-midnight shifts
       periodOrder: 7,
     },
     {
+      key: 'camp-excluded-early-morning',
+      scheduleName: 'Bar',
+      day: 2,
+      timePeriod: '3a-6a',
+      periodOrder: 6,
+    },
+    {
       key: 'closing-sunday-after-midnight',
       scheduleName: 'Bar',
       day: 7,
       timePeriod: '12a-3a',
-      periodOrder: 39,
+      periodOrder: 33,
     },
   ];
 
@@ -81,7 +81,6 @@ test('renders one canonical set of event periods and keeps after-midnight shifts
     '6 pm - 9 pm',
     '9 pm - 12 am',
     '12 am - 3 am',
-    '3 am - 6 am',
   ]);
 
   const dayRows = screen
@@ -99,12 +98,14 @@ test('renders one canonical set of event periods and keeps after-midnight shifts
   expect(
     within(sundayRow).getByText('monday-after-midnight'),
   ).toBeInTheDocument();
-  expect(within(sundayRow).getByText('monday-before-dawn')).toBeInTheDocument();
   expect(within(mondayRow).getByText('monday-noon')).toBeInTheDocument();
   expect(
     within(saturdayRow).getByText('closing-sunday-after-midnight'),
   ).toBeInTheDocument();
   expect(
     within(mondayRow).queryByText('monday-after-midnight'),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.queryByText('camp-excluded-early-morning'),
   ).not.toBeInTheDocument();
 });

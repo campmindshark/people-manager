@@ -3,7 +3,7 @@ import {
   ChoreCatalogDefinitionView,
   ChoreCatalogKind,
 } from '../view_models/chore_catalog';
-import { CHORE_CATALOG_V1 } from '../migrations/data/chore_catalog_v1';
+import { CHORE_CATALOG_V2 } from '../migrations/data/chore_catalog_v2';
 import {
   ChorePlanPreview,
   ChorePlanPreviewBuildInput,
@@ -17,7 +17,7 @@ const KINDS: ChoreCatalogKind[] = ['chore', 'event', 'dinner'];
 const KIND_ORDER = new Map(KINDS.map((kind, index) => [kind, index]));
 const EXPECTED_DEFINITION_COUNTS: Record<ChoreCatalogKind, number> = {
   chore: 32,
-  event: 240,
+  event: 216,
   dinner: 54,
 };
 const DAY_LABELS = [
@@ -53,7 +53,7 @@ const FIXED_CATALOG_FIELDS = Object.keys(FIXED_CATALOG_FIELD_SET) as Array<
   keyof typeof FIXED_CATALOG_FIELD_SET
 >;
 const FIXED_CATALOG_BY_KEY = new Map(
-  CHORE_CATALOG_V1.map((definition) => [definition.stableKey, definition]),
+  CHORE_CATALOG_V2.map((definition) => [definition.stableKey, definition]),
 );
 
 interface PlanningDefinition extends ChoreCatalogDefinitionView {
@@ -110,6 +110,18 @@ function clockMinutes(value: string): number {
   }
   const [hour, minute, second] = value.split(':').map(Number);
   return hour * 3600 + minute * 60 + second;
+}
+
+function eventPeriodKey(value: string): string {
+  const match = value
+    .trim()
+    .match(/^(\d{1,2})\s*([ap])(?:m)?\s*-\s*(\d{1,2})\s*([ap])(?:m)?$/i);
+  if (!match) {
+    return value.trim().toLowerCase();
+  }
+  return `${Number(match[1])}${match[2].toLowerCase()}-${Number(
+    match[3],
+  )}${match[4].toLowerCase()}`;
 }
 
 function validateDefinition(
@@ -172,13 +184,21 @@ function validateDefinition(
         `definition ${definition.stableKey} has invalid period metadata.`,
       );
     }
+    if (
+      definition.kind === 'event' &&
+      eventPeriodKey(definition.timePeriodLabel) === '3a-6a'
+    ) {
+      invalidCatalog(
+        `definition ${definition.stableKey} uses the camp-excluded 3a-6a event period.`,
+      );
+    }
   }
 
   return { ...definition, scoreCents: scoreCents(definition.score) };
 }
 
 function validateFixedCatalog(definitions: PlanningDefinition[]): void {
-  if (definitions.length !== CHORE_CATALOG_V1.length) {
+  if (definitions.length !== CHORE_CATALOG_V2.length) {
     invalidCatalog('the definition count does not match the fixed catalog.');
   }
 

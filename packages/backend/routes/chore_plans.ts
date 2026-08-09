@@ -1,28 +1,40 @@
 import express, { Request, Response, Router } from 'express';
 import ChoreCatalogController from '../controllers/chore_catalog';
 import ChorePlanDraftController from '../controllers/chore_plan_draft';
+import ChorePlanLifecycleController from '../controllers/chore_plan_lifecycle';
 import ChorePlanPreviewController from '../controllers/chore_plan_preview';
+import ChorePlanShiftsController from '../controllers/chore_plan_shifts';
 import hasPermission from '../middleware/rbac';
 import userIsVerified from '../middleware/verified_user';
 import User from '../models/user/user';
 import ChoreCatalogError from '../utils/choreCatalogError';
 import { parseChoreCatalogScoreUpdate } from '../utils/choreCatalogInput';
+import ChorePlanLifecycleError from '../utils/chorePlanLifecycleError';
+import {
+  parseChorePlanReopenRequest,
+  parseEmptyLifecycleRequest,
+} from '../utils/chorePlanLifecycleInput';
 import {
   parseChorePlanApplyRequest,
   parseChorePlanPreviewRequest,
   parseChorePlanRosterID,
 } from '../utils/chorePlanPreviewInput';
 import ChorePlanPreviewError from '../utils/chorePlanPreviewError';
+import ChorePlanShiftViewError from '../utils/chorePlanShiftViewError';
 
 const router: Router = express.Router();
 const controller = new ChoreCatalogController();
 const draftController = new ChorePlanDraftController();
+const lifecycleController = new ChorePlanLifecycleController();
 const previewController = new ChorePlanPreviewController();
+const shiftsController = new ChorePlanShiftsController();
 
 function sendError(error: unknown, res: Response, operation: string): void {
   if (
     (error instanceof ChoreCatalogError ||
-      error instanceof ChorePlanPreviewError) &&
+      error instanceof ChorePlanLifecycleError ||
+      error instanceof ChorePlanPreviewError ||
+      error instanceof ChorePlanShiftViewError) &&
     error.status < 500
   ) {
     res.status(error.status).json({ error: error.message });
@@ -32,6 +44,24 @@ function sendError(error: unknown, res: Response, operation: string): void {
   console.error(`Failed to ${operation}:`, error);
   res.status(500).json({ error: `Failed to ${operation}.` });
 }
+
+router.get(
+  '/:rosterID/shifts',
+  userIsVerified(),
+  async (req: Request, res: Response) => {
+    try {
+      const user = req.user as User;
+      res.json(
+        await shiftsController.getForUser(
+          parseChorePlanRosterID(req.params.rosterID),
+          user.id,
+        ),
+      );
+    } catch (error) {
+      sendError(error, res, 'load chore plan shifts');
+    }
+  },
+);
 
 router.post(
   '/preview',
@@ -80,6 +110,83 @@ router.post(
       );
     } catch (error) {
       sendError(error, res, 'apply the chore plan draft');
+    }
+  },
+);
+
+router.get(
+  '/:rosterID/lifecycle',
+  userIsVerified(),
+  hasPermission('chorePlans:lifecycle'),
+  async (req: Request, res: Response) => {
+    try {
+      res.json(
+        await lifecycleController.getByRosterID(
+          parseChorePlanRosterID(req.params.rosterID),
+        ),
+      );
+    } catch (error) {
+      sendError(error, res, 'load the chore plan lifecycle');
+    }
+  },
+);
+
+router.post(
+  '/:rosterID/open',
+  userIsVerified(),
+  hasPermission('chorePlans:lifecycle'),
+  async (req: Request, res: Response) => {
+    try {
+      parseEmptyLifecycleRequest(req.body);
+      const user = req.user as User;
+      res.json(
+        await lifecycleController.open(
+          parseChorePlanRosterID(req.params.rosterID),
+          user.id,
+        ),
+      );
+    } catch (error) {
+      sendError(error, res, 'open the chore plan');
+    }
+  },
+);
+
+router.post(
+  '/:rosterID/close',
+  userIsVerified(),
+  hasPermission('chorePlans:lifecycle'),
+  async (req: Request, res: Response) => {
+    try {
+      parseEmptyLifecycleRequest(req.body);
+      const user = req.user as User;
+      res.json(
+        await lifecycleController.close(
+          parseChorePlanRosterID(req.params.rosterID),
+          user.id,
+        ),
+      );
+    } catch (error) {
+      sendError(error, res, 'close the chore plan');
+    }
+  },
+);
+
+router.post(
+  '/:rosterID/reopen',
+  userIsVerified(),
+  hasPermission('chorePlans:reopen'),
+  async (req: Request, res: Response) => {
+    try {
+      const user = req.user as User;
+      res.json(
+        await lifecycleController.reopen(
+          parseChorePlanRosterID(req.params.rosterID),
+          user.id,
+          parseChorePlanReopenRequest(req.body),
+        ),
+      );
+    } catch (error) {
+      sendError(error, res, 'reopen the chore plan');
     }
   },
 );

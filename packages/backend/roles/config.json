@@ -30,7 +30,9 @@
         "choreCatalog:read",
         "choreCatalog:editScores",
         "chorePlans:preview",
-        "chorePlans:apply"
+        "chorePlans:apply",
+        "chorePlans:lifecycle",
+        "chorePlans:reopen"
       ]
     }
   ]

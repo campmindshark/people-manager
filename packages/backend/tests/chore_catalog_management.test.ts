@@ -137,8 +137,8 @@ test(
       const controller = new ChoreCatalogController(database);
 
       const initial = await controller.getCatalog();
-      assert.equal(initial.revision, '1');
-      assert.equal(initial.definitions.length, 326);
+      assert.equal(initial.revision, '2');
+      assert.equal(initial.definitions.length, 302);
       assert.deepEqual(
         initial.definitions.slice(0, 3).map(({ stableKey }) => stableKey),
         [
@@ -149,15 +149,15 @@ test(
       );
       assert.equal(initial.definitions[31].kind, 'chore');
       assert.equal(initial.definitions[32].kind, 'event');
-      assert.equal(initial.definitions[272].kind, 'dinner');
+      assert.equal(initial.definitions[248].kind, 'dinner');
 
       const firstKey = initial.definitions[0].stableKey;
       const changed = await controller.updateScore(
         firstKey,
-        { score: 42.25, expectedRevision: '1' },
+        { score: 42.25, expectedRevision: '2' },
         firstActor.id,
       );
-      assert.equal(changed.revision, '2');
+      assert.equal(changed.revision, '3');
       assert.equal(changed.definition.score, 42.25);
       assert.deepEqual(
         await database('chore_catalog_score_audit_entries')
@@ -175,17 +175,17 @@ test(
           definitionKey: firstKey,
           oldScore: '100',
           newScore: '42.25',
-          previousRevision: '1',
-          newRevision: '2',
+          previousRevision: '2',
+          newRevision: '3',
         },
       );
 
       const unchanged = await controller.updateScore(
         firstKey,
-        { score: 42.25, expectedRevision: '2' },
+        { score: 42.25, expectedRevision: '3' },
         secondActor.id,
       );
-      assert.equal(unchanged.revision, '2');
+      assert.equal(unchanged.revision, '3');
       assert.equal(
         Number(
           (
@@ -200,7 +200,7 @@ test(
       await assert.rejects(
         controller.updateScore(
           initial.definitions[1].stableKey,
-          { score: 41, expectedRevision: '1' },
+          { score: 41, expectedRevision: '2' },
           secondActor.id,
         ),
         (error) => isCatalogError(error, 409, /changed/i),
@@ -208,7 +208,7 @@ test(
       await assert.rejects(
         controller.updateScore(
           'chore-definition-that-does-not-exist',
-          { score: 41, expectedRevision: '2' },
+          { score: 41, expectedRevision: '3' },
           secondActor.id,
         ),
         (error) => isCatalogError(error, 404, /not found/i),
@@ -221,12 +221,12 @@ test(
       const concurrentResults = await Promise.allSettled([
         controller.updateScore(
           concurrentKeys[0],
-          { score: 40, expectedRevision: '2' },
+          { score: 40, expectedRevision: '3' },
           firstActor.id,
         ),
         controller.updateScore(
           concurrentKeys[1],
-          { score: 30, expectedRevision: '2' },
+          { score: 30, expectedRevision: '3' },
           secondActor.id,
         ),
       ]);
@@ -244,7 +244,7 @@ test(
       );
       assert.deepEqual(
         await database('chore_catalog_state').select('revision').first(),
-        { revision: '3' },
+        { revision: '4' },
       );
       assert.equal(
         Number(
@@ -273,14 +273,14 @@ test(
       await assert.rejects(
         controller.updateScore(
           rollbackKey,
-          { score: 39, expectedRevision: '3' },
+          { score: 39, expectedRevision: '4' },
           firstActor.id,
         ),
         /audit unavailable/i,
       );
       assert.deepEqual(
         await database('chore_catalog_state').select('revision').first(),
-        { revision: '3' },
+        { revision: '4' },
       );
       assert.equal(
         Number(

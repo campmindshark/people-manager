@@ -47,7 +47,7 @@ function applyRequest(
     rosterID,
     camperCount: 1,
     requirements: { chore: 1, event: 1, dinner: 1 },
-    expectedCatalogRevision: '1',
+    expectedCatalogRevision: '2',
     expectedDraftRevision: null,
     ...overrides,
   };
@@ -267,7 +267,7 @@ test(
         {
           status: 'draft',
           draftRevision: '1',
-          catalogRevision: '1',
+          catalogRevision: '2',
           planningYear: 2026,
           camperCount: 1,
           scheduleCount: 3,
@@ -398,7 +398,7 @@ test(
 
       await new ChoreCatalogController(database).updateScore(
         'chore-am-chum-wench-first',
-        { score: 0, expectedRevision: '1' },
+        { score: 0, expectedRevision: '2' },
         actor.id,
       );
       assert.equal(
@@ -423,13 +423,13 @@ test(
       const refreshed = await controller.apply(
         applyRequest(roster.id, {
           camperCount: 2,
-          expectedCatalogRevision: '2',
+          expectedCatalogRevision: '3',
           expectedDraftRevision: '2',
         }),
         actor.id,
       );
       assert.equal(refreshed.draft.draftRevision, '3');
-      assert.equal(refreshed.draft.catalogRevision, '2');
+      assert.equal(refreshed.draft.catalogRevision, '3');
       assert.equal(refreshed.replaced, true);
 
       const assignedShift = await database('chore_plan_generated_shifts')
@@ -467,7 +467,7 @@ test(
         controller.apply(
           applyRequest(roster.id, {
             camperCount: 3,
-            expectedCatalogRevision: '2',
+            expectedCatalogRevision: '3',
             expectedDraftRevision: '3',
           }),
           actor.id,
@@ -505,7 +505,7 @@ test(
         controller.apply(
           applyRequest(roster.id, {
             camperCount: 3,
-            expectedCatalogRevision: '2',
+            expectedCatalogRevision: '3',
             expectedDraftRevision: '3',
           }),
           actor.id,

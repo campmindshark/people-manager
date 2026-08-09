@@ -46,12 +46,20 @@ The lifecycle states are `draft`, `open`, and `closed`:
 - `open -> closed` is allowed. Closing records the actor and time in the same
   transaction and disables self-service mutations.
 - `closed -> open` is the only reopening transition. It requires the dedicated
-  reopen permission and a non-empty reason. The transition is audited in the
-  same transaction.
+  reopen permission and a trimmed reason from 1 through 500 characters. The
+  transition is audited in the same transaction.
 - There is no transition from `open` or `closed` back to `draft`. Replacing a
   generated plan is allowed only while it is a draft.
 - The plan row represents current state. Immutable audit entries preserve every
   lifecycle transition, actor, reason, and timestamp.
+
+Lifecycle operations lock the plan row and then capture PostgreSQL's clock time.
+Opening accepts only `draft`, closing accepts only `open`, and reopening accepts
+only `closed`; every other attempted transition returns `409`. Reopening starts
+a new open interval by replacing the current open actor/time and clearing the
+current close actor/time. Prior intervals remain immutable in audit entries.
+Open and close use `chorePlans:lifecycle`; reopen uses the separate
+`chorePlans:reopen` permission.
 
 ## Fixed catalog
 
@@ -75,20 +83,32 @@ edited through an API. Stable keys are never reused for a different semantic
 definition. A catalog migration must assert the exact key set and deterministic
 order.
 
-Catalog v1 contains 326 reviewed definitions: 32 chore template positions, 240
-explicit event positions, and 54 explicit dinner positions. The snapshot was
-verified on 2026-08-05 against workbook
+Catalog v1 contains the 326 definitions installed by the original foundation
+migration: 32 chore template positions, 240 explicit event positions, and 54
+explicit dinner positions. That migration and its data module remain immutable
+so databases that already recorded it can still validate and upgrade. The
+source was reviewed on 2026-08-05 against workbook
 `12QBFgX_jb9vdli-txNK4M2nkMt7TZ_FCHtX_gbEG9BM`, using `Chore template (One
-day)`, `Event scores table (Week)`, and `Dinner scores table (Week)`. The
-migration records each source tab's SHA-256 hash, and the PostgreSQL migration
-test reconstructs the source CSVs from installed rows and requires exact hash
-matches.
+day)`, `Event scores table (Week)`, and `Dinner scores table (Week)`. Camp has
+decided that the workbook's zero-score `3a-6a` event period is not a valid shift
+period. Catalog v2 contains 302 approved definitions: it removes those 24
+positions through a guarded forward migration, advances the catalog revision,
+and adds a database constraint that rejects their reintroduction. The removed
+positions contribute no planning capacity. V2 retains the raw event-tab SHA-256
+for provenance and separately records the accepted, filtered event-catalog
+hash. The PostgreSQL migration tests reconstruct the installed catalog CSVs,
+require exact accepted hashes, and exercise both a clean installation and a
+real V1-to-V2 upgrade. The forward migration refuses to rewrite the catalog
+after plans or score-audit history exist.
 
 Stable keys are lowercase semantic identifiers. Chore keys identify the shift
 and position, dinner keys identify the explicit day, shift, and position, and
-event keys identify the period order, shift, and position. Period order is part
-of event identity because the same shift and position recur throughout the
-week. The migration pins the complete key set with a separate SHA-256 assertion.
+event keys identify the original workbook period, shift, and position. The
+period ordinal is part of event identity because the same shift and position
+recur throughout the week. Stable-key ordinals retain that original identity
+when an excluded period is removed, while the accepted catalog uses a separate,
+contiguous period order for scheduling. The migration pins the complete key set
+with a separate SHA-256 assertion.
 
 Fixed definitions and editable scores use separate tables. Definition identity
 and source order are unique at the database boundary. The score table accepts
@@ -171,13 +191,42 @@ mutate a persisted plan or its audit meaning. Generated draft schedules and
 shifts are excluded from the ordinary schedule, shift, and signup APIs; a later
 slice introduces their dedicated read contract.
 
-The administrative planner loads only the current draft summary needed for
-optimistic concurrency; it does not expose participant mutations or lifecycle
+The dedicated member read endpoint requires a verified user who belongs to the
+requested roster. It returns the roster ID, a narrow plan lifecycle summary,
+whether self-service mutations are lifecycle-eligible, and ordered generated
+shift rows. A missing plan returns a null plan and no shifts. A draft returns
+only its lifecycle summary and no generated shifts. Open and closed plans return
+the generated-shift display fields and stable slot identities from the immutable
+snapshot, assignment counts, and whether the caller is assigned. They never
+return participant identities, planner revisions, or score data. Assignment
+status is aggregated in PostgreSQL so other participants' user IDs do not enter
+the application read model. Only an open plan reports self-service mutations as
+allowed. This response is the shared read contract for the later signup slice,
+while the read-only UI in this slice adds no mutation controls.
+
+The member shift page follows PR #58's signup-sheet layout: the roster-year
+heading and explanatory copy lead into daily-chore, event-crew, and dinner-crew
+accordions using the shared weekly grids. Read-only slot pills distinguish the
+member's assignment, filled spots, and open spots without exposing another
+participant's identity. Category chips show the member's remaining default
+requirements while the plan is open and the closed state after signups close.
+While chore planning is enabled, this signup-sheet experience replaces the
+legacy hourly shift grid, matching PR #58; disabling the feature restores the
+legacy view.
+
+The administrative planner loads the current draft revision needed for
+optimistic concurrency, but it does not expose lifecycle or participant
 controls. Preview displays exact category shortages and generated shifts. A
 shortage disables apply. If the observed draft inputs, planning year, or
 catalog revision differ from the preview, the UI requires explicit replacement
 confirmation and sends the observed draft revision. A `409` clears the stale
 preview and requires the administrator to preview again.
+
+Following PR #58, administrators open and close chore signups from the Shifts
+page header, with the current plan state shown immediately above the shift
+display. Draft and open transitions use the original direct header control.
+Reopening a closed plan uses the same location but requires the audited reason
+added by the safer lifecycle contract.
 
 PR #58 is the visual source of truth for the chore-planning experience. The
 planner keeps its camp-year and prospective-camper form, fixed 3 chore / 3 event
