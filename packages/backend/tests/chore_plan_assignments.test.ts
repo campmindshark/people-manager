@@ -405,6 +405,7 @@ test(
             return RosterParticipantController.RemoveFromRoster(
               roster.id,
               [users[4].id],
+              users[0].id,
               transaction,
             );
           }),

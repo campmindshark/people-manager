@@ -55,9 +55,11 @@ router.post('/:id/drop-out', async (req: Request, res: Response) => {
     return;
   }
 
-  const result = await RosterParticipantController.RemoveFromRoster(rosterID, [
+  const result = await RosterParticipantController.RemoveFromRoster(
+    rosterID,
+    [user.id],
     user.id,
-  ]);
+  );
 
   if (result.deletedCount === 0) {
     res.json({ error: 'User not found in roster' });

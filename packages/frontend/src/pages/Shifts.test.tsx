@@ -1,10 +1,12 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { RecoilRoot } from 'recoil';
 import { FeatureFlagsState } from '../state/features';
 import Shifts, { VerifiedShiftExperience } from './Shifts';
 
 let mockLifecycleStatus = 'draft';
+let mockRequirementViewMountCount = 0;
 let mockShiftViewMountCount = 0;
 
 jest.mock('../layouts/dashboard/Dashboard', () => {
@@ -40,7 +42,11 @@ jest.mock('../state/store', () => {
       key: 'testMyRoles',
       default: [
         {
-          permissions: ['chorePlans:assign', 'chorePlans:forceAssign'],
+          permissions: [
+            'chorePlans:assign',
+            'chorePlans:forceAssign',
+            'chorePlans:overrideRequirements',
+          ],
         },
       ],
     }),
@@ -72,6 +78,25 @@ jest.mock('src/components/shifts/ChorePlanShiftView', () => {
     );
   }
   return ChorePlanShiftView;
+});
+jest.mock('src/components/admin/ChoreRequirementOverrides', () => {
+  const ReactModule = jest.requireActual('react') as typeof import('react');
+
+  function ChoreRequirementOverrides({ onChanged }: { onChanged: () => void }) {
+    const [mountNumber] = ReactModule.useState(() => {
+      mockRequirementViewMountCount += 1;
+      return mockRequirementViewMountCount;
+    });
+    return (
+      <div>
+        <button onClick={onChanged} type="button">
+          Update member requirements
+        </button>
+        <div>Requirement controls mount {mountNumber}</div>
+      </div>
+    );
+  }
+  return ChoreRequirementOverrides;
 });
 jest.mock('src/components/shifts/ShiftDisplay', () => {
   function ShiftDisplay() {
@@ -106,6 +131,7 @@ jest.mock('src/components/shifts/ChoreSignupControls', () => ({
 
 beforeEach(() => {
   mockLifecycleStatus = 'draft';
+  mockRequirementViewMountCount = 0;
   mockShiftViewMountCount = 0;
 });
 
@@ -200,5 +226,50 @@ test('refreshes the signup sheets when lifecycle status changes', () => {
   mockLifecycleStatus = 'open';
   rerender(shiftsPage());
 
+  expect(screen.getByText('Chore sheet mount 2')).toBeVisible();
+});
+
+test('refreshes requirement controls when lifecycle status changes', () => {
+  const shiftsPage = () => (
+    <RecoilRoot
+      initializeState={({ set }) => {
+        set(FeatureFlagsState, { chorePlanning: true });
+      }}
+    >
+      <Shifts />
+    </RecoilRoot>
+  );
+  const { rerender } = render(shiftsPage());
+
+  userEvent.click(screen.getByRole('button', { name: 'Admin Edit' }));
+  expect(screen.getByText('Requirement controls mount 1')).toBeVisible();
+
+  mockLifecycleStatus = 'open';
+  rerender(shiftsPage());
+
+  expect(screen.getByText('Requirement controls mount 2')).toBeVisible();
+});
+
+test('shows requirement controls in Admin Edit and refreshes assignment needs', () => {
+  render(
+    <RecoilRoot
+      initializeState={({ set }) => {
+        set(FeatureFlagsState, { chorePlanning: true });
+      }}
+    >
+      <Shifts />
+    </RecoilRoot>,
+  );
+
+  userEvent.click(screen.getByRole('button', { name: 'Admin Edit' }));
+  expect(
+    screen.getByRole('button', { name: 'Update member requirements' }),
+  ).toBeVisible();
+  expect(screen.getByText(/Chore signup sheets — admin/)).toBeVisible();
+  expect(screen.getByText('Chore sheet mount 1')).toBeVisible();
+
+  userEvent.click(
+    screen.getByRole('button', { name: 'Update member requirements' }),
+  );
   expect(screen.getByText('Chore sheet mount 2')).toBeVisible();
 });

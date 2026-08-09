@@ -190,6 +190,7 @@ router.delete(
   hasPermission('rosterParticipant:delete'),
   async (req: Request, res: Response) => {
     const { rosterId, userId } = req.params;
+    const actor = req.user as User;
 
     if (!rosterId || !userId) {
       res.status(400).json({ error: 'Roster ID and User ID are required' });
@@ -206,6 +207,7 @@ router.delete(
     const result = await RosterParticipantController.RemoveFromRoster(
       parsedRosterID,
       [parsedUserID],
+      actor.id,
     );
 
     if (result.deletedCount === 0) {
@@ -224,6 +226,7 @@ router.delete(
   async (req: Request, res: Response) => {
     const { rosterId } = req.params;
     const { userIds } = req.body;
+    const actor = req.user as User;
 
     const removal = parseRosterParticipantBulkRemovalInput(rosterId, userIds);
     if (!removal) {
@@ -234,6 +237,7 @@ router.delete(
     const result = await RosterParticipantController.RemoveFromRoster(
       removal.rosterID,
       removal.userIDs,
+      actor.id,
     );
 
     if (result.deletedCount === 0) {

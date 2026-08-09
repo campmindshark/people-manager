@@ -337,6 +337,27 @@ export default class ChorePlanDraftController {
         );
       }
 
+      if (plan) {
+        const incompatibleOverride = await transaction(
+          'chore_plan_requirement_overrides',
+        )
+          .select('userID')
+          .where({ chorePlanID: plan.id })
+          .andWhere((query) =>
+            query
+              .where('choreRequirement', '>', preview.requirements.chore)
+              .orWhere('eventRequirement', '>', preview.requirements.event)
+              .orWhere('dinnerRequirement', '>', preview.requirements.dinner),
+          )
+          .first();
+        if (incompatibleOverride) {
+          throw new ChorePlanPreviewError(
+            'A participant requirement override exceeds the replacement plan. Clear or reduce overrides before replacing it.',
+            409,
+          );
+        }
+      }
+
       const previousAuditSnapshot = plan
         ? auditSnapshot(
             plan,

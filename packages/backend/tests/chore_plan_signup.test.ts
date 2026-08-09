@@ -491,6 +491,7 @@ test(
         await RosterParticipantController.RemoveFromRoster(
           roster.id,
           [Number(capacityAssignment.userID)],
+          users[0].id,
           database,
         ),
         { deletedCount: 1, removedAssignmentCount: 1 },

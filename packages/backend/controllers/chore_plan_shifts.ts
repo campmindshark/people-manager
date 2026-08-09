@@ -3,6 +3,10 @@ import ChorePlan from '../models/chore_plan/chore_plan';
 import ChorePlanShiftViewError from '../utils/chorePlanShiftViewError';
 import { shiftTimeRangesOverlap, ShiftTimeRange } from '../utils/shiftTime';
 import {
+  effectiveRequirements,
+  ChorePlanRequirementColumns,
+} from '../utils/chorePlanRequirements';
+import {
   CHORE_PLAN_SIGNUP_RESTRICTION_MESSAGES,
   ChorePlanShiftViewAssignment,
   ChorePlanShiftViewConflict,
@@ -12,7 +16,7 @@ import {
   ChorePlanShiftViewSlot,
 } from '../view_models/chore_plan_shifts';
 
-interface ChorePlanRow {
+interface ChorePlanRow extends ChorePlanRequirementColumns {
   id: number;
   rosterID: number;
   status: 'draft' | 'open' | 'closed';
@@ -23,6 +27,8 @@ interface ChorePlanRow {
   openedAt: Date | string | null;
   closedAt: Date | string | null;
 }
+
+type RequirementOverrideRow = ChorePlanRequirementColumns;
 
 interface GeneratedShiftRow {
   shiftID: number;
@@ -101,17 +107,16 @@ function isoTimestamp(value: Date | string | null): string | null {
   return value === null ? null : new Date(value).toISOString();
 }
 
-function planView(plan: ChorePlanRow): ChorePlanShiftViewPlan {
+function planView(
+  plan: ChorePlanRow,
+  override?: RequirementOverrideRow,
+): ChorePlanShiftViewPlan {
   return {
     id: plan.id,
     rosterID: plan.rosterID,
     status: plan.status,
     planningYear: plan.planningYear,
-    requirements: {
-      chore: plan.choreRequirement,
-      event: plan.eventRequirement,
-      dinner: plan.dinnerRequirement,
-    },
+    requirements: effectiveRequirements(plan, override),
     openedAt: isoTimestamp(plan.openedAt),
     closedAt: isoTimestamp(plan.closedAt),
   };
@@ -180,10 +185,18 @@ export default class ChorePlanShiftsController {
         };
       }
 
+      const requirementOverride = (await transaction<RequirementOverrideRow>(
+        'chore_plan_requirement_overrides',
+      )
+        .select('choreRequirement', 'eventRequirement', 'dinnerRequirement')
+        .where('chorePlanID', plan.id)
+        .where('userID', userID)
+        .first()) as RequirementOverrideRow | undefined;
+
       if (plan.status === 'draft') {
         return {
           rosterID,
-          plan: planView(plan),
+          plan: planView(plan, requirementOverride),
           selfServiceMutationsAllowed: false,
           shifts: [],
         };
@@ -334,7 +347,7 @@ export default class ChorePlanShiftsController {
 
       return {
         rosterID,
-        plan: planView(plan),
+        plan: planView(plan, requirementOverride),
         selfServiceMutationsAllowed: plan.status === 'open',
         shifts,
       };

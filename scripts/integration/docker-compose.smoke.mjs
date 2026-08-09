@@ -156,6 +156,14 @@ async function runIntegrationTest() {
       disabledAdminAssignmentsResponse.status === 404,
       'Disabled administrative assignment routes must appear absent',
     );
+    const disabledRequirementOverridesResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/admin/1/requirements',
+      { headers: { cookie: sessionCookie } },
+    );
+    assert(
+      disabledRequirementOverridesResponse.status === 404,
+      'Disabled requirement-override routes must appear absent',
+    );
 
     const verificationResponse = await fetch(
       `http://localhost:3001/api/users/verify/${authCheck.user.id}`,
@@ -219,34 +227,6 @@ async function runIntegrationTest() {
       },
     );
     assert(groupMemberResponse.ok, 'Could not add the user to a signup group');
-
-    const signupResponse = await fetch(
-      'http://localhost:3001/api/shifts/1/signup',
-      { headers: { cookie: sessionCookie } },
-    );
-    assert(signupResponse.ok, 'Ordinary shift signup failed');
-    const signupResult = await signupResponse.json();
-    assert(
-      signupResult.registeredShiftIDs?.[0] === 1,
-      'Ordinary shift signup did not register the selected shift',
-    );
-
-    const duplicateSignupResponse = await fetch(
-      'http://localhost:3001/api/shifts/1/signup',
-      { headers: { cookie: sessionCookie } },
-    );
-    assert(duplicateSignupResponse.ok, 'Duplicate signup was not idempotent');
-    const duplicateSignupResult = await duplicateSignupResponse.json();
-    assert(
-      duplicateSignupResult.registeredShiftIDs?.length === 0,
-      'Duplicate signup created another assignment',
-    );
-
-    const unregisterResponse = await fetch(
-      'http://localhost:3001/api/shifts/1/unregister',
-      { headers: { cookie: sessionCookie } },
-    );
-    assert(unregisterResponse.ok, 'Ordinary shift removal failed');
 
     const rosterCleanupResponse = await fetch(
       `http://localhost:3001/api/roster_participants/1/users/${authCheck.user.id}`,
@@ -313,6 +293,46 @@ async function runIntegrationTest() {
       },
     );
     assert(rosterSignupResponse.ok, 'Could not add the standard roster member');
+
+    const standardGroupMemberResponse = await fetch(
+      `http://localhost:3001/api/groups/${group.id}/members/${standardAuth.user.id}`,
+      {
+        method: 'POST',
+        headers: { cookie: sessionCookie },
+      },
+    );
+    assert(
+      standardGroupMemberResponse.ok,
+      'Could not add the roster member to a signup group',
+    );
+
+    const signupResponse = await fetch(
+      'http://localhost:3001/api/shifts/1/signup',
+      { headers: { cookie: standardCookie } },
+    );
+    assert(signupResponse.ok, 'Ordinary shift signup failed');
+    const signupResult = await signupResponse.json();
+    assert(
+      signupResult.registeredShiftIDs?.[0] === 1,
+      'Ordinary shift signup did not register the selected shift',
+    );
+
+    const duplicateSignupResponse = await fetch(
+      'http://localhost:3001/api/shifts/1/signup',
+      { headers: { cookie: standardCookie } },
+    );
+    assert(duplicateSignupResponse.ok, 'Duplicate signup was not idempotent');
+    const duplicateSignupResult = await duplicateSignupResponse.json();
+    assert(
+      duplicateSignupResult.registeredShiftIDs?.length === 0,
+      'Duplicate signup created another assignment',
+    );
+
+    const unregisterResponse = await fetch(
+      'http://localhost:3001/api/shifts/1/unregister',
+      { headers: { cookie: standardCookie } },
+    );
+    assert(unregisterResponse.ok, 'Ordinary shift removal failed');
 
     run('docker compose up -d --force-recreate --no-deps backend', {
       CHORE_PLANNING_ENABLED: 'true',
@@ -680,6 +700,147 @@ async function runIntegrationTest() {
         adminDraftAssignments.mutationsAllowed === false &&
         adminDraftAssignments.participants?.length === 2,
       'Draft administrative assignment state was incomplete',
+    );
+    const forbiddenRequirementsResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/admin/1/requirements',
+      { headers: { cookie: standardCookie } },
+    );
+    assert(
+      forbiddenRequirementsResponse.status === 403,
+      'A standard user must not read participant requirement overrides',
+    );
+    const adminRequirementsResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/admin/1/requirements',
+      { headers: { cookie: sessionCookie } },
+    );
+    assert(
+      adminRequirementsResponse.ok,
+      'Admin could not read participant requirements',
+    );
+    const adminRequirements = await adminRequirementsResponse.json();
+    assert(
+      adminRequirements.plan?.status === 'draft' &&
+        adminRequirements.mutationsAllowed === true &&
+        adminRequirements.participants?.length === 2 &&
+        adminRequirements.participants.every(
+          (participant) => participant.hasOverride === false,
+        ),
+      'Initial participant requirement state was incomplete',
+    );
+    const forbiddenRequirementMutationResponse = await fetch(
+      `http://localhost:3001/api/chore-plans/admin/1/participants/${standardAuth.user.id}/requirements`,
+      {
+        method: 'PUT',
+        headers: {
+          cookie: standardCookie,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          requirements: { chore: 0, event: 1, dinner: 1 },
+          reason: 'Standard user attempt',
+        }),
+      },
+    );
+    assert(
+      forbiddenRequirementMutationResponse.status === 403,
+      'A standard user must not change participant requirements',
+    );
+    const strictRequirementMutationResponse = await fetch(
+      `http://localhost:3001/api/chore-plans/admin/1/participants/${standardAuth.user.id}/requirements`,
+      {
+        method: 'PUT',
+        headers: {
+          cookie: sessionCookie,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          requirements: { chore: 0, event: 1, dinner: 1 },
+          reason: 'Smoke-test accommodation',
+          force: true,
+        }),
+      },
+    );
+    assert(
+      strictRequirementMutationResponse.status === 400,
+      'Requirement overrides must reject unexpected fields',
+    );
+    const requirementMutationResponse = await fetch(
+      `http://localhost:3001/api/chore-plans/admin/1/participants/${standardAuth.user.id}/requirements`,
+      {
+        method: 'PUT',
+        headers: {
+          cookie: sessionCookie,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          requirements: { chore: 0, event: 1, dinner: 1 },
+          reason: '  Smoke-test accommodation  ',
+        }),
+      },
+    );
+    assert(requirementMutationResponse.ok, 'Requirement override failed');
+    const requirementMutation = await requirementMutationResponse.json();
+    assert(
+      requirementMutation.changed === true &&
+        requirementMutation.participant?.hasOverride === true &&
+        requirementMutation.participant?.requirements?.chore === 0 &&
+        requirementMutation.participant?.overrideReason ===
+          'Smoke-test accommodation',
+      'Requirement override did not return its effective state',
+    );
+    const overriddenMemberDraftResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/1/shifts',
+      { headers: { cookie: standardCookie } },
+    );
+    const overriddenMemberDraft = await overriddenMemberDraftResponse.json();
+    assert(
+      overriddenMemberDraft.plan?.requirements?.chore === 0,
+      'Member shift state did not use effective requirements',
+    );
+    const overriddenAssignmentsResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/admin/1/assignments',
+      { headers: { cookie: sessionCookie } },
+    );
+    const overriddenAssignments = await overriddenAssignmentsResponse.json();
+    assert(
+      overriddenAssignments.participants?.find(
+        (participant) => participant.userID === standardAuth.user.id,
+      )?.requirements?.chore === 0,
+      'Administrative assignment state did not use effective requirements',
+    );
+    const missingClearReasonResponse = await fetch(
+      `http://localhost:3001/api/chore-plans/admin/1/participants/${standardAuth.user.id}/requirements`,
+      {
+        method: 'DELETE',
+        headers: {
+          cookie: sessionCookie,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({}),
+      },
+    );
+    assert(
+      missingClearReasonResponse.status === 400,
+      'Clearing a requirement override must require a reason',
+    );
+    const clearRequirementResponse = await fetch(
+      `http://localhost:3001/api/chore-plans/admin/1/participants/${standardAuth.user.id}/requirements`,
+      {
+        method: 'DELETE',
+        headers: {
+          cookie: sessionCookie,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ reason: 'Smoke-test reset' }),
+      },
+    );
+    assert(clearRequirementResponse.ok, 'Requirement reset failed');
+    const clearedRequirement = await clearRequirementResponse.json();
+    assert(
+      clearedRequirement.changed === true &&
+        clearedRequirement.participant?.hasOverride === false &&
+        clearedRequirement.participant?.requirements?.chore === 1,
+      'Requirement reset did not restore plan defaults',
     );
     const draftSignupResponse = await fetch(
       'http://localhost:3001/api/chore-plans/1/signup',

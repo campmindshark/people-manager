@@ -1,6 +1,21 @@
 import { Knex } from 'knex';
 import RosterParticipant from '../models/roster_participant/roster_participant';
+import {
+  requirementsFromColumns,
+  ChorePlanRequirementColumns,
+} from '../utils/chorePlanRequirements';
 import { shiftTimeRangeContains, ShiftTimeRange } from '../utils/shiftTime';
+
+const ROSTER_REMOVAL_REQUIREMENT_CLEAR_REASON = 'Roster membership ended.';
+
+interface ChorePlanRow extends ChorePlanRequirementColumns {
+  id: number;
+}
+
+interface RequirementOverrideRow extends ChorePlanRequirementColumns {
+  userID: number;
+  reason: string;
+}
 
 interface RosterAssignmentRow extends ShiftTimeRange {
   assignmentID: number;
@@ -56,19 +71,39 @@ export default class RosterParticipantController {
   public static async RemoveFromRoster(
     rosterID: number,
     userIDs: number[],
+    actorUserID: number,
     database: Knex = RosterParticipant.knex(),
   ): Promise<RosterParticipantRemovalResult> {
     const uniqueUserIDs = [...new Set(userIDs)].sort(
       (first, second) => first - second,
     );
+    if (uniqueUserIDs.length === 0) {
+      return { deletedCount: 0, removedAssignmentCount: 0 };
+    }
+    const lockUserIDs = [...new Set([...uniqueUserIDs, actorUserID])].sort(
+      (first, second) => first - second,
+    );
 
     return database.transaction(async (transaction) => {
+      const chorePlan = (await transaction<ChorePlanRow>('chore_plans')
+        .select(
+          'id',
+          'choreRequirement',
+          'eventRequirement',
+          'dinnerRequirement',
+        )
+        .where('rosterID', rosterID)
+        // Requirement mutations lock the plan before participant rows. Keep
+        // that order here so the removal audit's foreign-key check cannot
+        // deadlock with a concurrent requirement mutation.
+        .forShare()
+        .first()) as ChorePlanRow | undefined;
       await transaction('users')
         .select('id')
-        .whereIn('id', uniqueUserIDs)
+        .whereIn('id', lockUserIDs)
         .orderBy('id')
-        // Serialize assignment and membership changes without blocking an
-        // audit foreign key's FOR KEY SHARE lock on the same user.
+        // Lock the audit actor before assignment rows while retaining
+        // compatibility with the audit foreign key's FOR KEY SHARE lock.
         .forNoKeyUpdate();
       const participants = (await transaction<RosterParticipantRow>(
         'roster_participants',
@@ -92,6 +127,52 @@ export default class RosterParticipantController {
         .whereIn('userID', participantUserIDs)
         .whereIn('shiftID', rosterShiftIDs)
         .del();
+
+      if (chorePlan) {
+        const overrides = (await transaction<RequirementOverrideRow>(
+          'chore_plan_requirement_overrides',
+        )
+          .select(
+            'userID',
+            'choreRequirement',
+            'eventRequirement',
+            'dinnerRequirement',
+            'reason',
+          )
+          .where('chorePlanID', chorePlan.id)
+          .whereIn('userID', participantUserIDs)
+          .orderBy('userID')
+          .forUpdate()) as RequirementOverrideRow[];
+        if (overrides.length > 0) {
+          await transaction('chore_plan_requirement_overrides')
+            .where('chorePlanID', chorePlan.id)
+            .whereIn(
+              'userID',
+              overrides.map(({ userID }) => userID),
+            )
+            .del();
+          const planRequirements = requirementsFromColumns(chorePlan);
+          await transaction('chore_plan_audit_entries').insert(
+            overrides.map((override) => ({
+              chorePlanID: chorePlan.id,
+              actorUserID,
+              action: 'participant_requirements_cleared',
+              details: {
+                participantUserID: override.userID,
+                previousRequirements: requirementsFromColumns(
+                  override,
+                  planRequirements,
+                ),
+                requirements: planRequirements,
+                previousReason: override.reason,
+                reason: ROSTER_REMOVAL_REQUIREMENT_CLEAR_REASON,
+                removedAssignments: [],
+              },
+            })),
+          );
+        }
+      }
+
       const deletedCount = await transaction('roster_participants')
         .whereIn(
           'id',

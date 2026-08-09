@@ -13,10 +13,12 @@ export default class RosterController {
   public static async UnregisterParticipantFromRoster(
     rosterID: number,
     userID: number,
+    actorUserID: number,
   ): Promise<boolean> {
     const result = await RosterParticipantController.RemoveFromRoster(
       rosterID,
       [userID],
+      actorUserID,
       knex,
     );
     return result.deletedCount > 0;

@@ -1,13 +1,19 @@
 import { Knex } from 'knex';
 import ChorePlan from '../models/chore_plan/chore_plan';
 import ChorePlanSignupError from '../utils/chorePlanSignupError';
+import {
+  effectiveRequirements,
+  requirementForKind,
+  ChorePlanRequirementColumns,
+} from '../utils/chorePlanRequirements';
 import { shiftTimeRangesOverlap, ShiftTimeRange } from '../utils/shiftTime';
+import { ChorePlanRequirements } from '../view_models/chore_plan_preview';
 import { CHORE_PLAN_SIGNUP_RESTRICTION_MESSAGES } from '../view_models/chore_plan_shifts';
 import { ChorePlanSignupMutationResponse } from '../view_models/chore_plan_signup';
 
 type ChorePlanKind = 'chore' | 'event' | 'dinner';
 
-interface PlanRow {
+interface PlanRow extends ChorePlanRequirementColumns {
   id: number;
   rosterID: number;
   status: 'draft' | 'open' | 'closed';
@@ -33,6 +39,7 @@ interface GeneratedShiftRow extends ShiftTimeRange {
 interface MutationContext {
   plan: PlanRow;
   participant: ParticipantRow;
+  requirements: ChorePlanRequirements;
 }
 
 interface CountRow {
@@ -41,16 +48,6 @@ interface CountRow {
 
 interface KindCountRow extends CountRow {
   kind: ChorePlanKind;
-}
-
-function requirementForKind(plan: PlanRow, kind: ChorePlanKind): number {
-  if (kind === 'chore') {
-    return plan.choreRequirement;
-  }
-  if (kind === 'event') {
-    return plan.eventRequirement;
-  }
-  return plan.dinnerRequirement;
 }
 
 function dateMilliseconds(value: Date | string): number {
@@ -145,7 +142,19 @@ export default class ChorePlanSignupController {
       );
     }
 
-    return { plan, participant };
+    const override = (await transaction<ChorePlanRequirementColumns>(
+      'chore_plan_requirement_overrides',
+    )
+      .select('choreRequirement', 'eventRequirement', 'dinnerRequirement')
+      .where('chorePlanID', plan.id)
+      .where('userID', userID)
+      .first()) as ChorePlanRequirementColumns | undefined;
+
+    return {
+      plan,
+      participant,
+      requirements: effectiveRequirements(plan, override),
+    };
   }
 
   private static async loadShifts(
@@ -233,7 +242,8 @@ export default class ChorePlanSignupController {
   private static async validateCategoryRequirements(
     transaction: Knex.Transaction,
     userID: number,
-    plan: PlanRow,
+    chorePlanID: number,
+    requirements: ChorePlanRequirements,
     targets: GeneratedShiftRow[],
   ): Promise<void> {
     const existingCounts = (await transaction(
@@ -247,7 +257,7 @@ export default class ChorePlanSignupController {
       .select('generated.kind')
       .count('* as count')
       .where('assignment.userID', userID)
-      .where('generated.chorePlanID', plan.id)
+      .where('generated.chorePlanID', chorePlanID)
       .groupBy('generated.kind')) as KindCountRow[];
     const existingCountByKind = new Map(
       existingCounts.map(({ kind, count }) => [kind, Number(count)]),
@@ -260,7 +270,7 @@ export default class ChorePlanSignupController {
     targetCountByKind.forEach((targetCount, kind) => {
       if (
         (existingCountByKind.get(kind) ?? 0) + targetCount >
-        requirementForKind(plan, kind)
+        requirementForKind(requirements, kind)
       ) {
         throw new ChorePlanSignupError(
           `You already have all required ${kind} assignments. Switch an existing assignment instead.`,
@@ -273,7 +283,8 @@ export default class ChorePlanSignupController {
   private static async validateCategoryRequirement(
     transaction: Knex.Transaction,
     userID: number,
-    plan: PlanRow,
+    chorePlanID: number,
+    requirements: ChorePlanRequirements,
     target: GeneratedShiftRow,
     ignoredShiftID?: number,
   ): Promise<void> {
@@ -286,7 +297,7 @@ export default class ChorePlanSignupController {
         'assignment.shiftID',
       )
       .where('assignment.userID', userID)
-      .where('generated.chorePlanID', plan.id)
+      .where('generated.chorePlanID', chorePlanID)
       .where('generated.kind', target.kind)
       .modify((query) => {
         if (ignoredShiftID !== undefined) {
@@ -297,7 +308,7 @@ export default class ChorePlanSignupController {
       .first()) as CountRow | undefined;
     if (
       Number(assignmentCount?.count ?? 0) >=
-      requirementForKind(plan, target.kind)
+      requirementForKind(requirements, target.kind)
     ) {
       throw new ChorePlanSignupError(
         `You already have all required ${target.kind} assignments. Switch an existing assignment instead.`,
@@ -345,11 +356,12 @@ export default class ChorePlanSignupController {
     userID: number,
   ): Promise<ChorePlanSignupMutationResponse> {
     return this.getDatabase().transaction(async (transaction) => {
-      const { plan, participant } = await ChorePlanSignupController.loadContext(
-        transaction,
-        rosterID,
-        userID,
-      );
+      const { plan, participant, requirements } =
+        await ChorePlanSignupController.loadContext(
+          transaction,
+          rosterID,
+          userID,
+        );
       const shifts = await ChorePlanSignupController.loadShifts(
         transaction,
         plan.id,
@@ -393,7 +405,8 @@ export default class ChorePlanSignupController {
       await ChorePlanSignupController.validateCategoryRequirements(
         transaction,
         userID,
-        plan,
+        plan.id,
+        requirements,
         newShifts,
       );
       await Promise.all(
@@ -455,11 +468,12 @@ export default class ChorePlanSignupController {
     userID: number,
   ): Promise<ChorePlanSignupMutationResponse> {
     return this.getDatabase().transaction(async (transaction) => {
-      const { plan, participant } = await ChorePlanSignupController.loadContext(
-        transaction,
-        rosterID,
-        userID,
-      );
+      const { plan, participant, requirements } =
+        await ChorePlanSignupController.loadContext(
+          transaction,
+          rosterID,
+          userID,
+        );
       const shifts = await ChorePlanSignupController.loadShifts(
         transaction,
         plan.id,
@@ -501,7 +515,8 @@ export default class ChorePlanSignupController {
       await ChorePlanSignupController.validateCategoryRequirement(
         transaction,
         userID,
-        plan,
+        plan.id,
+        requirements,
         target,
         fromShiftID,
       );

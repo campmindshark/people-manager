@@ -52,6 +52,7 @@ function assignmentView(
         playaName: 'A',
         estimatedArrivalDate: '2026-08-20T00:00:00.000Z',
         estimatedDepartureDate: '2026-09-10T00:00:00.000Z',
+        requirements: { chore: 2, event: 1, dinner: 1 },
         assignedShiftIDs: [11],
       },
       {
@@ -61,6 +62,7 @@ function assignmentView(
         playaName: '',
         estimatedArrivalDate: '2026-08-20T00:00:00.000Z',
         estimatedDepartureDate: '2026-09-10T00:00:00.000Z',
+        requirements: { chore: 2, event: 1, dinner: 1 },
         assignedShiftIDs: [12],
       },
       {
@@ -70,6 +72,7 @@ function assignmentView(
         playaName: '',
         estimatedArrivalDate: '2026-08-20T00:00:00.000Z',
         estimatedDepartureDate: '2026-09-10T00:00:00.000Z',
+        requirements: { chore: 0, event: 0, dinner: 0 },
         assignedShiftIDs: [],
       },
     ],
@@ -188,12 +191,6 @@ test('force-moves a selected participant with an audited reason', async () => {
 test('force-assigns a complete participant directly to a full shift', async () => {
   const client = planClient(
     assignmentView({
-      plan: {
-        id: 3,
-        status: 'open',
-        planningYear: 2026,
-        requirements: { chore: 0, event: 0, dinner: 0 },
-      },
       shifts: [firstShift, { ...secondShift, assignedUserIDs: [21, 22] }],
     }),
   );

@@ -2,6 +2,11 @@ import { Knex } from 'knex';
 import ChorePlan from '../models/chore_plan/chore_plan';
 import ChorePlanAssignmentError from '../utils/chorePlanAssignmentError';
 import { MAX_CHORE_PLAN_FORCE_REASON_LENGTH } from '../utils/chorePlanAssignmentInput';
+import {
+  effectiveRequirements,
+  requirementForKind,
+  ChorePlanRequirementColumns,
+} from '../utils/chorePlanRequirements';
 import { shiftTimeRangesOverlap } from '../utils/shiftTime';
 import {
   ChorePlanAdminAssignmentMutation,
@@ -10,10 +15,11 @@ import {
   ChorePlanAdminAssignmentShift,
   ChorePlanAdminAssignmentViewResponse,
 } from '../view_models/chore_plan_assignments';
+import { ChorePlanRequirements } from '../view_models/chore_plan_preview';
 
 type ChorePlanKind = 'chore' | 'event' | 'dinner';
 
-interface PlanRow {
+interface PlanRow extends ChorePlanRequirementColumns {
   id: number;
   rosterID: number;
   status: 'draft' | 'open' | 'closed';
@@ -74,22 +80,16 @@ interface AssignmentChange {
   shiftID: number;
 }
 
+interface RequirementOverrideRow extends ChorePlanRequirementColumns {
+  userID: number;
+}
+
 function timestamp(value: Date | string): string {
   const date = new Date(value);
   if (!Number.isFinite(date.getTime())) {
     throw new Error('A stored administrative assignment timestamp is invalid.');
   }
   return date.toISOString();
-}
-
-function requirementForKind(plan: PlanRow, kind: ChorePlanKind): number {
-  if (kind === 'chore') {
-    return plan.choreRequirement;
-  }
-  if (kind === 'event') {
-    return plan.eventRequirement;
-  }
-  return plan.dinnerRequirement;
 }
 
 function mutationIDs(mutation: ChorePlanAdminAssignmentMutation): {
@@ -191,9 +191,7 @@ export default class ChorePlanAssignmentsController {
           rosterID,
           plan: null,
           mutationsAllowed: false,
-          participants: uniqueParticipants.map((participant) =>
-            ChorePlanAssignmentsController.participantView(participant, []),
-          ),
+          participants: [],
           shifts: [],
         };
       }
@@ -228,6 +226,19 @@ export default class ChorePlanAssignmentsController {
             .orderBy('userID')
             .orderBy('shiftID')) as AssignmentIdentityRow[])
         : [];
+      const overrides = (await transaction<RequirementOverrideRow>(
+        'chore_plan_requirement_overrides',
+      )
+        .select(
+          'userID',
+          'choreRequirement',
+          'eventRequirement',
+          'dinnerRequirement',
+        )
+        .where('chorePlanID', plan.id)) as RequirementOverrideRow[];
+      const overridesByUserID = new Map(
+        overrides.map((override) => [override.userID, override]),
+      );
       const shiftIDsByUser = new Map<number, number[]>();
       const userIDsByShift = new Map<number, number[]>();
       assignments.forEach(({ userID, shiftID }) => {
@@ -258,6 +269,10 @@ export default class ChorePlanAssignmentsController {
           ChorePlanAssignmentsController.participantView(
             participant,
             shiftIDsByUser.get(participant.userID) ?? [],
+            effectiveRequirements(
+              plan,
+              overridesByUserID.get(participant.userID),
+            ),
           ),
         ),
         shifts: shifts.map((shift): ChorePlanAdminAssignmentShift => ({
@@ -281,6 +296,7 @@ export default class ChorePlanAssignmentsController {
   private static participantView(
     participant: ParticipantRow,
     assignedShiftIDs: number[],
+    requirements: ChorePlanRequirements,
   ): ChorePlanAdminAssignmentParticipant {
     return {
       userID: participant.userID,
@@ -289,6 +305,7 @@ export default class ChorePlanAssignmentsController {
       playaName: participant.playaName ?? '',
       estimatedArrivalDate: timestamp(participant.estimatedArrivalDate),
       estimatedDepartureDate: timestamp(participant.estimatedDepartureDate),
+      requirements,
       assignedShiftIDs,
     };
   }
@@ -387,6 +404,26 @@ export default class ChorePlanAssignmentsController {
           409,
         );
       }
+      const overrides = (await transaction<RequirementOverrideRow>(
+        'chore_plan_requirement_overrides',
+      )
+        .select(
+          'userID',
+          'choreRequirement',
+          'eventRequirement',
+          'dinnerRequirement',
+        )
+        .where('chorePlanID', plan.id)
+        .whereIn('userID', orderedUserIDs)) as RequirementOverrideRow[];
+      const overridesByUserID = new Map(
+        overrides.map((override) => [override.userID, override]),
+      );
+      const requirementsByUserID = new Map(
+        orderedUserIDs.map((userID) => [
+          userID,
+          effectiveRequirements(plan, overridesByUserID.get(userID)),
+        ]),
+      );
 
       const shifts = (await transaction(
         'chore_plan_generated_shifts as generated',
@@ -472,7 +509,8 @@ export default class ChorePlanAssignmentsController {
         mutation.operation === 'unassign'
           ? []
           : ChorePlanAssignmentsController.validateFinalState(
-              plan,
+              plan.id,
+              requirementsByUserID,
               uniqueParticipants,
               shifts,
               finalAssignments,
@@ -659,7 +697,8 @@ export default class ChorePlanAssignmentsController {
   }
 
   private static validateFinalState(
-    plan: PlanRow,
+    chorePlanID: number,
+    requirementsByUserID: Map<number, ChorePlanRequirements>,
     participants: ParticipantRow[],
     shifts: GeneratedShiftRow[],
     assignments: AssignmentRow[],
@@ -706,14 +745,18 @@ export default class ChorePlanAssignmentsController {
       }
     });
     participants.forEach(({ userID }) => {
+      const requirements = requirementsByUserID.get(userID);
+      if (!requirements) {
+        throw new Error('Participant requirements could not be loaded.');
+      }
       (['chore', 'event', 'dinner'] as const).forEach((kind) => {
         const count = assignments.filter(
           (assignment) =>
             assignment.userID === userID &&
-            assignment.chorePlanID === plan.id &&
+            assignment.chorePlanID === chorePlanID &&
             assignment.kind === kind,
         ).length;
-        if (count > requirementForKind(plan, kind)) {
+        if (count > requirementForKind(requirements, kind)) {
           rules.add(`category:user:${userID}:kind:${kind}`);
         }
       });
