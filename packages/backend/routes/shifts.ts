@@ -5,6 +5,7 @@ import ShiftController from '../controllers/shift';
 import hasPermission from '../middleware/rbac';
 import userIsVerified from '../middleware/verified_user';
 import ShiftSignupError, { parseShiftID } from '../utils/shiftSignupError';
+import hasChorePlanOwnershipColumns from '../utils/chorePlanSchema';
 import parseEventDateTime from '../utils/eventTime';
 import { PUBLIC_SHIFT_COLUMNS } from '../utils/scheduleApiColumns';
 
@@ -20,12 +21,30 @@ function sendShiftSignupError(error: unknown, res: Response): void {
   res.status(500).json({ error: 'Failed to update shift signup.' });
 }
 
+async function isGeneratedShift(shiftID: string | number): Promise<boolean> {
+  if (!(await hasChorePlanOwnershipColumns(Shift.knex()))) {
+    return false;
+  }
+  const generatedShift = await Shift.knex()('shifts')
+    .innerJoin('schedules', 'schedules.id', 'shifts.scheduleID')
+    .select('shifts.id')
+    .where('shifts.id', shiftID)
+    .whereNotNull('schedules.chorePlanID')
+    .first();
+  return Boolean(generatedShift);
+}
+
 /* GET Shift(s). */
 router.get(
   '/',
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async (req: Request, res: Response, next: NextFunction) => {
     const query = Shift.query().select(...PUBLIC_SHIFT_COLUMNS);
+    if (await hasChorePlanOwnershipColumns(Shift.knex())) {
+      query
+        .join('schedules', 'schedules.id', 'shifts.scheduleID')
+        .whereNull('schedules.chorePlanID');
+    }
 
     const shifts = await query;
     res.json(shifts);
@@ -65,6 +84,10 @@ router.get(
   userIsVerified(),
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async (req: Request, res: Response, next: NextFunction) => {
+    if (await isGeneratedShift(req.params.id)) {
+      res.sendStatus(404);
+      return;
+    }
     const query = Shift.relatedQuery('participants').for(req.params.id);
 
     const participants = await query;
@@ -77,6 +100,21 @@ router.post(
   hasPermission('shifts:create'),
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async (req: Request, res: Response, next: NextFunction) => {
+    if (req.body && typeof req.body === 'object' && 'plannerKey' in req.body) {
+      res.status(400).json({ error: 'Generated shifts cannot be created.' });
+      return;
+    }
+    if (await hasChorePlanOwnershipColumns(Shift.knex())) {
+      const generatedSchedule = await Shift.knex()('schedules')
+        .select('id')
+        .where({ id: req.body.scheduleID })
+        .whereNotNull('chorePlanID')
+        .first();
+      if (generatedSchedule) {
+        res.sendStatus(404);
+        return;
+      }
+    }
     let startTime: Date;
     let endTime: Date;
     try {
@@ -163,6 +201,10 @@ router.delete(
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
+    if (await isGeneratedShift(id)) {
+      res.sendStatus(404);
+      return;
+    }
     const query = Shift.query().deleteById(id);
 
     const schedules = await query;

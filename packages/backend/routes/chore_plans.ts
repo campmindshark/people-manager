@@ -1,16 +1,21 @@
 import express, { Request, Response, Router } from 'express';
 import ChoreCatalogController from '../controllers/chore_catalog';
+import ChorePlanDraftController from '../controllers/chore_plan_draft';
 import ChorePlanPreviewController from '../controllers/chore_plan_preview';
 import hasPermission from '../middleware/rbac';
 import userIsVerified from '../middleware/verified_user';
 import User from '../models/user/user';
 import ChoreCatalogError from '../utils/choreCatalogError';
 import { parseChoreCatalogScoreUpdate } from '../utils/choreCatalogInput';
-import { parseChorePlanPreviewRequest } from '../utils/chorePlanPreviewInput';
+import {
+  parseChorePlanApplyRequest,
+  parseChorePlanPreviewRequest,
+} from '../utils/chorePlanPreviewInput';
 import ChorePlanPreviewError from '../utils/chorePlanPreviewError';
 
 const router: Router = express.Router();
 const controller = new ChoreCatalogController();
+const draftController = new ChorePlanDraftController();
 const previewController = new ChorePlanPreviewController();
 
 function sendError(error: unknown, res: Response, operation: string): void {
@@ -38,6 +43,25 @@ router.post(
       );
     } catch (error) {
       sendError(error, res, 'preview the chore plan');
+    }
+  },
+);
+
+router.post(
+  '/apply',
+  userIsVerified(),
+  hasPermission('chorePlans:apply'),
+  async (req: Request, res: Response) => {
+    try {
+      const user = req.user as User;
+      res.json(
+        await draftController.apply(
+          parseChorePlanApplyRequest(req.body),
+          user.id,
+        ),
+      );
+    } catch (error) {
+      sendError(error, res, 'apply the chore plan draft');
     }
   },
 );

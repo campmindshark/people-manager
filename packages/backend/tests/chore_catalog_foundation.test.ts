@@ -4,7 +4,7 @@ import path from 'node:path';
 import test from 'node:test';
 import knexFactory, { Knex } from 'knex';
 
-const CURRENT_MIGRATION = '20260806010000_chore_catalog_score_audit.ts';
+const CURRENT_MIGRATION = '20260806020000_chore_draft_persistence.ts';
 const TEST_DATABASE_URL = process.env.CHORE_TEARDOWN_TEST_DATABASE_URL;
 const POSTGRES_TEST_OPTIONS = {
   skip: TEST_DATABASE_URL
@@ -46,6 +46,20 @@ interface DatabaseError {
 
 interface IDRow {
   id: number;
+}
+
+function validPlanInput(rosterID: number) {
+  return {
+    rosterID,
+    planningYear: 2026,
+    camperCount: 1,
+    choreRequirement: 1,
+    eventRequirement: 1,
+    dinnerRequirement: 1,
+    catalogRevision: '1',
+    draftRevision: '1',
+    generationHash: 'a'.repeat(64),
+  };
 }
 
 function assertSafeTestDatabaseURL(databaseURL: string | undefined): string {
@@ -353,15 +367,15 @@ test(
       const [invalidRoster] = (await database('rosters')
         .insert({ year: 2028 })
         .returning('id')) as IDRow[];
-      await database('chore_plans').insert({ rosterID: draftRoster.id });
+      await database('chore_plans').insert(validPlanInput(draftRoster.id));
 
       await assert.rejects(
-        database('chore_plans').insert({ rosterID: draftRoster.id }),
+        database('chore_plans').insert(validPlanInput(draftRoster.id)),
         (error) => isConstraint(error, '23505', 'chore_plans_rosterid_unique'),
       );
       await assert.rejects(
         database('chore_plans').insert({
-          rosterID: openRoster.id,
+          ...validPlanInput(openRoster.id),
           status: 'open',
         }),
         (error) =>
@@ -369,7 +383,7 @@ test(
       );
       await assert.rejects(
         database('chore_plans').insert({
-          rosterID: invalidRoster.id,
+          ...validPlanInput(invalidRoster.id),
           status: 'invalid',
         }),
         (error) => isConstraint(error, '23514', 'chore_plans_status_valid'),
@@ -378,7 +392,7 @@ test(
       const openedAt = new Date('2026-08-05T12:00:00.000Z');
       const [openPlan] = (await database('chore_plans')
         .insert({
-          rosterID: openRoster.id,
+          ...validPlanInput(openRoster.id),
           status: 'open',
           openedAt,
           openedByUserID: actor.id,

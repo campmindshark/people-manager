@@ -8,6 +8,7 @@ import ShiftViewModel from '../view_models/shift';
 import { getConfig } from '../config/config';
 import ShiftSignupError from '../utils/shiftSignupError';
 import { shiftTimeRangesOverlap, ShiftTimeRange } from '../utils/shiftTime';
+import hasChorePlanOwnershipColumns from '../utils/chorePlanSchema';
 import { PUBLIC_SHIFT_COLUMNS } from '../utils/scheduleApiColumns';
 
 const knex = Knex(knexConfig[getConfig().Environment]);
@@ -20,6 +21,7 @@ interface ShiftSignupRow extends ShiftTimeRange {
   id: number;
   requiredParticipants: number;
   rosterID: number;
+  chorePlanID?: number | null;
 }
 
 interface RosterParticipantAttendanceRow {
@@ -63,6 +65,10 @@ export default class ShiftController {
       .where('rosterID', rosterID)
       .select(...PUBLIC_SHIFT_COLUMNS);
 
+    if (await hasChorePlanOwnershipColumns(knex)) {
+      query.whereNull('schedules.chorePlanID');
+    }
+
     const shifts = await query;
 
     return shifts;
@@ -77,6 +83,12 @@ export default class ShiftController {
       .join('shifts', 'shift_participants.shiftID', '=', 'shifts.id')
       .select(...PUBLIC_SHIFT_COLUMNS);
 
+    if (await hasChorePlanOwnershipColumns(knex)) {
+      query
+        .join('schedules', 'shifts.scheduleID', '=', 'schedules.id')
+        .whereNull('schedules.chorePlanID');
+    }
+
     const shifts = await query;
 
     const shiftViewModels =
@@ -87,6 +99,16 @@ export default class ShiftController {
   public static async GetShiftViewModelsByScheduleID(
     scheduleID: number,
   ): Promise<ShiftViewModel[]> {
+    if (await hasChorePlanOwnershipColumns(knex)) {
+      const ordinarySchedule = await knex('schedules')
+        .select('id')
+        .where({ id: scheduleID })
+        .whereNull('chorePlanID')
+        .first();
+      if (!ordinarySchedule) {
+        return [];
+      }
+    }
     const query = knex<Shift>('shifts')
       .select(...PUBLIC_SHIFT_COLUMNS)
       .where('scheduleID', scheduleID)
@@ -113,6 +135,18 @@ export default class ShiftController {
       throw new ShiftSignupError('Choose a valid shift.', 400);
     }
 
+    if (await hasChorePlanOwnershipColumns(database)) {
+      const generatedShift = await database('shifts')
+        .innerJoin('schedules', 'schedules.id', 'shifts.scheduleID')
+        .select('schedules.chorePlanID')
+        .where('shifts.id', shiftID)
+        .whereNotNull('schedules.chorePlanID')
+        .first();
+      if (generatedShift) {
+        throw new ShiftSignupError('Shift not found.', 404);
+      }
+    }
+
     const query = database('shift_participants')
       .where('shiftID', shiftID)
       .andWhere('userID', userID)
@@ -137,6 +171,9 @@ export default class ShiftController {
       throw new ShiftSignupError('Choose a valid shift.', 400);
     }
 
+    const ownershipColumnsAvailable =
+      await hasChorePlanOwnershipColumns(database);
+
     return database.transaction(async (transaction) => {
       const user = await transaction('users')
         .select('id')
@@ -147,7 +184,7 @@ export default class ShiftController {
         throw new ShiftSignupError('User not found.', 404);
       }
 
-      const shift = await transaction<ShiftSignupRow>('shifts')
+      const shiftQuery = transaction<ShiftSignupRow>('shifts')
         .join('schedules', 'shifts.scheduleID', '=', 'schedules.id')
         .select(
           'shifts.id',
@@ -157,9 +194,15 @@ export default class ShiftController {
           'schedules.rosterID',
         )
         .where('shifts.id', shiftID)
-        .forUpdate('shifts')
-        .first();
+        .forUpdate('shifts');
+      if (ownershipColumnsAvailable) {
+        shiftQuery.select('schedules.chorePlanID');
+      }
+      const shift = await shiftQuery.first();
       if (!shift) {
+        throw new ShiftSignupError('Shift not found.', 404);
+      }
+      if (shift.chorePlanID !== undefined && shift.chorePlanID !== null) {
         throw new ShiftSignupError('Shift not found.', 404);
       }
 

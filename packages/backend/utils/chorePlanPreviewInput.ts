@@ -1,4 +1,5 @@
 import {
+  ChorePlanApplyRequest,
   ChorePlanPreviewRequest,
   ChorePlanRequirements,
 } from '../view_models/chore_plan_preview';
@@ -70,6 +71,13 @@ function parseRequirements(value: unknown): ChorePlanRequirements {
   return parsed;
 }
 
+function parseRevision(value: unknown, label: string): string {
+  if (typeof value !== 'string' || !/^[1-9][0-9]*$/.test(value)) {
+    throw new ChorePlanPreviewError(`${label} must be a valid revision.`, 400);
+  }
+  return value;
+}
+
 export function parseChorePlanPreviewRequest(
   value: unknown,
 ): ChorePlanPreviewRequest {
@@ -95,5 +103,48 @@ export function parseChorePlanPreviewRequest(
     rosterID: parsePositiveID(input.rosterID),
     camperCount: parseCamperCount(input.camperCount),
     requirements: parseRequirements(input.requirements),
+  };
+}
+
+export function parseChorePlanApplyRequest(
+  value: unknown,
+): ChorePlanApplyRequest {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new ChorePlanPreviewError('Enter draft details.', 400);
+  }
+
+  const input = value as Record<string, unknown>;
+  const keys = Object.keys(input).sort();
+  if (
+    keys.length !== 5 ||
+    keys[0] !== 'camperCount' ||
+    keys[1] !== 'expectedCatalogRevision' ||
+    keys[2] !== 'expectedDraftRevision' ||
+    keys[3] !== 'requirements' ||
+    keys[4] !== 'rosterID'
+  ) {
+    throw new ChorePlanPreviewError(
+      'A draft apply accepts only rosterID, camperCount, requirements, expectedCatalogRevision, and expectedDraftRevision.',
+      400,
+    );
+  }
+
+  const preview = parseChorePlanPreviewRequest({
+    rosterID: input.rosterID,
+    camperCount: input.camperCount,
+    requirements: input.requirements,
+  });
+  const expectedDraftRevision =
+    input.expectedDraftRevision === null
+      ? null
+      : parseRevision(input.expectedDraftRevision, 'Expected draft revision');
+
+  return {
+    ...preview,
+    expectedCatalogRevision: parseRevision(
+      input.expectedCatalogRevision,
+      'Expected catalog revision',
+    ),
+    expectedDraftRevision,
   };
 }

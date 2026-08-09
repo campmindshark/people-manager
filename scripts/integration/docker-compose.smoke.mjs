@@ -232,7 +232,8 @@ async function runIntegrationTest() {
         standardLoginResponse.status === 303,
       'Expected redirect response from standard-user dev login',
     );
-    const standardCookieHeader = standardLoginResponse.headers.get('set-cookie');
+    const standardCookieHeader =
+      standardLoginResponse.headers.get('set-cookie');
     assert(standardCookieHeader, 'Standard-user login did not return a cookie');
     const standardCookie = standardCookieHeader.split(';')[0];
     const standardAuthResponse = await fetch(
@@ -255,15 +256,22 @@ async function runIntegrationTest() {
     run('docker compose up -d --force-recreate --no-deps backend', {
       CHORE_PLANNING_ENABLED: 'true',
     });
-    await waitFor('http://localhost:3001/api/health', 'enabled backend health', {
-      validate: (body) => body.includes('healthy'),
-    });
+    await waitFor(
+      'http://localhost:3001/api/health',
+      'enabled backend health',
+      {
+        validate: (body) => body.includes('healthy'),
+      },
+    );
 
     const enabledFeatureFlagsResponse = await fetch(
       'http://localhost:3001/api/settings/features',
       { headers: { cookie: sessionCookie } },
     );
-    assert(enabledFeatureFlagsResponse.ok, 'Enabled feature flags request failed');
+    assert(
+      enabledFeatureFlagsResponse.ok,
+      'Enabled feature flags request failed',
+    );
     const enabledFeatureFlags = await enabledFeatureFlagsResponse.json();
     assert(
       enabledFeatureFlags.chorePlanning === true,
@@ -330,7 +338,10 @@ async function runIntegrationTest() {
     assert(updateResponse.ok, 'Admin could not update a chore score');
     const update = await updateResponse.json();
     assert(update.revision === '2', 'A score change must advance the revision');
-    assert(update.definition.score === 42.25, 'The changed score was not returned');
+    assert(
+      update.definition.score === 42.25,
+      'The changed score was not returned',
+    );
 
     const immutableFieldResponse = await fetch(
       `http://localhost:3001/api/chore-plans/catalog/${firstDefinition.stableKey}/score`,
@@ -402,7 +413,222 @@ async function runIntegrationTest() {
       'Preview slots did not retain stable definition identity',
     );
 
+    const ordinarySchedulesBeforeResponse = await fetch(
+      'http://localhost:3001/api/schedules',
+      { headers: { cookie: sessionCookie } },
+    );
+    assert(
+      ordinarySchedulesBeforeResponse.ok,
+      'Could not read ordinary schedules before applying a draft',
+    );
+    const ordinarySchedulesBefore =
+      await ordinarySchedulesBeforeResponse.json();
+    const ordinaryShiftsBeforeResponse = await fetch(
+      'http://localhost:3001/api/shifts',
+      { headers: { cookie: sessionCookie } },
+    );
+    assert(
+      ordinaryShiftsBeforeResponse.ok,
+      'Could not read ordinary shifts before applying a draft',
+    );
+    const ordinaryShiftsBefore = await ordinaryShiftsBeforeResponse.json();
+    assert(
+      ordinarySchedulesBefore.every(
+        (schedule) =>
+          !Object.hasOwn(schedule, 'chorePlanID') &&
+          !Object.hasOwn(schedule, 'plannerKey'),
+      ),
+      'Ordinary schedules exposed internal ownership fields',
+    );
+    assert(
+      ordinaryShiftsBefore.every(
+        (shift) => !Object.hasOwn(shift, 'plannerKey'),
+      ),
+      'Ordinary shifts exposed internal ownership fields',
+    );
+
+    const ordinaryScheduleShiftsResponse = await fetch(
+      'http://localhost:3001/api/schedules/1/shifts',
+      { headers: { cookie: sessionCookie } },
+    );
+    assert(
+      ordinaryScheduleShiftsResponse.ok,
+      'Could not read ordinary schedule shift view models',
+    );
+    const ordinaryScheduleShifts = await ordinaryScheduleShiftsResponse.json();
+    assert(
+      ordinaryScheduleShifts.every(
+        ({ shift }) => !Object.hasOwn(shift, 'plannerKey'),
+      ),
+      'Ordinary shift view models exposed internal ownership fields',
+    );
+
+    const forbiddenApplyResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/apply',
+      {
+        method: 'POST',
+        headers: {
+          cookie: standardCookie,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          rosterID: 1,
+          camperCount: 1,
+          requirements: { chore: 1, event: 1, dinner: 1 },
+          expectedCatalogRevision: '2',
+          expectedDraftRevision: null,
+        }),
+      },
+    );
+    assert(
+      forbiddenApplyResponse.status === 403,
+      'A verified standard user must not apply chore plan drafts',
+    );
+
+    const firstApplyBody = {
+      rosterID: 1,
+      camperCount: 1,
+      requirements: { chore: 1, event: 1, dinner: 1 },
+      expectedCatalogRevision: '2',
+      expectedDraftRevision: null,
+    };
+    const applyResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/apply',
+      {
+        method: 'POST',
+        headers: {
+          cookie: sessionCookie,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify(firstApplyBody),
+      },
+    );
+    const applyBody = await applyResponse.text();
+    assert(
+      applyResponse.ok,
+      `Admin could not apply a chore plan draft (${applyResponse.status}): ${applyBody}`,
+    );
+    const applied = JSON.parse(applyBody);
+    assert(
+      applied.changed === true &&
+        applied.replaced === false &&
+        applied.draft?.draftRevision === '1' &&
+        applied.draft?.catalogRevision === '2',
+      'First draft apply did not return the expected revision state',
+    );
+
+    const repeatedApplyResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/apply',
+      {
+        method: 'POST',
+        headers: {
+          cookie: sessionCookie,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify(firstApplyBody),
+      },
+    );
+    assert(repeatedApplyResponse.ok, 'Identical draft retry failed');
+    const repeatedApply = await repeatedApplyResponse.json();
+    assert(
+      repeatedApply.changed === false &&
+        repeatedApply.draft?.draftRevision === '1',
+      'Identical draft retry was not a no-op',
+    );
+
+    const mismatchedDraftResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/apply',
+      {
+        method: 'POST',
+        headers: {
+          cookie: sessionCookie,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...firstApplyBody,
+          camperCount: 2,
+        }),
+      },
+    );
+    assert(
+      mismatchedDraftResponse.status === 409,
+      'Replacing an unobserved draft revision must be rejected',
+    );
+
+    const replacementResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/apply',
+      {
+        method: 'POST',
+        headers: {
+          cookie: sessionCookie,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...firstApplyBody,
+          camperCount: 2,
+          expectedDraftRevision: '1',
+        }),
+      },
+    );
+    assert(replacementResponse.ok, 'Observed draft replacement failed');
+    const replacement = await replacementResponse.json();
+    assert(
+      replacement.changed === true &&
+        replacement.replaced === true &&
+        replacement.draft?.draftRevision === '2',
+      'Draft replacement did not advance its revision',
+    );
+
+    const staleApplyResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/apply',
+      {
+        method: 'POST',
+        headers: {
+          cookie: sessionCookie,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...firstApplyBody,
+          camperCount: 2,
+          expectedCatalogRevision: '1',
+          expectedDraftRevision: '2',
+        }),
+      },
+    );
+    assert(
+      staleApplyResponse.status === 409,
+      'Applying a stale preview revision must be rejected',
+    );
+
+    const ordinarySchedulesAfterResponse = await fetch(
+      'http://localhost:3001/api/schedules',
+      { headers: { cookie: sessionCookie } },
+    );
+    const ordinaryShiftsAfterResponse = await fetch(
+      'http://localhost:3001/api/shifts',
+      { headers: { cookie: sessionCookie } },
+    );
+    assert(
+      ordinarySchedulesAfterResponse.ok && ordinaryShiftsAfterResponse.ok,
+      'Ordinary schedule APIs failed after applying a draft',
+    );
+    const ordinarySchedulesAfter = await ordinarySchedulesAfterResponse.json();
+    const ordinaryShiftsAfter = await ordinaryShiftsAfterResponse.json();
+    assert(
+      JSON.stringify(ordinarySchedulesAfter) ===
+        JSON.stringify(ordinarySchedulesBefore),
+      'Generated draft schedules leaked into the ordinary schedule API',
+    );
+    assert(
+      JSON.stringify(ordinaryShiftsAfter) ===
+        JSON.stringify(ordinaryShiftsBefore),
+      'Generated draft shifts leaked into the ordinary shift API',
+    );
+
     console.log('Integration smoke test passed.');
+  } catch (error) {
+    run('docker compose logs --no-color backend migrate');
+    throw error;
   } finally {
     run('docker compose down -v --remove-orphans');
   }
