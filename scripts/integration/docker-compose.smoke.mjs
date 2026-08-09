@@ -1818,7 +1818,11 @@ async function runIntegrationTest() {
         releaseAuditOutput.includes('"action":"plan_opened"') &&
         releaseAuditOutput.includes('"action":"plan_closed"') &&
         releaseAuditOutput.includes('"action":"plan_reopened"') &&
-        releaseAuditOutput.includes('"action":"admin_assignment_mutated"'),
+        releaseAuditOutput.includes('"action":"admin_assignment_mutated"') &&
+        releaseAuditOutput.includes(
+          '"name":"20260809000000_chore_plan_disabled_assignments.ts"',
+        ) &&
+        releaseAuditOutput.includes('"disabledAssignmentCount":'),
       'The read-only release audit omitted expected migration or audit state',
     );
 

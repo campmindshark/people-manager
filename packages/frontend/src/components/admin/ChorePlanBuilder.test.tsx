@@ -7,6 +7,7 @@ import {
   ChorePlanDraftSummary,
   ChorePlanPreview,
 } from 'backend/view_models/chore_plan_preview';
+import { ChorePlanReadinessResponse } from 'backend/view_models/chore_plan_readiness';
 import ChorePlanBuilder, {
   ChorePlannerClient,
   ChorePlannerRosterClient,
@@ -99,6 +100,48 @@ function applyResponse(
     draft: sourceDraft,
     preview: sourcePreview,
     ...overrides,
+  };
+}
+
+function readiness(): ChorePlanReadinessResponse {
+  return {
+    planID: 10,
+    rosterID: 1,
+    status: 'draft',
+    plannerHeadcount: 1,
+    actualRosterCount: 1,
+    headcountDifference: 0,
+    categories: {
+      chore: {
+        kind: 'chore',
+        completeParticipants: 0,
+        incompleteParticipants: 1,
+        assignedShifts: 0,
+        requiredShifts: 3,
+      },
+      event: {
+        kind: 'event',
+        completeParticipants: 0,
+        incompleteParticipants: 1,
+        assignedShifts: 0,
+        requiredShifts: 3,
+      },
+      dinner: {
+        kind: 'dinner',
+        completeParticipants: 0,
+        incompleteParticipants: 1,
+        assignedShifts: 0,
+        requiredShifts: 1,
+      },
+    },
+    underfilledShifts: [],
+    fullShifts: [],
+    overfilledShifts: [],
+    incompleteParticipants: [],
+    feasibilityIssues: [],
+    participantDataIssues: [],
+    requirementExceptions: [],
+    generatedAt: '2026-08-09T12:00:00.000Z',
   };
 }
 
@@ -455,10 +498,11 @@ test('disables one assignment while retaining its sibling position', async () =>
   ).toBeVisible();
 });
 
-test('finalizes the saved draft and opens chore signups', async () => {
+test('reviews readiness before finalizing the saved draft and opening signups', async () => {
   const generated = preview();
   const currentDraft = draft(generated);
   const { planClient, rosterClient } = clients(generated, currentDraft);
+  planClient.GetReadiness = jest.fn().mockResolvedValue(readiness());
   planClient.Open = jest.fn().mockResolvedValue({});
   render(
     <ChorePlanBuilder planClient={planClient} rosterClient={rosterClient} />,
@@ -472,6 +516,16 @@ test('finalizes the saved draft and opens chore signups', async () => {
     }),
   );
 
+  await waitFor(() => expect(planClient.GetReadiness).toHaveBeenCalledWith(1));
+  expect(planClient.Open).not.toHaveBeenCalled();
+  expect(
+    await screen.findByRole('dialog', { name: /readiness before opening/i }),
+  ).toBeVisible();
+  expect(await screen.findByText(/planner headcount:/i)).toHaveTextContent(
+    'Planner headcount: 1 · Actual roster: 1',
+  );
+
+  userEvent.click(screen.getByRole('button', { name: /confirm open/i }));
   await waitFor(() => expect(planClient.Open).toHaveBeenCalledWith(1, '4'));
   expect(
     await screen.findByText(/plan is finalized and signups are open/i),

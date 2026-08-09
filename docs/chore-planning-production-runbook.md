@@ -46,11 +46,11 @@ draft, or closed plan.
    frontend workflow; do not use a branch name or substitute a later SHA.
 4. Wait for the ECS service to become healthy and for every required migration
    task to exit `0`. The final rebuilt migration is
-   `20260806050000_chore_plan_requirement_overrides.ts`.
+   `20260809000000_chore_plan_disabled_assignments.ts`.
 5. Dispatch `Audit Chore Planning Release` from `main` without a roster ID.
-   Confirm all seven rebuild migrations, the pinned stable-key hash, catalog
-   revision, 302 score rows, and exact definition counts of 32 chore, 216
-   event, and 54 dinner rows.
+   Confirm all eight rebuild migrations, the disabled-assignment table, the
+   pinned stable-key hash, catalog revision, 302 score rows, and exact
+   definition counts of 32 chore, 216 event, and 54 dinner rows.
 6. In an authenticated production browser, inspect
    `GET /api/settings/features` and confirm `chorePlanning` is `false`.
 7. Confirm a direct authenticated request to a chore route, such as

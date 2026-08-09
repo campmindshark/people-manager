@@ -48,9 +48,11 @@ import {
   ChorePlanShiftPreview,
 } from 'backend/view_models/chore_plan_preview';
 import { ChorePlanLifecycleState } from 'backend/view_models/chore_plan_lifecycle';
+import { ChorePlanReadinessResponse } from 'backend/view_models/chore_plan_readiness';
 import BackendChorePlanClient from '../../api/chore_plans/client';
 import BackendRosterClient from '../../api/roster/roster';
 import { getFrontendConfig } from '../../config/config';
+import { ChorePlanReadinessReviewDialog } from './ChorePlanReadinessDashboard';
 import SignupSheetTable, { SignupSheetShift } from '../shifts/SignupSheetTable';
 
 const frontendConfig = getFrontendConfig();
@@ -72,6 +74,7 @@ export interface ChorePlannerClient {
   Preview: (request: ChorePlanPreviewRequest) => Promise<ChorePlanPreview>;
   GetDraft: (rosterID: number) => Promise<ChorePlanDraftResponse>;
   Apply: (request: ChorePlanApplyRequest) => Promise<ChorePlanApplyResponse>;
+  GetReadiness?: (rosterID: number) => Promise<ChorePlanReadinessResponse>;
   Open?: (
     rosterID: number,
     expectedDraftRevision: string,
@@ -226,6 +229,17 @@ function openErrorMessage(error: unknown): string {
   return 'Failed to open chore signups. Please try again.';
 }
 
+function readinessErrorMessage(error: unknown): string {
+  const message = responseMessage(error);
+  if (message) {
+    return message;
+  }
+  if (responseStatus(error) === 403) {
+    return 'You do not have permission to review chore plan readiness.';
+  }
+  return 'Could not load chore plan readiness. Please try again.';
+}
+
 function disabledAssignmentRequest(preview: ChorePlanPreview) {
   return preview.disabledAssignments.length
     ? { disabledAssignments: preview.disabledAssignments }
@@ -328,6 +342,12 @@ export default function ChorePlanBuilder({
     string | null
   >(null);
   const [opening, setOpening] = useState(false);
+  const [readiness, setReadiness] = useState<ChorePlanReadinessResponse | null>(
+    null,
+  );
+  const [readinessLoading, setReadinessLoading] = useState(false);
+  const [readinessError, setReadinessError] = useState<string | null>(null);
+  const [readinessReviewOpen, setReadinessReviewOpen] = useState(false);
   const [confirmingReplacement, setConfirmingReplacement] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -376,6 +396,9 @@ export default function ChorePlanBuilder({
     setObservedDraft(null);
     setError(null);
     setSuccess(null);
+    setReadiness(null);
+    setReadinessError(null);
+    setReadinessReviewOpen(false);
   }, []);
 
   const setField = (field: keyof FormValues, value: string) => {
@@ -534,12 +557,44 @@ export default function ChorePlanBuilder({
     }
   };
 
+  const loadReadiness = async () => {
+    if (
+      !planClient.GetReadiness ||
+      !preview ||
+      !observedDraft ||
+      !matchesDraft ||
+      inputsDisabled
+    ) {
+      return;
+    }
+    setReadinessLoading(true);
+    setReadiness(null);
+    setReadinessError(null);
+    try {
+      setReadiness(await planClient.GetReadiness(preview.rosterID));
+    } catch (loadError) {
+      console.error('Failed to load chore plan readiness:', loadError);
+      setReadinessError(readinessErrorMessage(loadError));
+    } finally {
+      setReadinessLoading(false);
+    }
+  };
+
+  const handleReviewFinalization = () => {
+    if (!planClient.Open || !planClient.GetReadiness || inputsDisabled) {
+      return;
+    }
+    setReadinessReviewOpen(true);
+    loadReadiness();
+  };
+
   const handleFinalizeAndOpen = async () => {
     if (
       !planClient.Open ||
       !preview ||
       !observedDraft ||
       !matchesDraft ||
+      !readiness ||
       inputsDisabled
     ) {
       return;
@@ -551,6 +606,7 @@ export default function ChorePlanBuilder({
       await planClient.Open(preview.rosterID, observedDraft.draftRevision);
       setPreview(null);
       setObservedDraft(null);
+      setReadiness(null);
       setSuccess('The chore shift plan is finalized and signups are open.');
     } catch (openError) {
       console.error('Failed to finalize and open chore signups:', openError);
@@ -695,11 +751,11 @@ export default function ChorePlanBuilder({
                 >
                   {applyButtonLabel}
                 </Button>
-                {planClient.Open && matchesDraft && (
+                {planClient.Open && planClient.GetReadiness && matchesDraft && (
                   <Button
                     color="success"
                     disabled={inputsDisabled || hasShortage}
-                    onClick={handleFinalizeAndOpen}
+                    onClick={handleReviewFinalization}
                     variant="contained"
                   >
                     {opening ? 'Opening signups…' : 'Finalize and open signups'}
@@ -814,6 +870,20 @@ export default function ChorePlanBuilder({
           </Button>
         </DialogActions>
       </Dialog>
+
+      {planClient.Open && planClient.GetReadiness && (
+        <ChorePlanReadinessReviewDialog
+          action="open"
+          confirming={opening}
+          error={readinessError}
+          loading={readinessLoading}
+          onClose={() => setReadinessReviewOpen(false)}
+          onConfirm={handleFinalizeAndOpen}
+          onRetry={loadReadiness}
+          open={readinessReviewOpen}
+          readiness={readiness}
+        />
+      )}
     </Stack>
   );
 }

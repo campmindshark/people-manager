@@ -27,8 +27,9 @@ the release PR or issue. Detailed procedures and stop conditions are in
 - [ ] Backend deploy commit, frontend `ref`, and deployed image tag match the
       recorded reviewed implementation commit.
 - [ ] ECS is healthy and required migration tasks exited `0`.
-- [ ] Read-only audit reports all seven rebuild migrations, the pinned stable-key
-      hash, and catalog counts 32 chore / 216 event / 54 dinner / 302 scores.
+- [ ] Read-only audit reports all eight rebuild migrations, the
+      disabled-assignment table, the pinned stable-key hash, and catalog counts
+      32 chore / 216 event / 54 dinner / 302 scores.
 - [ ] Authenticated feature settings report chore planning disabled.
 - [ ] Chore routes return `404`; navigation and network calls are absent.
 - [ ] Ordinary roster, profile, dues, schedule, signup, and removal smoke tests

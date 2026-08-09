@@ -10,6 +10,7 @@ const expectedMigrationNames = [
   '20260806030000_chore_plan_lifecycle.ts',
   '20260806040000_chore_plan_admin_assignments.ts',
   '20260806050000_chore_plan_requirement_overrides.ts',
+  '20260809000000_chore_plan_disabled_assignments.ts',
 ];
 const expectedDefinitionCounts = {
   chore: 32,
@@ -165,7 +166,12 @@ async function runAudit() {
             SELECT COUNT(*)::integer
             FROM chore_plan_requirement_overrides AS requirement_override
             WHERE requirement_override."chorePlanID" = plan.id
-          ) AS "overrideCount"
+          ) AS "overrideCount",
+          (
+            SELECT COUNT(*)::integer
+            FROM chore_plan_disabled_assignments AS disabled_assignment
+            WHERE disabled_assignment."chorePlanID" = plan.id
+          ) AS "disabledAssignmentCount"
         FROM chore_plans AS plan
         WHERE (?::integer IS NULL OR plan."rosterID" = ?::integer)
         ORDER BY plan."rosterID"
