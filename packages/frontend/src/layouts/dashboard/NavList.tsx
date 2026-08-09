@@ -13,6 +13,7 @@ import HomeIcon from '@mui/icons-material/Home';
 import CelebrationIcon from '@mui/icons-material/Celebration';
 import SettingsIcon from '@mui/icons-material/Settings';
 import PriceChangeIcon from '@mui/icons-material/PriceChange';
+import PlaylistAddCheckIcon from '@mui/icons-material/PlaylistAddCheck';
 import List from '@mui/material/List';
 import Divider from '@mui/material/Divider';
 import { Link } from 'react-router-dom';
@@ -82,6 +83,14 @@ const utilityLinks: MenuItemLinkData[] = [
     icon: <EditCalendarIcon />,
     path: '/admin/rosters',
     needsRole: ['admin'],
+  },
+  {
+    text: 'Chore Planner',
+    index: 'admin-chore-planner',
+    icon: <PlaylistAddCheckIcon />,
+    path: '/admin/chore-planner',
+    needsRole: ['admin'],
+    feature: 'chorePlanning',
   },
   {
     text: 'Chore Scores',

@@ -171,6 +171,23 @@ mutate a persisted plan or its audit meaning. Generated draft schedules and
 shifts are excluded from the ordinary schedule, shift, and signup APIs; a later
 slice introduces their dedicated read contract.
 
+The administrative planner loads only the current draft summary needed for
+optimistic concurrency; it does not expose participant mutations or lifecycle
+controls. Preview displays exact category shortages and generated shifts. A
+shortage disables apply. If the observed draft inputs, planning year, or
+catalog revision differ from the preview, the UI requires explicit replacement
+confirmation and sends the observed draft revision. A `409` clears the stale
+preview and requires the administrator to preview again.
+
+PR #58 is the visual source of truth for the chore-planning experience. The
+planner keeps its camp-year and prospective-camper form, fixed 3 chore / 3 event
+/ 1 dinner requirement copy, three category-capacity cards, and accordion
+signup-sheet preview. Chores and dinners use a Sunday-through-Saturday
+day-by-schedule grid; events use a day-by-shift-by-period grid. Both grids use
+the same responsive, horizontally scrollable signup-sheet component that later
+member signup, administrative assignment, and final-assignment views will
+reuse.
+
 ## Requirements and overrides
 
 Requirements are non-negative whole counts for the three categories: chore,

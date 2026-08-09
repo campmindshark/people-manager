@@ -485,6 +485,22 @@ async function runIntegrationTest() {
       'A verified standard user must not apply chore plan drafts',
     );
 
+    const forbiddenDraftResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/draft/1',
+      { headers: { cookie: standardCookie } },
+    );
+    assert(
+      forbiddenDraftResponse.status === 403,
+      'A verified standard user must not read chore plan drafts',
+    );
+    const emptyDraftResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/draft/1',
+      { headers: { cookie: sessionCookie } },
+    );
+    assert(emptyDraftResponse.ok, 'Admin could not read current draft state');
+    const emptyDraft = await emptyDraftResponse.json();
+    assert(emptyDraft.draft === null, 'Roster unexpectedly had a draft');
+
     const firstApplyBody = {
       rosterID: 1,
       camperCount: 1,
@@ -515,6 +531,17 @@ async function runIntegrationTest() {
         applied.draft?.draftRevision === '1' &&
         applied.draft?.catalogRevision === '2',
       'First draft apply did not return the expected revision state',
+    );
+    const savedDraftResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/draft/1',
+      { headers: { cookie: sessionCookie } },
+    );
+    assert(savedDraftResponse.ok, 'Admin could not reload the saved draft');
+    const savedDraft = await savedDraftResponse.json();
+    assert(
+      savedDraft.draft?.draftRevision === '1' &&
+        savedDraft.draft?.catalogRevision === '2',
+      'Saved draft read model did not match the applied draft',
     );
 
     const repeatedApplyResponse = await fetch(

@@ -242,6 +242,13 @@ test(
         0,
         'an unsatisfiable apply must not create a partial plan',
       );
+      assert.deepEqual(await controller.getByRosterID(shortageRoster.id), {
+        draft: null,
+      });
+      await assert.rejects(
+        controller.getByRosterID(shortageRoster.id + 1000),
+        (error) => isDraftError(error, 404, /roster not found/i),
+      );
 
       const first = await controller.apply(applyRequest(roster.id), actor.id);
       assert.equal(first.changed, true);
@@ -269,6 +276,9 @@ test(
         },
       );
       assert.equal(await countRows(database, 'chore_plan_audit_entries'), 1);
+      assert.deepEqual(await controller.getByRosterID(roster.id), {
+        draft: first.draft,
+      });
       assert.deepEqual(
         await database('chore_plan_audit_entries')
           .select('actorUserID', 'action')

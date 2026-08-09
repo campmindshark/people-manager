@@ -16,6 +16,7 @@ import Roster from './pages/Roster';
 import Shifts from './pages/Shifts';
 import ManageRosters from './pages/ManageRosters';
 import ChoreCatalog from './pages/ChoreCatalog';
+import ChorePlanner from './pages/ChorePlanner';
 import FeatureGate from './components/FeatureGate';
 
 const mdTheme = createTheme({
@@ -86,6 +87,18 @@ const router = createBrowserRouter([
       return (
         <AuthenticatedPage>
           <ManageRosters />
+        </AuthenticatedPage>
+      );
+    },
+  },
+  {
+    path: '/admin/chore-planner',
+    Component() {
+      return (
+        <AuthenticatedPage>
+          <FeatureGate feature="chorePlanning">
+            <ChorePlanner />
+          </FeatureGate>
         </AuthenticatedPage>
       );
     },

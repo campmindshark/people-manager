@@ -74,6 +74,10 @@ export interface ChorePlanApplyResponse {
   preview: ChorePlanPreview;
 }
 
+export interface ChorePlanDraftResponse {
+  draft: ChorePlanDraftSummary | null;
+}
+
 export interface ChorePlanPreviewBuildInput extends ChorePlanPreviewRequest {
   year: number;
   catalogRevision: string;

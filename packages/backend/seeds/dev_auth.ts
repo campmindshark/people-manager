@@ -41,9 +41,35 @@ export async function seed(knex: Knex): Promise<void> {
     }
   }
 
-  const adminUser = await knex('users')
-    .where({ googleID: ADMIN_GOOGLE_ID })
-    .first();
+  const devUsers = await knex('users').whereIn(
+    'googleID',
+    DEV_USERS.map(({ googleID }) => googleID),
+  );
+
+  for (let i = 0; i < devUsers.length; i += 1) {
+    const devUser = devUsers[i];
+    // eslint-disable-next-line no-await-in-loop
+    const existingVerification = await knex('user_verifications')
+      .where({ userID: devUser.id })
+      .first();
+
+    if (existingVerification) {
+      // eslint-disable-next-line no-await-in-loop
+      await knex('user_verifications')
+        .where({ id: existingVerification.id })
+        .update({ isVerified: true });
+    } else {
+      // eslint-disable-next-line no-await-in-loop
+      await knex('user_verifications').insert({
+        userID: devUser.id,
+        isVerified: true,
+      });
+    }
+  }
+
+  const adminUser = devUsers.find(
+    ({ googleID }) => googleID === ADMIN_GOOGLE_ID,
+  );
 
   if (adminUser) {
     const existingRole = await knex('user_roles')
