@@ -330,6 +330,39 @@ test('a disabled assignment is replaced while its sibling remains', () => {
   );
 
   assert.deepEqual(replacement.disabledAssignments, [disabledAssignment]);
+  assert.deepEqual(
+    replacement.disabledSlots.map(
+      ({
+        shiftKey,
+        definitionKey,
+        kind,
+        scheduleName,
+        displayDayLabel,
+        positionLabel,
+        score,
+      }) => ({
+        shiftKey,
+        definitionKey,
+        kind,
+        scheduleName,
+        displayDayLabel,
+        positionLabel,
+        score,
+      }),
+    ),
+    [
+      {
+        ...disabledAssignment,
+        kind: 'chore',
+        scheduleName: multiPositionShift.scheduleName,
+        displayDayLabel: multiPositionShift.displayDayLabel,
+        positionLabel: disabledSlot.positionLabel,
+        score: disabledSlot.score,
+      },
+    ],
+  );
+  assert.deepEqual(replacement.disableableAssignments, []);
+  assert.deepEqual(replacement.reenableableAssignments, []);
   assert.deepEqual(replacement.categories.chore, {
     target: 60,
     selected: 60,

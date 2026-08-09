@@ -6,6 +6,7 @@ import {
 import { CHORE_CATALOG_V2 } from '../migrations/data/chore_catalog_v2';
 import {
   ChorePlanDisabledAssignment,
+  ChorePlanDisabledSlotPreview,
   ChorePlanPreview,
   ChorePlanPreviewBuildInput,
   ChorePlanShiftPreview,
@@ -687,6 +688,41 @@ export default function buildChorePlanPreview(
   const gatesOpen = DateTime.fromJSDate(
     getBurnDates(input.year).gatesOpen,
   ).setZone(BM_TIMEZONE);
+  const groupsByKey = new Map(groups.map((group) => [group.stableKey, group]));
+  const disabledSlots = disabledAssignments.map(
+    ({ shiftKey, definitionKey }): ChorePlanDisabledSlotPreview => {
+      const group = groupsByKey.get(shiftKey);
+      const definition = group?.definitions.find(
+        ({ stableKey }) => stableKey === definitionKey,
+      );
+      if (!group || !definition) {
+        throw new ChorePlanPreviewError(
+          `Disabled assignment ${disabledAssignmentIdentity(
+            shiftKey,
+            definitionKey,
+          )} is not in the chore catalog.`,
+          400,
+        );
+      }
+      const shift = buildShift(group, [definition], gatesOpen);
+      return {
+        shiftKey,
+        definitionKey,
+        scheduleKey: shift.scheduleKey,
+        kind: shift.kind,
+        scheduleName: shift.scheduleName,
+        displayDayNumber: shift.displayDayNumber,
+        displayDayLabel: shift.displayDayLabel,
+        calendarDay: shift.calendarDay,
+        timePeriodLabel: shift.timePeriodLabel,
+        periodOrder: shift.periodOrder,
+        startTime: shift.startTime,
+        endTime: shift.endTime,
+        positionLabel: definition.positionLabel,
+        score: definition.scoreCents / 100,
+      };
+    },
+  );
   const selectedByGroup = new Map<
     string,
     { group: AllocationGroup; definitions: PlanningDefinition[] }
@@ -731,6 +767,9 @@ export default function buildChorePlanPreview(
         shiftKey,
         definitionKey,
       })),
+    disabledSlots,
+    disableableAssignments: [],
+    reenableableAssignments: [],
     categories: {
       chore: {
         target: allocations.chore.target,

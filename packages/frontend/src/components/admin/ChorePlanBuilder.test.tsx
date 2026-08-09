@@ -31,6 +31,14 @@ function preview(overrides: Partial<ChorePlanPreview> = {}): ChorePlanPreview {
     requirements: { chore: 3, event: 3, dinner: 1 },
     catalogRevision: '7',
     disabledAssignments: [],
+    disabledSlots: [],
+    disableableAssignments: [
+      {
+        shiftKey: 'chore|1|chore-am-chum-wench-first',
+        definitionKey: 'chore-am-chum-wench-first',
+      },
+    ],
+    reenableableAssignments: [],
     categories: {
       chore: { target: 3, selected: 3, shortage: 0 },
       event: { target: 3, selected: 3, shortage: 0 },
@@ -440,6 +448,40 @@ test('disables one assignment while retaining its sibling position', async () =>
         definitionKey: generated.shifts[0].slots[0].definitionKey,
       },
     ],
+    disabledSlots: [
+      {
+        shiftKey: generated.shifts[0].stableKey,
+        definitionKey: generated.shifts[0].slots[0].definitionKey,
+        scheduleKey: generated.shifts[0].scheduleKey,
+        kind: 'chore',
+        scheduleName: generated.shifts[0].scheduleName,
+        displayDayNumber: generated.shifts[0].displayDayNumber,
+        displayDayLabel: generated.shifts[0].displayDayLabel,
+        calendarDay: generated.shifts[0].calendarDay,
+        timePeriodLabel: generated.shifts[0].timePeriodLabel,
+        periodOrder: generated.shifts[0].periodOrder,
+        startTime: generated.shifts[0].startTime,
+        endTime: generated.shifts[0].endTime,
+        positionLabel: generated.shifts[0].slots[0].positionLabel,
+        score: generated.shifts[0].slots[0].score,
+      },
+    ],
+    disableableAssignments: [
+      {
+        shiftKey: generated.shifts[0].stableKey,
+        definitionKey: generated.shifts[0].slots[1].definitionKey,
+      },
+      {
+        shiftKey: replacementShift.stableKey,
+        definitionKey: replacementShift.slots[0].definitionKey,
+      },
+    ],
+    reenableableAssignments: [
+      {
+        shiftKey: generated.shifts[0].stableKey,
+        definitionKey: generated.shifts[0].slots[0].definitionKey,
+      },
+    ],
     shifts: [
       {
         ...generated.shifts[0],
@@ -454,6 +496,11 @@ test('disables one assignment while retaining its sibling position', async () =>
   const { planClient, rosterClient } = clients(generated, currentDraft);
   (planClient.Apply as jest.Mock).mockResolvedValueOnce(
     applyResponse(replacement, replacementDraft, { replaced: true }),
+  );
+  (planClient.Apply as jest.Mock).mockResolvedValueOnce(
+    applyResponse(generated, draft(generated, { draftRevision: '6' }), {
+      replaced: true,
+    }),
   );
   render(
     <ChorePlanBuilder planClient={planClient} rosterClient={rosterClient} />,
@@ -486,6 +533,11 @@ test('disables one assignment while retaining its sibling position', async () =>
     await screen.findByText(/next available assignment was added/i),
   ).toBeVisible();
   expect(screen.getByText('1 disabled assignment')).toBeVisible();
+  const disabledButton = screen.getByRole('button', {
+    name: /re-enable first assignment for am chum wench on sunday, aug 30/i,
+  });
+  expect(disabledButton).toBeVisible();
+  expect(screen.getByText('Off')).toBeVisible();
   expect(
     screen.getByRole('button', {
       name: /disable second assignment for am chum wench on sunday, aug 30/i,
@@ -496,6 +548,73 @@ test('disables one assignment while retaining its sibling position', async () =>
       name: /disable first assignment for am chum wench on monday, aug 31/i,
     }),
   ).toBeVisible();
+
+  userEvent.click(disabledButton);
+  await waitFor(() =>
+    expect(planClient.Apply).toHaveBeenLastCalledWith({
+      rosterID: 1,
+      camperCount: 1,
+      requirements: { chore: 3, event: 3, dinner: 1 },
+      disabledAssignments: [],
+      expectedCatalogRevision: '7',
+      expectedDraftRevision: '5',
+    }),
+  );
+  expect(
+    await screen.findByText(
+      /most recently added empty assignment was removed/i,
+    ),
+  ).toBeVisible();
+});
+
+test('limits open-plan assignment toggles to capacity added by an update', async () => {
+  const generated = preview({
+    disableableAssignments: [
+      {
+        shiftKey: 'chore|1|chore-am-chum-wench-first',
+        definitionKey: 'chore-am-chum-wench-second',
+      },
+    ],
+    shifts: [
+      {
+        ...preview().shifts[0],
+        requiredParticipants: 2,
+        totalScore: 150,
+        slots: [
+          ...preview().shifts[0].slots,
+          {
+            definitionKey: 'chore-am-chum-wench-second',
+            positionLabel: 'Second',
+            score: 50,
+          },
+        ],
+      },
+    ],
+  });
+  const openPlan = draft(generated, { status: 'open' });
+  const { planClient, rosterClient } = clients(generated, openPlan);
+  planClient.GetReadiness = jest.fn().mockResolvedValue(readiness());
+  planClient.Open = jest.fn().mockResolvedValue({});
+  render(
+    <ChorePlanBuilder planClient={planClient} rosterClient={rosterClient} />,
+  );
+
+  await enterCamperCount('1');
+  userEvent.click(screen.getByRole('button', { name: /preview signup plan/i }));
+
+  expect(
+    await screen.findByRole('button', {
+      name: /disable first assignment for am chum wench on sunday, aug 30/i,
+    }),
+  ).toBeDisabled();
+  expect(
+    screen.getByRole('button', {
+      name: /disable second assignment for am chum wench on sunday, aug 30/i,
+    }),
+  ).toBeEnabled();
+  expect(
+    screen.queryByRole('button', { name: /finalize and open signups/i }),
+  ).not.toBeInTheDocument();
 });
 
 test('reviews readiness before finalizing the saved draft and opening signups', async () => {

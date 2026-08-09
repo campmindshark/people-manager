@@ -27,8 +27,8 @@ the release PR or issue. Detailed procedures and stop conditions are in
 - [ ] Backend deploy commit, frontend `ref`, and deployed image tag match the
       recorded reviewed implementation commit.
 - [ ] ECS is healthy and required migration tasks exited `0`.
-- [ ] Read-only audit reports all eight rebuild migrations, the
-      disabled-assignment table, the pinned stable-key hash, and catalog counts
+- [ ] Read-only audit reports all eight rebuild migrations, both
+      assignment-toggle tables, the pinned stable-key hash, and catalog counts
       32 chore / 216 event / 54 dinner / 302 scores.
 - [ ] Authenticated feature settings report chore planning disabled.
 - [ ] Chore routes return `404`; navigation and network calls are absent.
@@ -45,9 +45,13 @@ the release PR or issue. Detailed procedures and stop conditions are in
 - [ ] Catalog counts match; one score edit and restoration advanced revisions.
 - [ ] Preview has correct inputs, dates, targets, and zero shortages.
 - [ ] Apply, reload, and identical no-op retry return expected revisions/counts.
+- [ ] A disabled draft slot stays visible and can be re-enabled without changing
+      the total slot count.
 - [ ] Readiness findings were resolved or explicitly accepted.
 - [ ] Requirement override set and clear refresh all effective-requirement views.
 - [ ] Open, signup, retry, switch, and removal behave as expected.
+- [ ] Open-plan headcount expansion preserves assigned slots and limits toggles
+      and replacement removal to newly added empty capacity.
 - [ ] Admin assign, move, swap, unassign, capacity conflict, and forced move
       behave as expected.
 - [ ] The Shifts-page Change History popup shows the rehearsal roster only,

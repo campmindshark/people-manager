@@ -48,7 +48,7 @@ draft, or closed plan.
    task to exit `0`. The final rebuilt migration is
    `20260809000000_chore_plan_disabled_assignments.ts`.
 5. Dispatch `Audit Chore Planning Release` from `main` without a roster ID.
-   Confirm all eight rebuild migrations, the disabled-assignment table, the
+   Confirm all eight rebuild migrations, both assignment-toggle tables, the
    pinned stable-key hash, catalog revision, 302 score rows, and exact
    definition counts of 32 chore, 216 event, and 54 dinner rows.
 6. In an authenticated production browser, inspect
@@ -84,7 +84,9 @@ workflow run, time, and operator in the smoke checklist before proceeding.
    periods. Do not apply a preview with a shortage.
 6. Apply the draft and reload it. Verify the catalog and draft revisions plus
    schedule, shift, and slot counts. Repeat the identical apply and confirm it
-   is a no-op. Do not replace a draft without the explicit replacement review.
+   is a no-op. Disable one empty slot, verify it remains visibly disabled and a
+   replacement is added, then re-enable it and verify the newest replacement is
+   removed. Do not replace a draft without the explicit replacement review.
 7. Review readiness. Resolve or explicitly accept participant, profile,
    attendance, requirement, and capacity warnings before opening.
 8. Set and then clear one controlled participant requirement override, using a
@@ -93,23 +95,26 @@ workflow run, time, and operator in the smoke checklist before proceeding.
 9. Open the plan. With a controlled member, exercise signup, an idempotent
    retry, switch, and removal. Confirm an invalid request and a lifecycle or
    category conflict are presented safely.
-10. Exercise ordinary administrative assign, move, swap, and unassign. Create
+10. Increase the open plan's camper count once. Confirm existing assigned slots
+    remain unchanged, only newly added empty capacity can be disabled, and a
+    re-enable removes only the newest empty capacity from that update.
+11. Exercise ordinary administrative assign, move, swap, and unassign. Create
     one controlled capacity conflict, confirm the ordinary operation returns
     `409`, then use the separate force endpoint with an operational reason.
     Confirm the response names exactly the bypassed capacity rule.
-11. Close the plan. Confirm member assignments remain read-only, all mutation
+12. Close the plan. Confirm member assignments remain read-only, all mutation
     controls disappear, and Final Assignments renders stable chore, event, and
     dinner sheets in browser, narrow-screen, and print views.
-12. Dispatch `Audit Chore Planning Release` from `main` with the rehearsal
+13. Dispatch `Audit Chore Planning Release` from `main` with the rehearsal
     roster ID. Confirm the plan summary matches the UI and the audit counts
     include draft apply, open, close, requirement set/clear, administrative
     assignment, and at least one forced administrative assignment. Confirm the
     catalog score audit count advanced for the edit and restoration.
-13. Run the CloudWatch queries below over the rehearsal window. Reconcile the
+14. Run the CloudWatch queries below over the rehearsal window. Reconcile the
     generation, lifecycle, rejected-signup, capacity-conflict, and forced-admin
     events with the operations performed. Investigate any `internal_error`
     rejection before continuing.
-14. If the active-roster release will not follow immediately, review and merge
+15. If the active-roster release will not follow immediately, review and merge
     a focused disablement PR that changes the flag back to `'false'`, then wait
     for its automatically triggered deployment to stabilize.
 

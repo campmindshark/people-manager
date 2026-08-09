@@ -39,6 +39,7 @@ import {
   ChorePlanApplyRequest,
   ChorePlanApplyResponse,
   ChorePlanDisabledAssignment,
+  ChorePlanDisabledSlotPreview,
   ChorePlanDraftResponse,
   ChorePlanDraftSummary,
   ChorePlanPreview,
@@ -95,8 +96,20 @@ interface FormValues {
   camperCount: string;
 }
 
+interface AssignmentPreviewShift {
+  stableKey: string;
+  scheduleName: string;
+  displayDayNumber: number;
+  displayDayLabel: string;
+  timePeriodLabel: string;
+  periodOrder: number | null;
+  startTime: string;
+  slots: ChorePlanPreviewSlot[];
+  disabledSlots: ChorePlanDisabledSlotPreview[];
+}
+
 interface SignupSheetPreviewShift extends SignupSheetShift {
-  preview: ChorePlanShiftPreview;
+  preview: AssignmentPreviewShift;
 }
 
 function responseStatus(error: unknown): number | undefined {
@@ -173,6 +186,19 @@ function draftMatchesPreview(
   );
 }
 
+function savedPlanSummary(
+  draft: ChorePlanDraftSummary,
+  matchesDraft: boolean,
+): string {
+  if (matchesDraft) {
+    return `Saved plan revision ${draft.draftRevision} already uses these inputs and scores.`;
+  }
+  if (draft.status === 'open') {
+    return `Applying this preview will add capacity to open plan revision ${draft.draftRevision}. Existing slots will not be removed.`;
+  }
+  return `Applying this preview will replace saved draft revision ${draft.draftRevision}.`;
+}
+
 function previewErrorMessage(error: unknown): string {
   const status = responseStatus(error);
   if (status === 400) {
@@ -193,8 +219,14 @@ function applyErrorMessage(error: unknown): string {
   if (status === 409 && /catalog/i.test(message ?? '')) {
     return 'Chore scores changed after this preview. Preview again before applying.';
   }
+  if (status === 409 && /draft changed/i.test(message ?? '')) {
+    return 'The saved draft changed after this preview. Preview again before applying.';
+  }
   if (status === 409) {
-    return 'The saved draft changed after this preview. Preview again before replacing it.';
+    return (
+      message ??
+      'The saved plan changed after this preview. Preview again before updating it.'
+    );
   }
   if (status === 422) {
     return 'The catalog does not contain enough positions for this plan.';
@@ -211,9 +243,15 @@ function applyErrorMessage(error: unknown): string {
   return 'Failed to apply the chore plan draft. Please try again.';
 }
 
-function disableErrorMessage(error: unknown): string {
+function assignmentToggleErrorMessage(error: unknown): string {
   if (responseStatus(error) === 422) {
     return 'That assignment cannot be disabled because the catalog has no replacement capacity.';
+  }
+  if (responseStatus(error) === 409) {
+    return (
+      responseMessage(error) ??
+      'That assignment can no longer be changed safely. Preview the plan again.'
+    );
   }
   return applyErrorMessage(error);
 }
@@ -259,13 +297,21 @@ function scoreTone(score: number): 'high' | 'medium' | 'low' {
 function PositionChips({
   shift,
   disabled,
-  disablingAssignmentKey,
-  onDisable,
+  disableableAssignmentKeys,
+  reenableableAssignmentKeys,
+  togglingAssignmentKey,
+  onToggle,
 }: {
-  shift: ChorePlanShiftPreview;
+  shift: AssignmentPreviewShift;
   disabled: boolean;
-  disablingAssignmentKey: string | null;
-  onDisable: (shift: ChorePlanShiftPreview, slot: ChorePlanPreviewSlot) => void;
+  disableableAssignmentKeys: Set<string>;
+  reenableableAssignmentKeys: Set<string>;
+  togglingAssignmentKey: string | null;
+  onToggle: (
+    shift: AssignmentPreviewShift,
+    slot: ChorePlanPreviewSlot,
+    assignmentDisabled: boolean,
+  ) => void;
 }) {
   return (
     <div className="signup-sheet-positions">
@@ -277,14 +323,14 @@ function PositionChips({
         return (
           <ButtonBase
             aria-label={`Disable ${slot.positionLabel} assignment for ${shift.scheduleName} on ${shift.displayDayLabel}, ${shift.timePeriodLabel}`}
-            disabled={disabled}
+            disabled={disabled || !disableableAssignmentKeys.has(assignmentKey)}
             key={slot.definitionKey}
-            onClick={() => onDisable(shift, slot)}
+            onClick={() => onToggle(shift, slot, false)}
             sx={{ borderRadius: 1 }}
           >
-            {disablingAssignmentKey === assignmentKey ? (
+            {togglingAssignmentKey === assignmentKey ? (
               <CircularProgress
-                aria-label={`Disabling ${slot.positionLabel} assignment`}
+                aria-label={`Changing ${slot.positionLabel} assignment`}
                 size={20}
               />
             ) : (
@@ -298,21 +344,96 @@ function PositionChips({
           </ButtonBase>
         );
       })}
+      {shift.disabledSlots.map((slot) => {
+        const assignmentKey = disabledAssignmentIdentity({
+          shiftKey: slot.shiftKey,
+          definitionKey: slot.definitionKey,
+        });
+        const previewSlot = {
+          definitionKey: slot.definitionKey,
+          positionLabel: slot.positionLabel,
+          score: slot.score,
+        };
+        return (
+          <ButtonBase
+            aria-label={`Re-enable ${slot.positionLabel} assignment for ${shift.scheduleName} on ${shift.displayDayLabel}, ${shift.timePeriodLabel}`}
+            disabled={
+              disabled || !reenableableAssignmentKeys.has(assignmentKey)
+            }
+            key={`disabled-${slot.definitionKey}`}
+            onClick={() => onToggle(shift, previewSlot, true)}
+            sx={{ borderRadius: 1 }}
+          >
+            {togglingAssignmentKey === assignmentKey ? (
+              <CircularProgress
+                aria-label={`Changing ${slot.positionLabel} assignment`}
+                size={20}
+              />
+            ) : (
+              <span className="signup-sheet-position disabled-assignment">
+                {slot.positionLabel}
+                <small>Off</small>
+              </span>
+            )}
+          </ButtonBase>
+        );
+      })}
     </div>
   );
 }
 
-function signupSheetShift(
-  preview: ChorePlanShiftPreview,
-): SignupSheetPreviewShift {
-  return {
-    key: preview.stableKey,
-    scheduleName: preview.scheduleName,
-    day: preview.displayDayNumber,
-    timePeriod: preview.timePeriodLabel,
-    periodOrder: preview.periodOrder ?? 0,
-    preview,
-  };
+function signupSheetShifts(
+  preview: ChorePlanPreview,
+  kind: ChoreCatalogKind,
+): SignupSheetPreviewShift[] {
+  const shiftsByKey = new Map<string, AssignmentPreviewShift>();
+  preview.shifts
+    .filter((shift) => shift.kind === kind)
+    .forEach((shift) => {
+      shiftsByKey.set(shift.stableKey, {
+        stableKey: shift.stableKey,
+        scheduleName: shift.scheduleName,
+        displayDayNumber: shift.displayDayNumber,
+        displayDayLabel: shift.displayDayLabel,
+        timePeriodLabel: shift.timePeriodLabel,
+        periodOrder: shift.periodOrder,
+        startTime: shift.startTime,
+        slots: shift.slots,
+        disabledSlots: [],
+      });
+    });
+  preview.disabledSlots
+    .filter((slot) => slot.kind === kind)
+    .forEach((slot) => {
+      const shift = shiftsByKey.get(slot.shiftKey) ?? {
+        stableKey: slot.shiftKey,
+        scheduleName: slot.scheduleName,
+        displayDayNumber: slot.displayDayNumber,
+        displayDayLabel: slot.displayDayLabel,
+        timePeriodLabel: slot.timePeriodLabel,
+        periodOrder: slot.periodOrder,
+        startTime: slot.startTime,
+        slots: [],
+        disabledSlots: [],
+      };
+      shift.disabledSlots.push(slot);
+      shiftsByKey.set(slot.shiftKey, shift);
+    });
+  return [...shiftsByKey.values()]
+    .sort(
+      (first, second) =>
+        first.startTime.localeCompare(second.startTime) ||
+        first.scheduleName.localeCompare(second.scheduleName) ||
+        first.stableKey.localeCompare(second.stableKey),
+    )
+    .map((shift) => ({
+      key: shift.stableKey,
+      scheduleName: shift.scheduleName,
+      day: shift.displayDayNumber,
+      timePeriod: shift.timePeriodLabel,
+      periodOrder: shift.periodOrder ?? 0,
+      preview: shift,
+    }));
 }
 
 function signupSlotCount(shifts: ChorePlanShiftPreview[]): number {
@@ -338,7 +459,7 @@ export default function ChorePlanBuilder({
   const [loadingRosters, setLoadingRosters] = useState(true);
   const [previewing, setPreviewing] = useState(false);
   const [applying, setApplying] = useState(false);
-  const [disablingAssignmentKey, setDisablingAssignmentKey] = useState<
+  const [togglingAssignmentKey, setTogglingAssignmentKey] = useState<
     string | null
   >(null);
   const [opening, setOpening] = useState(false);
@@ -352,7 +473,7 @@ export default function ChorePlanBuilder({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const inputsDisabled =
-    previewing || applying || disablingAssignmentKey !== null || opening;
+    previewing || applying || togglingAssignmentKey !== null || opening;
 
   useEffect(() => {
     let active = true;
@@ -446,14 +567,37 @@ export default function ChorePlanBuilder({
         : false,
     [preview],
   );
+  const disableableAssignmentKeys = useMemo(
+    () =>
+      new Set(
+        (preview?.disableableAssignments ?? []).map(disabledAssignmentIdentity),
+      ),
+    [preview],
+  );
+  const reenableableAssignmentKeys = useMemo(
+    () =>
+      new Set(
+        (preview?.reenableableAssignments ?? []).map(
+          disabledAssignmentIdentity,
+        ),
+      ),
+    [preview],
+  );
   const matchesDraft = draftMatchesPreview(observedDraft, preview);
   const replacesDraft = Boolean(observedDraft && preview && !matchesDraft);
+  const planMutationBlocked = Boolean(
+    observedDraft &&
+    (observedDraft.status === 'closed' ||
+      (observedDraft.status === 'open' &&
+        preview &&
+        preview.camperCount < observedDraft.camperCount)),
+  );
   const selectedRoster = rosters.find(
     (roster) => String(roster.id) === values.rosterID,
   );
 
   const applyPreview = async () => {
-    if (!preview || hasShortage || inputsDisabled) {
+    if (!preview || hasShortage || planMutationBlocked || inputsDisabled) {
       return;
     }
     setApplying(true);
@@ -495,7 +639,7 @@ export default function ChorePlanBuilder({
   };
 
   const handleApply = () => {
-    if (!preview || hasShortage || inputsDisabled) {
+    if (!preview || hasShortage || planMutationBlocked || inputsDisabled) {
       return;
     }
     if (replacesDraft) {
@@ -505,9 +649,10 @@ export default function ChorePlanBuilder({
     applyPreview();
   };
 
-  const handleDisableAssignment = async (
-    shift: ChorePlanShiftPreview,
+  const handleToggleAssignment = async (
+    shift: AssignmentPreviewShift,
     slot: ChorePlanPreviewSlot,
+    assignmentDisabled: boolean,
   ) => {
     if (!preview || !observedDraft || !matchesDraft || inputsDisabled) {
       return;
@@ -516,19 +661,27 @@ export default function ChorePlanBuilder({
       shiftKey: shift.stableKey,
       definitionKey: slot.definitionKey,
     };
-    const disabledAssignments = Array.from(
-      new Map(
-        [...preview.disabledAssignments, assignment].map((item) => [
-          disabledAssignmentIdentity(item),
-          item,
-        ]),
-      ).values(),
+    const disabledAssignments = (
+      assignmentDisabled
+        ? preview.disabledAssignments.filter(
+            (item) =>
+              disabledAssignmentIdentity(item) !==
+              disabledAssignmentIdentity(assignment),
+          )
+        : Array.from(
+            new Map(
+              [...preview.disabledAssignments, assignment].map((item) => [
+                disabledAssignmentIdentity(item),
+                item,
+              ]),
+            ).values(),
+          )
     ).sort((first, second) =>
       disabledAssignmentIdentity(first).localeCompare(
         disabledAssignmentIdentity(second),
       ),
     );
-    setDisablingAssignmentKey(disabledAssignmentIdentity(assignment));
+    setTogglingAssignmentKey(disabledAssignmentIdentity(assignment));
     setError(null);
     setSuccess(null);
     try {
@@ -543,17 +696,19 @@ export default function ChorePlanBuilder({
       setPreview(response.preview);
       setObservedDraft(response.draft);
       setSuccess(
-        `Disabled ${slot.positionLabel} for ${shift.scheduleName} on ${shift.displayDayLabel}. The next available assignment was added automatically.`,
+        assignmentDisabled
+          ? `Re-enabled ${slot.positionLabel} for ${shift.scheduleName} on ${shift.displayDayLabel}. The most recently added empty assignment was removed automatically.`
+          : `Disabled ${slot.positionLabel} for ${shift.scheduleName} on ${shift.displayDayLabel}. The next available assignment was added automatically.`,
       );
-    } catch (disableError) {
-      console.error('Failed to disable chore plan assignment:', disableError);
-      if (responseStatus(disableError) === 409) {
+    } catch (toggleError) {
+      console.error('Failed to change chore plan assignment:', toggleError);
+      if (responseStatus(toggleError) === 409) {
         setPreview(null);
         setObservedDraft(null);
       }
-      setError(disableErrorMessage(disableError));
+      setError(assignmentToggleErrorMessage(toggleError));
     } finally {
-      setDisablingAssignmentKey(null);
+      setTogglingAssignmentKey(null);
     }
   };
 
@@ -746,21 +901,28 @@ export default function ChorePlanBuilder({
                   variant="contained"
                   color="secondary"
                   startIcon={<PlaylistAddCheckIcon />}
-                  disabled={inputsDisabled || hasShortage}
+                  disabled={
+                    inputsDisabled || hasShortage || planMutationBlocked
+                  }
                   onClick={handleApply}
                 >
                   {applyButtonLabel}
                 </Button>
-                {planClient.Open && planClient.GetReadiness && matchesDraft && (
-                  <Button
-                    color="success"
-                    disabled={inputsDisabled || hasShortage}
-                    onClick={handleReviewFinalization}
-                    variant="contained"
-                  >
-                    {opening ? 'Opening signups…' : 'Finalize and open signups'}
-                  </Button>
-                )}
+                {planClient.Open &&
+                  planClient.GetReadiness &&
+                  matchesDraft &&
+                  observedDraft?.status === 'draft' && (
+                    <Button
+                      color="success"
+                      disabled={inputsDisabled || hasShortage}
+                      onClick={handleReviewFinalization}
+                      variant="contained"
+                    >
+                      {opening
+                        ? 'Opening signups…'
+                        : 'Finalize and open signups'}
+                    </Button>
+                  )}
               </Stack>
             </Stack>
 
@@ -769,16 +931,28 @@ export default function ChorePlanBuilder({
                 severity={matchesDraft ? 'info' : 'warning'}
                 sx={{ mb: 2 }}
               >
-                {matchesDraft
-                  ? `Saved draft revision ${observedDraft.draftRevision} already uses these inputs and scores.`
-                  : `Applying this preview will replace saved draft revision ${observedDraft.draftRevision}.`}
+                {savedPlanSummary(observedDraft, matchesDraft)}
               </Alert>
             )}
+            {observedDraft?.status === 'closed' && (
+              <Alert severity="warning" sx={{ mb: 2 }}>
+                This plan is closed. Reopen signups before changing its
+                capacity.
+              </Alert>
+            )}
+            {observedDraft?.status === 'open' &&
+              preview.camperCount < observedDraft.camperCount && (
+                <Alert severity="warning" sx={{ mb: 2 }}>
+                  An open plan can add capacity, but it cannot reduce the saved{' '}
+                  {observedDraft.camperCount}-camper plan.
+                </Alert>
+              )}
             {observedDraft && matchesDraft && (
               <Alert severity="info" sx={{ mb: 2 }}>
-                Click any position below to disable that assignment. The planner
-                will save that choice and add the next available assignment
-                automatically.
+                Enabled positions can be disabled only when their capacity is
+                empty and safe to edit. Disabled positions stay visible and can
+                be clicked to re-enable them; the newest eligible empty position
+                is removed automatically to preserve the planned total.
               </Alert>
             )}
             {hasShortage && (
@@ -801,7 +975,7 @@ export default function ChorePlanBuilder({
               const previewShifts = preview.shifts.filter(
                 (shift) => shift.kind === kind,
               );
-              const shifts = previewShifts.map(signupSheetShift);
+              const shifts = signupSheetShifts(preview, kind);
               const slotCount = signupSlotCount(previewShifts);
               return (
                 <Accordion key={kind} defaultExpanded={kind === 'chore'}>
@@ -829,9 +1003,15 @@ export default function ChorePlanBuilder({
                         renderShift={(shift) => (
                           <PositionChips
                             disabled={!matchesDraft || inputsDisabled}
-                            disablingAssignmentKey={disablingAssignmentKey}
-                            onDisable={handleDisableAssignment}
+                            disableableAssignmentKeys={
+                              disableableAssignmentKeys
+                            }
+                            onToggle={handleToggleAssignment}
+                            reenableableAssignmentKeys={
+                              reenableableAssignmentKeys
+                            }
                             shift={shift.preview}
+                            togglingAssignmentKey={togglingAssignmentKey}
                           />
                         )}
                       />
@@ -852,13 +1032,16 @@ export default function ChorePlanBuilder({
         open={confirmingReplacement}
         onClose={() => setConfirmingReplacement(false)}
       >
-        <DialogTitle>Replace existing draft?</DialogTitle>
+        <DialogTitle>
+          {observedDraft?.status === 'open'
+            ? 'Add capacity to the open plan?'
+            : 'Replace existing draft?'}
+        </DialogTitle>
         <DialogContent>
           <DialogContentText>
-            This replaces draft revision {observedDraft?.draftRevision} with a{' '}
-            {preview?.camperCount}-camper plan using catalog revision{' '}
-            {preview?.catalogRevision}. No user signup controls are enabled by
-            this action.
+            {observedDraft?.status === 'open'
+              ? `This updates open plan revision ${observedDraft.draftRevision} for ${preview?.camperCount} campers using catalog revision ${preview?.catalogRevision}. Existing slots and participant assignments are retained, and signups remain open.`
+              : `This replaces draft revision ${observedDraft?.draftRevision} with a ${preview?.camperCount}-camper plan using catalog revision ${preview?.catalogRevision}. No user signup controls are enabled by this action.`}
           </DialogContentText>
         </DialogContent>
         <DialogActions>
@@ -866,7 +1049,9 @@ export default function ChorePlanBuilder({
             Cancel
           </Button>
           <Button color="warning" variant="contained" onClick={applyPreview}>
-            Confirm replacement
+            {observedDraft?.status === 'open'
+              ? 'Confirm plan update'
+              : 'Confirm replacement'}
           </Button>
         </DialogActions>
       </Dialog>

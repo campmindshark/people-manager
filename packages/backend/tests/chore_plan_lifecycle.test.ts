@@ -11,7 +11,6 @@ import {
   parseChorePlanReopenRequest,
   parseEmptyLifecycleRequest,
 } from '../utils/chorePlanLifecycleInput';
-import ChorePlanPreviewError from '../utils/chorePlanPreviewError';
 import { ChorePlanLifecycleState } from '../view_models/chore_plan_lifecycle';
 
 const TEST_DATABASE_URL = process.env.CHORE_TEARDOWN_TEST_DATABASE_URL;
@@ -262,22 +261,18 @@ test(
         ),
         (error) => isLifecycleError(error, 409, /draft chore plan/i),
       );
-      await assert.rejects(
-        draftController.apply(
-          {
-            rosterID: roster.id,
-            camperCount: 1,
-            requirements: { chore: 1, event: 1, dinner: 1 },
-            expectedCatalogRevision: '2',
-            expectedDraftRevision: '1',
-          },
-          opener.id,
-        ),
-        (error) =>
-          error instanceof ChorePlanPreviewError &&
-          error.status === 409 &&
-          /only a draft/i.test(error.message),
+      const repeatedOpenPlan = await draftController.apply(
+        {
+          rosterID: roster.id,
+          camperCount: 1,
+          requirements: { chore: 1, event: 1, dinner: 1 },
+          expectedCatalogRevision: '2',
+          expectedDraftRevision: '1',
+        },
+        opener.id,
       );
+      assert.equal(repeatedOpenPlan.changed, false);
+      assert.equal(repeatedOpenPlan.draft.status, 'open');
 
       const closeResults = await Promise.allSettled([
         lifecycleController.close(roster.id, closer.id),

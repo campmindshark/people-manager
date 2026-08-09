@@ -1822,7 +1822,8 @@ async function runIntegrationTest() {
         releaseAuditOutput.includes(
           '"name":"20260809000000_chore_plan_disabled_assignments.ts"',
         ) &&
-        releaseAuditOutput.includes('"disabledAssignmentCount":'),
+        releaseAuditOutput.includes('"disabledAssignmentCount":') &&
+        releaseAuditOutput.includes('"adminAddedAssignmentCount":'),
       'The read-only release audit omitted expected migration or audit state',
     );
 

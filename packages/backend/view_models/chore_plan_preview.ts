@@ -7,6 +7,21 @@ export interface ChorePlanDisabledAssignment {
   definitionKey: string;
 }
 
+export interface ChorePlanDisabledSlotPreview extends ChorePlanDisabledAssignment {
+  scheduleKey: string;
+  kind: ChoreCatalogKind;
+  scheduleName: string;
+  displayDayNumber: number;
+  displayDayLabel: string;
+  calendarDay: number;
+  timePeriodLabel: string;
+  periodOrder: number | null;
+  startTime: string;
+  endTime: string;
+  positionLabel: string;
+  score: number;
+}
+
 export interface ChorePlanPreviewRequest {
   rosterID: number;
   camperCount: number;
@@ -55,6 +70,9 @@ export interface ChorePlanPreview {
   requirements: ChorePlanRequirements;
   catalogRevision: string;
   disabledAssignments: ChorePlanDisabledAssignment[];
+  disabledSlots: ChorePlanDisabledSlotPreview[];
+  disableableAssignments: ChorePlanDisabledAssignment[];
+  reenableableAssignments: ChorePlanDisabledAssignment[];
   categories: Record<ChoreCatalogKind, ChorePlanPreviewCategory>;
   shifts: ChorePlanShiftPreview[];
 }
@@ -62,7 +80,7 @@ export interface ChorePlanPreview {
 export interface ChorePlanDraftSummary {
   id: number;
   rosterID: number;
-  status: 'draft';
+  status: 'draft' | 'open' | 'closed';
   draftRevision: string;
   catalogRevision: string;
   planningYear: number;

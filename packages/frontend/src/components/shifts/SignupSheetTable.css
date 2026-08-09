@@ -136,6 +136,15 @@
   border-color: var(--signup-sheet-low);
 }
 
+.signup-sheet-position.disabled-assignment {
+  color: var(--signup-sheet-muted-text);
+  background: transparent;
+  border-color: var(--signup-sheet-divider);
+  border-style: dashed;
+  text-decoration: line-through;
+  opacity: 0.72;
+}
+
 .signup-sheet-position small {
   min-width: 22px;
   padding: 2px 4px;

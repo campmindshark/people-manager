@@ -8,16 +8,15 @@ import {
 import buildChorePlanPreview from '../utils/chorePlanPreview';
 import ChorePlanPreviewError from '../utils/chorePlanPreviewError';
 import ChoreCatalogController from './chore_catalog';
+import {
+  ChorePlanAssignmentEligibilityPlan,
+  chorePlanAssignmentIdentity,
+  withChorePlanAssignmentEligibility,
+} from '../utils/chorePlanAssignmentEligibility';
 
 interface RosterRow {
   id: number;
   year: number;
-}
-
-function disabledAssignmentIdentity(
-  assignment: ChorePlanDisabledAssignment,
-): string {
-  return `${assignment.shiftKey}|${assignment.definitionKey}`;
 }
 
 export default class ChorePlanPreviewController {
@@ -47,10 +46,10 @@ export default class ChorePlanPreviewController {
       const catalog = await new ChoreCatalogController(
         transaction,
       ).getCatalog();
-      const plan = await transaction('chore_plans')
-        .select('id')
+      const plan = (await transaction('chore_plans')
+        .select('id', 'status', 'openedAt')
         .where({ rosterID: input.rosterID })
-        .first();
+        .first()) as ChorePlanAssignmentEligibilityPlan | undefined;
       const persistedDisabledAssignments = plan
         ? ((await transaction('chore_plan_disabled_assignments')
             .select('shiftKey', 'definitionKey')
@@ -61,27 +60,29 @@ export default class ChorePlanPreviewController {
             ])) as ChorePlanDisabledAssignment[])
         : [];
       const disabledAssignments = [
-        ...new Map(
-          [
-            ...persistedDisabledAssignments,
-            ...(input.disabledAssignments ?? []),
-          ].map((assignment) => [
-            disabledAssignmentIdentity(assignment),
-            assignment,
-          ]),
-        ).values(),
+        ...(input.disabledAssignments ?? persistedDisabledAssignments),
       ].sort((first, second) =>
-        disabledAssignmentIdentity(first).localeCompare(
-          disabledAssignmentIdentity(second),
+        chorePlanAssignmentIdentity(first).localeCompare(
+          chorePlanAssignmentIdentity(second),
         ),
       );
-      return buildChorePlanPreview({
-        ...input,
-        disabledAssignments,
-        year: roster.year,
-        catalogRevision: catalog.revision,
-        definitions: catalog.definitions,
-      });
+      const build = (
+        proposedDisabledAssignments: ChorePlanDisabledAssignment[],
+      ) =>
+        buildChorePlanPreview({
+          ...input,
+          disabledAssignments: proposedDisabledAssignments,
+          year: roster.year,
+          catalogRevision: catalog.revision,
+          definitions: catalog.definitions,
+        });
+      const preview = build(disabledAssignments);
+      return withChorePlanAssignmentEligibility(
+        transaction,
+        plan,
+        preview,
+        build,
+      );
     });
   }
 }

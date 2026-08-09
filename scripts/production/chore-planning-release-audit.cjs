@@ -171,7 +171,12 @@ async function runAudit() {
             SELECT COUNT(*)::integer
             FROM chore_plan_disabled_assignments AS disabled_assignment
             WHERE disabled_assignment."chorePlanID" = plan.id
-          ) AS "disabledAssignmentCount"
+          ) AS "disabledAssignmentCount",
+          (
+            SELECT COUNT(*)::integer
+            FROM chore_plan_admin_added_assignments AS added_assignment
+            WHERE added_assignment."chorePlanID" = plan.id
+          ) AS "adminAddedAssignmentCount"
         FROM chore_plans AS plan
         WHERE (?::integer IS NULL OR plan."rosterID" = ?::integer)
         ORDER BY plan."rosterID"
