@@ -4,6 +4,7 @@ import test from 'node:test';
 import knexFactory, { Knex } from 'knex';
 import ChoreCatalogController from '../controllers/chore_catalog';
 import ChorePlanDraftController from '../controllers/chore_plan_draft';
+import ChorePlanPreviewController from '../controllers/chore_plan_preview';
 import { seed as seedSchedulesAndShifts } from '../seeds/schedules-and-shifts';
 import ChorePlanPreviewError from '../utils/chorePlanPreviewError';
 import { ChorePlanApplyRequest } from '../view_models/chore_plan_preview';
@@ -143,6 +144,9 @@ test(
         .insert({ year: 2026 })
         .returning('id')) as IDRow[];
       const [shortageRoster] = (await database('rosters')
+        .insert({ year: 2026 })
+        .returning('id')) as IDRow[];
+      const [disabledAssignmentRoster] = (await database('rosters')
         .insert({ year: 2026 })
         .returning('id')) as IDRow[];
       const controller = new ChorePlanDraftController(database);
@@ -431,6 +435,113 @@ test(
       assert.equal(refreshed.draft.draftRevision, '3');
       assert.equal(refreshed.draft.catalogRevision, '3');
       assert.equal(refreshed.replaced, true);
+
+      const disableInitial = await controller.apply(
+        applyRequest(disabledAssignmentRoster.id, {
+          camperCount: 3,
+          requirements: { chore: 20, event: 0, dinner: 0 },
+          expectedCatalogRevision: '3',
+        }),
+        actor.id,
+      );
+      const multiPositionShift = disableInitial.preview.shifts.find(
+        ({ kind, slots }) => kind === 'chore' && slots.length > 1,
+      );
+      assert(multiPositionShift);
+      const disabledSlot = multiPositionShift.slots[0];
+      const retainedSlot = multiPositionShift.slots[1];
+      const disabledAssignment = {
+        shiftKey: multiPositionShift.stableKey,
+        definitionKey: disabledSlot.definitionKey,
+      };
+      const disabled = await controller.apply(
+        applyRequest(disabledAssignmentRoster.id, {
+          camperCount: 3,
+          requirements: { chore: 20, event: 0, dinner: 0 },
+          disabledAssignments: [disabledAssignment],
+          expectedCatalogRevision: '3',
+          expectedDraftRevision: '1',
+        }),
+        actor.id,
+      );
+      assert.equal(disabled.draft.slotCount, 60);
+      assert.deepEqual(disabled.draft.disabledAssignments, [
+        disabledAssignment,
+      ]);
+      const updatedShift = disabled.preview.shifts.find(
+        ({ stableKey }) => stableKey === multiPositionShift.stableKey,
+      );
+      assert(updatedShift);
+      assert.equal(
+        updatedShift.slots.some(
+          ({ definitionKey }) => definitionKey === disabledSlot.definitionKey,
+        ),
+        false,
+      );
+      assert.equal(
+        updatedShift.slots.some(
+          ({ definitionKey }) => definitionKey === retainedSlot.definitionKey,
+        ),
+        true,
+      );
+      assert.deepEqual(
+        await database('chore_plan_disabled_assignments')
+          .select(
+            'chorePlanID',
+            'shiftKey',
+            'definitionKey',
+            'disabledByUserID',
+          )
+          .where({ chorePlanID: disabled.draft.id }),
+        [
+          {
+            chorePlanID: disabled.draft.id,
+            shiftKey: multiPositionShift.stableKey,
+            definitionKey: disabledSlot.definitionKey,
+            disabledByUserID: actor.id,
+          },
+        ],
+      );
+
+      const expandedDisabled = await controller.apply(
+        applyRequest(disabledAssignmentRoster.id, {
+          camperCount: 4,
+          requirements: { chore: 20, event: 0, dinner: 0 },
+          expectedCatalogRevision: '3',
+          expectedDraftRevision: '2',
+        }),
+        actor.id,
+      );
+      assert.equal(expandedDisabled.draft.slotCount, 80);
+      assert.deepEqual(expandedDisabled.preview.disabledAssignments, [
+        disabledAssignment,
+      ]);
+      assert.equal(
+        expandedDisabled.preview.shifts
+          .find(({ stableKey }) => stableKey === multiPositionShift.stableKey)
+          ?.slots.some(
+            ({ definitionKey }) => definitionKey === disabledSlot.definitionKey,
+          ) ?? false,
+        false,
+        'camper-count expansion must not restore a disabled assignment',
+      );
+      const futurePreview = await new ChorePlanPreviewController(
+        database,
+      ).preview({
+        rosterID: disabledAssignmentRoster.id,
+        camperCount: 5,
+        requirements: { chore: 20, event: 0, dinner: 0 },
+      });
+      assert.deepEqual(futurePreview.disabledAssignments, [disabledAssignment]);
+      assert.equal(
+        futurePreview.shifts
+          .find(({ stableKey }) => stableKey === multiPositionShift.stableKey)
+          ?.slots.some(
+            ({ definitionKey }) => definitionKey === disabledSlot.definitionKey,
+          ) ?? false,
+        false,
+        'future previews must inherit persisted disabled assignments',
+      );
 
       const assignedShift = await database('chore_plan_generated_shifts')
         .where({ chorePlanID: first.draft.id })

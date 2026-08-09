@@ -8,6 +8,7 @@ import { ChoreCatalogDefinitionView } from '../view_models/chore_catalog';
 import {
   ChorePlanApplyRequest,
   ChorePlanApplyResponse,
+  ChorePlanDisabledAssignment,
   ChorePlanDraftResponse,
   ChorePlanDraftSummary,
   ChorePlanPreview,
@@ -111,7 +112,9 @@ function requirementsToColumns(requirements: ChorePlanRequirements) {
 }
 
 function generationHash(preview: ChorePlanPreview): string {
-  return createHash('sha256').update(JSON.stringify(preview)).digest('hex');
+  const { disabledAssignments, ...legacyPreview } = preview;
+  const hashInput = disabledAssignments.length ? preview : legacyPreview;
+  return createHash('sha256').update(JSON.stringify(hashInput)).digest('hex');
 }
 
 function nextRevision(revision: string): string {
@@ -161,9 +164,47 @@ async function loadDraftCounts(
   };
 }
 
+function disabledAssignmentIdentity(
+  assignment: ChorePlanDisabledAssignment,
+): string {
+  return `${assignment.shiftKey}|${assignment.definitionKey}`;
+}
+
+function mergeDisabledAssignments(
+  ...collections: ChorePlanDisabledAssignment[][]
+): ChorePlanDisabledAssignment[] {
+  return [
+    ...new Map(
+      collections
+        .flat()
+        .map((assignment) => [
+          disabledAssignmentIdentity(assignment),
+          assignment,
+        ]),
+    ).values(),
+  ]
+    .sort((first, second) =>
+      disabledAssignmentIdentity(first).localeCompare(
+        disabledAssignmentIdentity(second),
+      ),
+    )
+    .map(({ shiftKey, definitionKey }) => ({ shiftKey, definitionKey }));
+}
+
+async function loadDisabledAssignments(
+  database: Knex,
+  chorePlanID: number,
+): Promise<ChorePlanDisabledAssignment[]> {
+  return (await database('chore_plan_disabled_assignments')
+    .select('shiftKey', 'definitionKey')
+    .where({ chorePlanID })
+    .orderBy(['shiftKey', 'definitionKey'])) as ChorePlanDisabledAssignment[];
+}
+
 function draftSummary(
   plan: ChorePlanRow,
   counts: DraftCounts,
+  disabledAssignments: ChorePlanDisabledAssignment[],
 ): ChorePlanDraftSummary {
   if (plan.status !== 'draft') {
     throw new ChorePlanPreviewError(
@@ -180,6 +221,7 @@ function draftSummary(
     planningYear: plan.planningYear,
     camperCount: plan.camperCount,
     requirements: requirementsFromPlan(plan),
+    disabledAssignments,
     ...counts,
     updatedAt: new Date(plan.updatedAt).toISOString(),
   };
@@ -232,8 +274,11 @@ export default class ChorePlanDraftController {
       if (!plan) {
         return { draft: null };
       }
-      const counts = await loadDraftCounts(transaction, plan.id);
-      return { draft: draftSummary(plan, counts) };
+      const [counts, disabledAssignments] = await Promise.all([
+        loadDraftCounts(transaction, plan.id),
+        loadDisabledAssignments(transaction, plan.id),
+      ]);
+      return { draft: draftSummary(plan, counts, disabledAssignments) };
     });
   }
 
@@ -276,10 +321,29 @@ export default class ChorePlanDraftController {
           409,
         );
       }
+      let plan = (await transaction<ChorePlanRow>('chore_plans')
+        .where({ rosterID: input.rosterID })
+        .forUpdate()
+        .first()) as ChorePlanRow | undefined;
+
+      if (plan && plan.status !== 'draft') {
+        throw new ChorePlanPreviewError(
+          'Only a draft chore plan can be generated or replaced.',
+          409,
+        );
+      }
+      const persistedDisabledAssignments = plan
+        ? await loadDisabledAssignments(transaction, plan.id)
+        : [];
+      const disabledAssignments = mergeDisabledAssignments(
+        persistedDisabledAssignments,
+        input.disabledAssignments ?? [],
+      );
       const preview = buildChorePlanPreview({
         rosterID: input.rosterID,
         camperCount: input.camperCount,
         requirements: input.requirements,
+        disabledAssignments,
         year: roster.year,
         catalogRevision: catalog.revision,
         definitions: catalog.definitions,
@@ -295,17 +359,6 @@ export default class ChorePlanDraftController {
 
       const hash = generationHash(preview);
       const expectedCounts = previewCounts(preview);
-      let plan = (await transaction<ChorePlanRow>('chore_plans')
-        .where({ rosterID: input.rosterID })
-        .forUpdate()
-        .first()) as ChorePlanRow | undefined;
-
-      if (plan && plan.status !== 'draft') {
-        throw new ChorePlanPreviewError(
-          'Only a draft chore plan can be generated or replaced.',
-          409,
-        );
-      }
 
       if (plan?.generationHash === hash) {
         const counts = await loadDraftCounts(transaction, plan.id);
@@ -322,7 +375,7 @@ export default class ChorePlanDraftController {
         return {
           changed: false,
           replaced: false,
-          draft: draftSummary(plan, counts),
+          draft: draftSummary(plan, counts, disabledAssignments),
           preview,
         };
       }
@@ -394,6 +447,26 @@ export default class ChorePlanDraftController {
         throw new Error('The chore plan draft could not be created.');
       }
       const planID = plan.id;
+
+      const persistedDisabledAssignmentKeys = new Set(
+        persistedDisabledAssignments.map(disabledAssignmentIdentity),
+      );
+      const newDisabledAssignments = disabledAssignments.filter(
+        (assignment) =>
+          !persistedDisabledAssignmentKeys.has(
+            disabledAssignmentIdentity(assignment),
+          ),
+      );
+      if (newDisabledAssignments.length) {
+        await transaction('chore_plan_disabled_assignments').insert(
+          newDisabledAssignments.map(({ shiftKey, definitionKey }) => ({
+            chorePlanID: planID,
+            shiftKey,
+            definitionKey,
+            disabledByUserID: actorUserID,
+          })),
+        );
+      }
 
       const existingSchedules = (await transaction<ScheduleRow>('schedules')
         .select('id', 'chorePlanID', 'plannerKey')
@@ -641,7 +714,7 @@ export default class ChorePlanDraftController {
       return {
         changed: true,
         replaced: previousAuditSnapshot !== null,
-        draft: draftSummary(plan, storedCounts),
+        draft: draftSummary(plan, storedCounts, disabledAssignments),
         preview,
       };
     });

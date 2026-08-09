@@ -11,7 +11,7 @@ const EXCLUSION_MIGRATION = '20260806025000_exclude_3a_6a_event_period.ts';
 const LIFECYCLE_MIGRATION = '20260806030000_chore_plan_lifecycle.ts';
 const ADMIN_ASSIGNMENT_MIGRATION =
   '20260806040000_chore_plan_admin_assignments.ts';
-const CURRENT_MIGRATION = '20260806050000_chore_plan_requirement_overrides.ts';
+const CURRENT_MIGRATION = '20260809000000_chore_plan_disabled_assignments.ts';
 const CURRENT_MIGRATIONS = [
   EXCLUSION_MIGRATION,
   LIFECYCLE_MIGRATION,

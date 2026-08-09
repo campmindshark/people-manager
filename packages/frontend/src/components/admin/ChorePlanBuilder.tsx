@@ -14,6 +14,7 @@ import {
   Alert,
   Box,
   Button,
+  ButtonBase,
   Chip,
   CircularProgress,
   Dialog,
@@ -37,13 +38,16 @@ import { ChoreCatalogKind } from 'backend/view_models/chore_catalog';
 import {
   ChorePlanApplyRequest,
   ChorePlanApplyResponse,
+  ChorePlanDisabledAssignment,
   ChorePlanDraftResponse,
   ChorePlanDraftSummary,
   ChorePlanPreview,
   ChorePlanPreviewRequest,
   ChorePlanRequirements,
+  ChorePlanPreviewSlot,
   ChorePlanShiftPreview,
 } from 'backend/view_models/chore_plan_preview';
+import { ChorePlanLifecycleState } from 'backend/view_models/chore_plan_lifecycle';
 import BackendChorePlanClient from '../../api/chore_plans/client';
 import BackendRosterClient from '../../api/roster/roster';
 import { getFrontendConfig } from '../../config/config';
@@ -68,6 +72,7 @@ export interface ChorePlannerClient {
   Preview: (request: ChorePlanPreviewRequest) => Promise<ChorePlanPreview>;
   GetDraft: (rosterID: number) => Promise<ChorePlanDraftResponse>;
   Apply: (request: ChorePlanApplyRequest) => Promise<ChorePlanApplyResponse>;
+  Open?: (rosterID: number) => Promise<ChorePlanLifecycleState>;
 }
 
 export interface ChorePlannerRosterClient {
@@ -135,6 +140,12 @@ function requirementsMatch(
   return KINDS.every((kind) => first[kind] === second[kind]);
 }
 
+function disabledAssignmentIdentity(
+  assignment: ChorePlanDisabledAssignment,
+): string {
+  return `${assignment.shiftKey}|${assignment.definitionKey}`;
+}
+
 function draftMatchesPreview(
   draft: ChorePlanDraftSummary | null,
   preview: ChorePlanPreview | null,
@@ -146,7 +157,13 @@ function draftMatchesPreview(
     draft.planningYear === preview.year &&
     draft.camperCount === preview.camperCount &&
     draft.catalogRevision === preview.catalogRevision &&
-    requirementsMatch(draft.requirements, preview.requirements),
+    requirementsMatch(draft.requirements, preview.requirements) &&
+    draft.disabledAssignments.length === preview.disabledAssignments.length &&
+    draft.disabledAssignments.every(
+      (assignment, index) =>
+        disabledAssignmentIdentity(assignment) ===
+        disabledAssignmentIdentity(preview.disabledAssignments[index]),
+    ),
   );
 }
 
@@ -188,6 +205,30 @@ function applyErrorMessage(error: unknown): string {
   return 'Failed to apply the chore plan draft. Please try again.';
 }
 
+function disableErrorMessage(error: unknown): string {
+  if (responseStatus(error) === 422) {
+    return 'That assignment cannot be disabled because the catalog has no replacement capacity.';
+  }
+  return applyErrorMessage(error);
+}
+
+function openErrorMessage(error: unknown): string {
+  const message = responseMessage(error);
+  if (responseStatus(error) === 409) {
+    return message ?? 'Only a current draft can be opened for signups.';
+  }
+  if (responseStatus(error) === 403) {
+    return 'You do not have permission to open chore signups.';
+  }
+  return 'Failed to open chore signups. Please try again.';
+}
+
+function disabledAssignmentRequest(preview: ChorePlanPreview) {
+  return preview.disabledAssignments.length
+    ? { disabledAssignments: preview.disabledAssignments }
+    : {};
+}
+
 function scoreTone(score: number): 'high' | 'medium' | 'low' {
   if (score >= 75) {
     return 'high';
@@ -198,18 +239,48 @@ function scoreTone(score: number): 'high' | 'medium' | 'low' {
   return 'low';
 }
 
-function PositionChips({ shift }: { shift: ChorePlanShiftPreview }) {
+function PositionChips({
+  shift,
+  disabled,
+  disablingAssignmentKey,
+  onDisable,
+}: {
+  shift: ChorePlanShiftPreview;
+  disabled: boolean;
+  disablingAssignmentKey: string | null;
+  onDisable: (shift: ChorePlanShiftPreview, slot: ChorePlanPreviewSlot) => void;
+}) {
   return (
     <div className="signup-sheet-positions">
-      {shift.slots.map((slot) => (
-        <span
-          className={`signup-sheet-position ${scoreTone(slot.score)}`}
-          key={slot.definitionKey}
-        >
-          {slot.positionLabel}
-          <small>{slot.score}</small>
-        </span>
-      ))}
+      {shift.slots.map((slot) => {
+        const assignmentKey = disabledAssignmentIdentity({
+          shiftKey: shift.stableKey,
+          definitionKey: slot.definitionKey,
+        });
+        return (
+          <ButtonBase
+            aria-label={`Disable ${slot.positionLabel} assignment for ${shift.scheduleName} on ${shift.displayDayLabel}, ${shift.timePeriodLabel}`}
+            disabled={disabled}
+            key={slot.definitionKey}
+            onClick={() => onDisable(shift, slot)}
+            sx={{ borderRadius: 1 }}
+          >
+            {disablingAssignmentKey === assignmentKey ? (
+              <CircularProgress
+                aria-label={`Disabling ${slot.positionLabel} assignment`}
+                size={20}
+              />
+            ) : (
+              <span
+                className={`signup-sheet-position ${scoreTone(slot.score)}`}
+              >
+                {slot.positionLabel}
+                <small>{slot.score}</small>
+              </span>
+            )}
+          </ButtonBase>
+        );
+      })}
     </div>
   );
 }
@@ -250,10 +321,15 @@ export default function ChorePlanBuilder({
   const [loadingRosters, setLoadingRosters] = useState(true);
   const [previewing, setPreviewing] = useState(false);
   const [applying, setApplying] = useState(false);
+  const [disablingAssignmentKey, setDisablingAssignmentKey] = useState<
+    string | null
+  >(null);
+  const [opening, setOpening] = useState(false);
   const [confirmingReplacement, setConfirmingReplacement] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const inputsDisabled = previewing || applying;
+  const inputsDisabled =
+    previewing || applying || disablingAssignmentKey !== null || opening;
 
   useEffect(() => {
     let active = true;
@@ -363,6 +439,7 @@ export default function ChorePlanBuilder({
         rosterID: preview.rosterID,
         camperCount: preview.camperCount,
         requirements: preview.requirements,
+        ...disabledAssignmentRequest(preview),
         expectedCatalogRevision: preview.catalogRevision,
         expectedDraftRevision: observedDraft?.draftRevision ?? null,
       });
@@ -400,6 +477,84 @@ export default function ChorePlanBuilder({
       return;
     }
     applyPreview();
+  };
+
+  const handleDisableAssignment = async (
+    shift: ChorePlanShiftPreview,
+    slot: ChorePlanPreviewSlot,
+  ) => {
+    if (!preview || !observedDraft || !matchesDraft || inputsDisabled) {
+      return;
+    }
+    const assignment = {
+      shiftKey: shift.stableKey,
+      definitionKey: slot.definitionKey,
+    };
+    const disabledAssignments = Array.from(
+      new Map(
+        [...preview.disabledAssignments, assignment].map((item) => [
+          disabledAssignmentIdentity(item),
+          item,
+        ]),
+      ).values(),
+    ).sort((first, second) =>
+      disabledAssignmentIdentity(first).localeCompare(
+        disabledAssignmentIdentity(second),
+      ),
+    );
+    setDisablingAssignmentKey(disabledAssignmentIdentity(assignment));
+    setError(null);
+    setSuccess(null);
+    try {
+      const response = await planClient.Apply({
+        rosterID: preview.rosterID,
+        camperCount: preview.camperCount,
+        requirements: preview.requirements,
+        disabledAssignments,
+        expectedCatalogRevision: preview.catalogRevision,
+        expectedDraftRevision: observedDraft.draftRevision,
+      });
+      setPreview(response.preview);
+      setObservedDraft(response.draft);
+      setSuccess(
+        `Disabled ${slot.positionLabel} for ${shift.scheduleName} on ${shift.displayDayLabel}. The next available assignment was added automatically.`,
+      );
+    } catch (disableError) {
+      console.error('Failed to disable chore plan assignment:', disableError);
+      if (responseStatus(disableError) === 409) {
+        setPreview(null);
+        setObservedDraft(null);
+      }
+      setError(disableErrorMessage(disableError));
+    } finally {
+      setDisablingAssignmentKey(null);
+    }
+  };
+
+  const handleFinalizeAndOpen = async () => {
+    if (
+      !planClient.Open ||
+      !preview ||
+      !observedDraft ||
+      !matchesDraft ||
+      inputsDisabled
+    ) {
+      return;
+    }
+    setOpening(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      await planClient.Open(preview.rosterID);
+      setPreview(null);
+      setObservedDraft(null);
+      setSuccess('The chore shift plan is finalized and signups are open.');
+    } catch (openError) {
+      console.error('Failed to finalize and open chore signups:', openError);
+      setError(openErrorMessage(openError));
+    } finally {
+      setOpening(false);
+    }
   };
 
   let applyButtonLabel = observedDraft
@@ -514,16 +669,40 @@ export default function ChorePlanBuilder({
                   across {countLabel(preview.shifts.length, 'dated shift')} ·{' '}
                   {preview.camperCount} prospective campers
                 </Typography>
+                {preview.disabledAssignments.length > 0 && (
+                  <Chip
+                    color="warning"
+                    label={countLabel(
+                      preview.disabledAssignments.length,
+                      'disabled assignment',
+                    )}
+                    size="small"
+                    sx={{ mt: 1 }}
+                    variant="outlined"
+                  />
+                )}
               </Box>
-              <Button
-                variant="contained"
-                color="secondary"
-                startIcon={<PlaylistAddCheckIcon />}
-                disabled={inputsDisabled || hasShortage}
-                onClick={handleApply}
-              >
-                {applyButtonLabel}
-              </Button>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+                <Button
+                  variant="contained"
+                  color="secondary"
+                  startIcon={<PlaylistAddCheckIcon />}
+                  disabled={inputsDisabled || hasShortage}
+                  onClick={handleApply}
+                >
+                  {applyButtonLabel}
+                </Button>
+                {planClient.Open && matchesDraft && (
+                  <Button
+                    color="success"
+                    disabled={inputsDisabled || hasShortage}
+                    onClick={handleFinalizeAndOpen}
+                    variant="contained"
+                  >
+                    {opening ? 'Opening signups…' : 'Finalize and open signups'}
+                  </Button>
+                )}
+              </Stack>
             </Stack>
 
             {observedDraft && (
@@ -534,6 +713,13 @@ export default function ChorePlanBuilder({
                 {matchesDraft
                   ? `Saved draft revision ${observedDraft.draftRevision} already uses these inputs and scores.`
                   : `Applying this preview will replace saved draft revision ${observedDraft.draftRevision}.`}
+              </Alert>
+            )}
+            {observedDraft && matchesDraft && (
+              <Alert severity="info" sx={{ mb: 2 }}>
+                Click any position below to disable that assignment. The planner
+                will save that choice and add the next available assignment
+                automatically.
               </Alert>
             )}
             {hasShortage && (
@@ -582,7 +768,12 @@ export default function ChorePlanBuilder({
                         kind={kind}
                         shifts={shifts}
                         renderShift={(shift) => (
-                          <PositionChips shift={shift.preview} />
+                          <PositionChips
+                            disabled={!matchesDraft || inputsDisabled}
+                            disablingAssignmentKey={disablingAssignmentKey}
+                            onDisable={handleDisableAssignment}
+                            shift={shift.preview}
+                          />
                         )}
                       />
                     ) : (

@@ -141,6 +141,42 @@ test('apply input accepts only preview inputs and both observed revisions', () =
     }).expectedDraftRevision,
     '3',
   );
+  assert.deepEqual(
+    parseChorePlanApplyRequest({
+      ...DEFAULT_REQUEST,
+      disabledAssignments: [
+        {
+          shiftKey: 'chore|1|chore-am-chum-wench-first',
+          definitionKey: 'chore-am-chum-wench-first',
+        },
+      ],
+      expectedCatalogRevision: '7',
+      expectedDraftRevision: '3',
+    }).disabledAssignments,
+    [
+      {
+        shiftKey: 'chore|1|chore-am-chum-wench-first',
+        definitionKey: 'chore-am-chum-wench-first',
+      },
+    ],
+  );
+  assert.throws(
+    () =>
+      parseChorePlanPreviewRequest({
+        ...DEFAULT_REQUEST,
+        disabledAssignments: [
+          {
+            shiftKey: 'chore|1|chore-am-chum-wench-first',
+            definitionKey: 'chore-am-chum-wench-first',
+          },
+          {
+            shiftKey: 'chore|1|chore-am-chum-wench-first',
+            definitionKey: 'chore-am-chum-wench-first',
+          },
+        ],
+      }),
+    (error) => isPreviewError(error, 400, /unique/i),
+  );
   assert.throws(
     () =>
       parseChorePlanApplyRequest({
@@ -265,6 +301,122 @@ test('preview reports exact shortages at maximum input capacity', () => {
     event: { target: 4000, selected: 216, shortage: 3784 },
     dinner: { target: 4000, selected: 54, shortage: 3946 },
   });
+});
+
+test('a disabled assignment is replaced while its sibling remains', () => {
+  const initial = build({
+    ...DEFAULT_REQUEST,
+    camperCount: 3,
+    requirements: { chore: 20, event: 0, dinner: 0 },
+  });
+  const multiPositionShift = initial.shifts.find(
+    (shift) => shift.slots.length > 1,
+  );
+  assert(multiPositionShift);
+  const disabledSlot = multiPositionShift.slots[0];
+  const retainedSlot = multiPositionShift.slots[1];
+  const disabledAssignment = {
+    shiftKey: multiPositionShift.stableKey,
+    definitionKey: disabledSlot.definitionKey,
+  };
+  const replacement = build({
+    ...DEFAULT_REQUEST,
+    camperCount: 3,
+    requirements: { chore: 20, event: 0, dinner: 0 },
+    disabledAssignments: [disabledAssignment],
+  });
+  const updatedShift = replacement.shifts.find(
+    ({ stableKey }) => stableKey === multiPositionShift.stableKey,
+  );
+
+  assert.deepEqual(replacement.disabledAssignments, [disabledAssignment]);
+  assert.deepEqual(replacement.categories.chore, {
+    target: 60,
+    selected: 60,
+    shortage: 0,
+  });
+  assert(updatedShift);
+  assert.equal(
+    updatedShift.slots.some(
+      ({ definitionKey }) => definitionKey === disabledSlot.definitionKey,
+    ),
+    false,
+  );
+  assert.equal(
+    updatedShift.slots.some(
+      ({ definitionKey }) => definitionKey === retainedSlot.definitionKey,
+    ),
+    true,
+  );
+});
+
+test('a disabled assignment is replaced by the highest score across shifts', () => {
+  const request: ChorePlanPreviewRequest = {
+    ...DEFAULT_REQUEST,
+    requirements: { chore: 8, event: 0, dinner: 0 },
+  };
+  const initial = build(request);
+  const dinnerServeSunday = initial.shifts.find(
+    ({ stableKey }) => stableKey === 'chore|1|chore-dinner-serve-first',
+  );
+  assert(dinnerServeSunday);
+  assert.deepEqual(dinnerServeSunday.slots, [
+    {
+      definitionKey: 'chore-dinner-serve-first',
+      positionLabel: 'First',
+      score: 100,
+    },
+  ]);
+
+  const replacement = build({
+    ...request,
+    disabledAssignments: [
+      {
+        shiftKey: dinnerServeSunday.stableKey,
+        definitionKey: dinnerServeSunday.slots[0].definitionKey,
+      },
+    ],
+  });
+  const initialAssignments = new Set(
+    initial.shifts.flatMap((shift) =>
+      shift.slots.map((slot) => `${shift.stableKey}|${slot.definitionKey}`),
+    ),
+  );
+  const addedAssignments = replacement.shifts.flatMap((shift) =>
+    shift.slots
+      .filter(
+        (slot) =>
+          !initialAssignments.has(`${shift.stableKey}|${slot.definitionKey}`),
+      )
+      .map((slot) => ({
+        shiftKey: shift.stableKey,
+        definitionKey: slot.definitionKey,
+        score: slot.score,
+      })),
+  );
+
+  assert.deepEqual(replacement.categories.chore, {
+    target: 8,
+    selected: 8,
+    shortage: 0,
+  });
+  assert.deepEqual(addedAssignments, [
+    {
+      shiftKey: 'chore|2|chore-am-chum-wench-first',
+      definitionKey: 'chore-am-chum-wench-first',
+      score: 100,
+    },
+  ]);
+  assert.equal(
+    replacement.shifts.some(
+      ({ stableKey, slots }) =>
+        stableKey === dinnerServeSunday.stableKey &&
+        slots.some(
+          ({ definitionKey }) => definitionKey === 'chore-dinner-serve-second',
+        ),
+    ),
+    false,
+  );
 });
 
 test('closing Sunday event periods retain Saturday display grouping and actual time', () => {

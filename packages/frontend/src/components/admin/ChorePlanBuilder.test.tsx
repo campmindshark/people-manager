@@ -29,6 +29,7 @@ function preview(overrides: Partial<ChorePlanPreview> = {}): ChorePlanPreview {
     camperCount: 1,
     requirements: { chore: 3, event: 3, dinner: 1 },
     catalogRevision: '7',
+    disabledAssignments: [],
     categories: {
       chore: { target: 3, selected: 3, shortage: 0 },
       event: { target: 3, selected: 3, shortage: 0 },
@@ -75,6 +76,7 @@ function draft(
     planningYear: sourcePreview.year,
     camperCount: sourcePreview.camperCount,
     requirements: sourcePreview.requirements,
+    disabledAssignments: sourcePreview.disabledAssignments,
     scheduleCount: 1,
     shiftCount: sourcePreview.shifts.length,
     slotCount: sourcePreview.shifts.reduce(
@@ -358,6 +360,125 @@ test('reapplies an identical draft without a replacement dialog', async () => {
   expect(
     await screen.findByText(/saved signup plan already matches this preview/i),
   ).toBeVisible();
+});
+
+test('disables one assignment while retaining its sibling position', async () => {
+  const generated = preview({
+    shifts: [
+      {
+        ...preview().shifts[0],
+        requiredParticipants: 2,
+        totalScore: 150,
+        slots: [
+          ...preview().shifts[0].slots,
+          {
+            definitionKey: 'chore-am-chum-wench-second',
+            positionLabel: 'Second',
+            score: 50,
+          },
+        ],
+      },
+    ],
+  });
+  const currentDraft = draft(generated);
+  const replacementShift = {
+    ...generated.shifts[0],
+    stableKey: 'chore|2|chore-am-chum-wench-first',
+    displayDayNumber: 2,
+    displayDayLabel: 'Monday, Aug 31',
+    requiredParticipants: 1,
+    totalScore: 100,
+    slots: [generated.shifts[0].slots[0]],
+  };
+  const replacement = preview({
+    disabledAssignments: [
+      {
+        shiftKey: generated.shifts[0].stableKey,
+        definitionKey: generated.shifts[0].slots[0].definitionKey,
+      },
+    ],
+    shifts: [
+      {
+        ...generated.shifts[0],
+        requiredParticipants: 1,
+        totalScore: 50,
+        slots: [generated.shifts[0].slots[1]],
+      },
+      replacementShift,
+    ],
+  });
+  const replacementDraft = draft(replacement, { draftRevision: '5' });
+  const { planClient, rosterClient } = clients(generated, currentDraft);
+  (planClient.Apply as jest.Mock).mockResolvedValueOnce(
+    applyResponse(replacement, replacementDraft, { replaced: true }),
+  );
+  render(
+    <ChorePlanBuilder planClient={planClient} rosterClient={rosterClient} />,
+  );
+
+  await enterCamperCount('1');
+  userEvent.click(screen.getByRole('button', { name: /preview signup plan/i }));
+  userEvent.click(
+    await screen.findByRole('button', {
+      name: /disable first assignment for am chum wench on sunday, aug 30/i,
+    }),
+  );
+
+  await waitFor(() =>
+    expect(planClient.Apply).toHaveBeenCalledWith({
+      rosterID: 1,
+      camperCount: 1,
+      requirements: { chore: 3, event: 3, dinner: 1 },
+      disabledAssignments: [
+        {
+          shiftKey: 'chore|1|chore-am-chum-wench-first',
+          definitionKey: 'chore-am-chum-wench-first',
+        },
+      ],
+      expectedCatalogRevision: '7',
+      expectedDraftRevision: '4',
+    }),
+  );
+  expect(
+    await screen.findByText(/next available assignment was added/i),
+  ).toBeVisible();
+  expect(screen.getByText('1 disabled assignment')).toBeVisible();
+  expect(
+    screen.getByRole('button', {
+      name: /disable second assignment for am chum wench on sunday, aug 30/i,
+    }),
+  ).toBeVisible();
+  expect(
+    screen.getByRole('button', {
+      name: /disable first assignment for am chum wench on monday, aug 31/i,
+    }),
+  ).toBeVisible();
+});
+
+test('finalizes the saved draft and opens chore signups', async () => {
+  const generated = preview();
+  const currentDraft = draft(generated);
+  const { planClient, rosterClient } = clients(generated, currentDraft);
+  planClient.Open = jest.fn().mockResolvedValue({});
+  render(
+    <ChorePlanBuilder planClient={planClient} rosterClient={rosterClient} />,
+  );
+
+  await enterCamperCount('1');
+  userEvent.click(screen.getByRole('button', { name: /preview signup plan/i }));
+  userEvent.click(
+    await screen.findByRole('button', {
+      name: /finalize and open signups/i,
+    }),
+  );
+
+  await waitFor(() => expect(planClient.Open).toHaveBeenCalledWith(1));
+  expect(
+    await screen.findByText(/plan is finalized and signups are open/i),
+  ).toBeVisible();
+  expect(
+    screen.queryByText(/signup sheet preview/i, { selector: 'h5' }),
+  ).not.toBeInTheDocument();
 });
 
 test('shows exact shortages and prevents apply', async () => {
