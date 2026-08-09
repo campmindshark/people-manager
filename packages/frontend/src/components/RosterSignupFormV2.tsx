@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useRecoilValue } from 'recoil';
 import {
+  Alert,
   Box,
   Button,
   FormControl,
@@ -65,6 +66,12 @@ interface RosterParticipantFormData {
   agreesToPayDues: boolean;
 }
 
+export function attendanceRemovalMessage(count: number): string {
+  return count === 1
+    ? 'Your attendance update removed 1 shift assignment that is now outside your attendance window.'
+    : `Your attendance update removed ${count} shift assignments that are now outside your attendance window.`;
+}
+
 function RosterSignupFormV2({ handleSuccess, rosterParticipant }: Props) {
   const [formData, setFormData] = useState<RosterParticipantFormData>({
     probabilityOfAttending: rosterParticipant.probabilityOfAttending || 0,
@@ -91,6 +98,7 @@ function RosterSignupFormV2({ handleSuccess, rosterParticipant }: Props) {
     agreesToPayDues: rosterParticipant.agreesToPayDues || false,
   });
   const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [removedAssignmentCount, setRemovedAssignmentCount] = useState(0);
   const [essentialMindSharkURL, setEssentialMindSharkURL] = useState(
     DefaultEssentialMindSharkURL,
   );
@@ -129,22 +137,30 @@ function RosterSignupFormV2({ handleSuccess, rosterParticipant }: Props) {
       );
   }, []);
 
+  const completeSubmission = () => {
+    if (
+      !userSignupStatus.hasCompletedPrivateProfile ||
+      !userSignupStatus.hasCompletedPublicProfile
+    ) {
+      window.location.href = '/profile-edit';
+    } else {
+      handleSuccess();
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await rosterClient.Signup(
+      const result = await rosterClient.Signup(
         activeRosterID,
         formData as unknown as RosterParticipant,
       );
       setSnackbarOpen(true);
-      if (
-        !userSignupStatus.hasCompletedPrivateProfile ||
-        !userSignupStatus.hasCompletedPublicProfile
-      ) {
-        window.location.href = '/profile-edit';
-      } else {
-        handleSuccess();
+      if (result.removedAssignmentCount > 0) {
+        setRemovedAssignmentCount(result.removedAssignmentCount);
+        return;
       }
+      completeSubmission();
     } catch (error) {
       console.error('Failed to submit form:', error);
     }
@@ -170,6 +186,20 @@ function RosterSignupFormV2({ handleSuccess, rosterParticipant }: Props) {
   return (
     <>
       <Box component="form" onSubmit={handleSubmit} sx={{ mt: 3 }}>
+        {removedAssignmentCount > 0 && (
+          <Alert
+            action={
+              <Button color="inherit" onClick={completeSubmission}>
+                Continue
+              </Button>
+            }
+            severity="warning"
+            sx={{ mb: 2 }}
+          >
+            {attendanceRemovalMessage(removedAssignmentCount)} Review your
+            remaining shifts after continuing.
+          </Alert>
+        )}
         <FormHelperText sx={{ mb: 2, color: 'text.secondary' }}>
           * Required fields
         </FormHelperText>
@@ -472,6 +502,7 @@ function RosterSignupFormV2({ handleSuccess, rosterParticipant }: Props) {
               color="primary"
               fullWidth
               disabled={
+                removedAssignmentCount > 0 ||
                 !formData.probabilityOfAttending ||
                 !formData.estimatedArrivalDate ||
                 !formData.estimatedDepartureDate ||

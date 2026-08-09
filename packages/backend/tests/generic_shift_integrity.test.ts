@@ -3,8 +3,6 @@ import test from 'node:test';
 import knexFactory, { Knex } from 'knex';
 import GroupController from '../controllers/group';
 import ShiftController from '../controllers/shift';
-import ShiftSignupError, { parseShiftID } from '../utils/shiftSignupError';
-import { shiftTimeRangesOverlap } from '../utils/shiftTime';
 import {
   down as restoreLegacyEventTimestamps,
   up as normalizeEventTimestamps,
@@ -13,6 +11,11 @@ import {
   down as restoreLegacyRosterAttendanceTimestamps,
   up as normalizeRosterAttendanceTimestamps,
 } from '../migrations/20260805030000_normalize_roster_attendance_timestamps';
+import ShiftSignupError, { parseShiftID } from '../utils/shiftSignupError';
+import {
+  shiftTimeRangeContains,
+  shiftTimeRangesOverlap,
+} from '../utils/shiftTime';
 import {
   ABSOLUTE_ATTENDANCE_TIMESTAMP_INPUT,
   prepareRosterAttendanceTimestampWrite,
@@ -805,6 +808,46 @@ test('overlap checks use absolute instants and allow adjacent shifts', () => {
         {
           startTime: '2026-08-25T01:00:00Z',
           endTime: '2026-08-25T02:00:00Z',
+        },
+      ),
+    /valid start and end times/,
+  );
+});
+
+test('attendance containment uses absolute instants and includes boundaries', () => {
+  assert.equal(
+    shiftTimeRangeContains(
+      {
+        startTime: '2026-08-24T00:00:00-07:00',
+        endTime: '2026-08-26T00:00:00-07:00',
+      },
+      {
+        startTime: '2026-08-24T07:00:00Z',
+        endTime: '2026-08-26T07:00:00Z',
+      },
+    ),
+    true,
+  );
+  assert.equal(
+    shiftTimeRangeContains(
+      {
+        startTime: '2026-08-24T00:00:00-07:00',
+        endTime: '2026-08-26T00:00:00-07:00',
+      },
+      {
+        startTime: '2026-08-23T23:59:00-07:00',
+        endTime: '2026-08-24T01:00:00-07:00',
+      },
+    ),
+    false,
+  );
+  assert.throws(
+    () =>
+      shiftTimeRangeContains(
+        { startTime: 'invalid', endTime: '2026-08-26T00:00:00Z' },
+        {
+          startTime: '2026-08-24T00:00:00Z',
+          endTime: '2026-08-25T00:00:00Z',
         },
       ),
     /valid start and end times/,

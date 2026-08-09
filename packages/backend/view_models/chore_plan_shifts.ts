@@ -1,6 +1,13 @@
 import { ChoreCatalogKind } from './chore_catalog';
 import { ChorePlanRequirements } from './chore_plan_preview';
 
+export const CHORE_PLAN_SIGNUP_RESTRICTION_MESSAGES = {
+  existingShiftConflict:
+    'You already have another assignment during this time block.',
+  outsideAttendanceWindow:
+    'This shift is outside your roster attendance window.',
+} as const;
+
 export interface ChorePlanShiftViewPlan {
   id: number;
   rosterID: number;
@@ -14,6 +21,18 @@ export interface ChorePlanShiftViewPlan {
 export interface ChorePlanShiftViewSlot {
   definitionKey: string;
   positionLabel: string;
+}
+
+export interface ChorePlanShiftViewAssignment {
+  displayName: string;
+  currentUser: boolean;
+}
+
+export interface ChorePlanShiftViewConflict {
+  shiftID: number;
+  scheduleName: string;
+  startTime: string;
+  endTime: string;
 }
 
 export interface ChorePlanShiftViewItem {
@@ -32,6 +51,10 @@ export interface ChorePlanShiftViewItem {
   requiredParticipants: number;
   assignedParticipantCount: number;
   currentUserAssigned: boolean;
+  signupRestrictionReason: string | null;
+  signupConflictShiftIDs: number[];
+  signupConflicts: ChorePlanShiftViewConflict[];
+  assignments: ChorePlanShiftViewAssignment[];
   slots: ChorePlanShiftViewSlot[];
 }
 

@@ -133,6 +133,21 @@ async function runIntegrationTest() {
       disabledShiftViewResponse.status === 404,
       'Disabled chore shift-view routes must appear absent',
     );
+    const disabledChoreSignupResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/1/signup',
+      {
+        method: 'POST',
+        headers: {
+          cookie: sessionCookie,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ shiftIDs: [1] }),
+      },
+    );
+    assert(
+      disabledChoreSignupResponse.status === 404,
+      'Disabled chore signup routes must appear absent',
+    );
 
     const verificationResponse = await fetch(
       `http://localhost:3001/api/users/verify/${authCheck.user.id}`,
@@ -283,8 +298,8 @@ async function runIntegrationTest() {
         body: JSON.stringify({
           probabilityOfAttending: 100,
           yearsAtCamp: [],
-          estimatedArrivalDate: '2026-08-20T00:00:00.000Z',
-          estimatedDepartureDate: '2026-09-10T00:00:00.000Z',
+          estimatedArrivalDate: '2024-08-20T00:00:00.000Z',
+          estimatedDepartureDate: '2024-09-10T00:00:00.000Z',
           sleepingArrangement: 'Smoke test',
         }),
       },
@@ -614,6 +629,21 @@ async function runIntegrationTest() {
         memberDraft.shifts?.length === 0,
       'Draft generated shifts were exposed to a roster member',
     );
+    const draftSignupResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/1/signup',
+      {
+        method: 'POST',
+        headers: {
+          cookie: standardCookie,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ shiftIDs: [1] }),
+      },
+    );
+    assert(
+      draftSignupResponse.status === 409,
+      'Draft chore signup must not succeed',
+    );
 
     const repeatedApplyResponse = await fetch(
       'http://localhost:3001/api/chore-plans/apply',
@@ -770,6 +800,112 @@ async function runIntegrationTest() {
         !JSON.stringify(memberOpen).includes('@localhost'),
       'Member shift view exposed participant identity fields',
     );
+    const signupSource = memberOpen.shifts[0];
+    const signupDestination = memberOpen.shifts.find(
+      (shift) =>
+        shift.id !== signupSource.id && shift.kind === signupSource.kind,
+    );
+    assert(signupDestination, 'Open plan did not contain a switch destination');
+    const strictSignupResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/1/signup',
+      {
+        method: 'POST',
+        headers: {
+          cookie: standardCookie,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ shiftIDs: [signupSource.id], force: true }),
+      },
+    );
+    assert(
+      strictSignupResponse.status === 400,
+      'Chore signup must reject fields outside the narrow request contract',
+    );
+    const choreSignupResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/1/signup',
+      {
+        method: 'POST',
+        headers: {
+          cookie: standardCookie,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ shiftIDs: [signupSource.id] }),
+      },
+    );
+    assert(choreSignupResponse.ok, 'Open chore signup failed');
+    const choreSignup = await choreSignupResponse.json();
+    assert(
+      choreSignup.changed === true &&
+        choreSignup.assignedShiftIDs?.includes(signupSource.id),
+      'Open chore signup did not create the requested assignment',
+    );
+    const repeatedChoreSignupResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/1/signup',
+      {
+        method: 'POST',
+        headers: {
+          cookie: standardCookie,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ shiftIDs: [signupSource.id] }),
+      },
+    );
+    assert(
+      repeatedChoreSignupResponse.ok &&
+        (await repeatedChoreSignupResponse.json()).changed === false,
+      'Repeated chore signup was not an idempotent no-op',
+    );
+    const choreSwitchResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/1/switch',
+      {
+        method: 'POST',
+        headers: {
+          cookie: standardCookie,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          fromShiftID: signupSource.id,
+          toShiftID: signupDestination.id,
+        }),
+      },
+    );
+    assert(choreSwitchResponse.ok, 'Atomic chore shift switch failed');
+    const choreSwitch = await choreSwitchResponse.json();
+    assert(
+      choreSwitch.changed === true &&
+        !choreSwitch.assignedShiftIDs?.includes(signupSource.id) &&
+        choreSwitch.assignedShiftIDs?.includes(signupDestination.id),
+      'Chore shift switch did not replace the source assignment',
+    );
+    const strictRemovalResponse = await fetch(
+      `http://localhost:3001/api/chore-plans/1/signup/${signupDestination.id}`,
+      {
+        method: 'DELETE',
+        headers: {
+          cookie: standardCookie,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ force: true }),
+      },
+    );
+    assert(
+      strictRemovalResponse.status === 400,
+      'Chore signup removal must reject request details',
+    );
+    const choreRemovalResponse = await fetch(
+      `http://localhost:3001/api/chore-plans/1/signup/${signupDestination.id}`,
+      {
+        method: 'DELETE',
+        headers: { cookie: standardCookie },
+      },
+    );
+    assert(choreRemovalResponse.ok, 'Chore signup removal failed');
+    const choreRemoval = await choreRemovalResponse.json();
+    assert(
+      choreRemoval.changed === true &&
+        !choreRemoval.assignedShiftIDs?.includes(signupDestination.id),
+      'Chore signup removal did not delete the assignment',
+    );
 
     const repeatedOpenResponse = await fetch(
       'http://localhost:3001/api/chore-plans/1/open',
@@ -808,6 +944,21 @@ async function runIntegrationTest() {
         memberClosed.selfServiceMutationsAllowed === false &&
         memberClosed.shifts?.length === memberOpen.shifts.length,
       'Closed member shift view did not remain visible and read-only',
+    );
+    const closedSignupResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/1/signup',
+      {
+        method: 'POST',
+        headers: {
+          cookie: standardCookie,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ shiftIDs: [signupSource.id] }),
+      },
+    );
+    assert(
+      closedSignupResponse.status === 409,
+      'Closed chore plans must reject self-service mutations',
     );
 
     const invalidReopenResponse = await fetch(
@@ -859,6 +1010,185 @@ async function runIntegrationTest() {
         reopenedPlan.closedAt === null &&
         reopenedPlan.closedByUserID === null,
       'Reopening did not return the expected lifecycle state',
+    );
+
+    const postReopenSignupResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/1/signup',
+      {
+        method: 'POST',
+        headers: {
+          cookie: standardCookie,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ shiftIDs: [signupSource.id] }),
+      },
+    );
+    assert(
+      postReopenSignupResponse.ok,
+      'Could not create the dropout cleanup assignment',
+    );
+    const postReopenSignup = await postReopenSignupResponse.json();
+    assert(
+      postReopenSignup.changed === true &&
+        postReopenSignup.assignedShiftIDs?.includes(signupSource.id),
+      'Attendance cleanup fixture did not create the requested assignment',
+    );
+    const attendanceStartAfterShift = new Date(
+      new Date(signupSource.endTime).getTime() + 24 * 60 * 60 * 1000,
+    );
+    const attendanceEndAfterShift = new Date(
+      attendanceStartAfterShift.getTime() + 60 * 60 * 1000,
+    );
+    const invalidAttendanceResponse = await fetch(
+      'http://localhost:3001/api/roster_participants/1',
+      {
+        method: 'POST',
+        headers: {
+          cookie: standardCookie,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          probabilityOfAttending: 100,
+          yearsAtCamp: [],
+          estimatedArrivalDate: attendanceEndAfterShift.toISOString(),
+          estimatedDepartureDate: attendanceStartAfterShift.toISOString(),
+          sleepingArrangement: 'Attendance cleanup observer',
+        }),
+      },
+    );
+    assert(
+      invalidAttendanceResponse.status === 400,
+      'Invalid attendance windows must be rejected before reconciliation',
+    );
+    const attendanceCleanupResponse = await fetch(
+      'http://localhost:3001/api/roster_participants/1',
+      {
+        method: 'POST',
+        headers: {
+          cookie: standardCookie,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          probabilityOfAttending: 100,
+          yearsAtCamp: [],
+          estimatedArrivalDate: attendanceStartAfterShift.toISOString(),
+          estimatedDepartureDate: attendanceEndAfterShift.toISOString(),
+          sleepingArrangement: 'Attendance cleanup observer',
+        }),
+      },
+    );
+    assert(
+      attendanceCleanupResponse.ok &&
+        (await attendanceCleanupResponse.json()).removedAssignmentCount === 1,
+      'Attendance update did not report the removed assignment',
+    );
+    const postAttendanceShiftViewResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/1/shifts',
+      { headers: { cookie: standardCookie } },
+    );
+    assert(
+      postAttendanceShiftViewResponse.ok,
+      'Member could not inspect shifts after updating attendance',
+    );
+    const postAttendanceShiftView = await postAttendanceShiftViewResponse.json();
+    const postAttendanceSource = postAttendanceShiftView.shifts.find(
+      (shift) => shift.id === signupSource.id,
+    );
+    assert(
+      postAttendanceSource?.assignedParticipantCount === 0 &&
+        postAttendanceSource.currentUserAssigned === false,
+      'Attendance update left the incompatible assignment in place',
+    );
+    const restoreAttendanceResponse = await fetch(
+      'http://localhost:3001/api/roster_participants/1',
+      {
+        method: 'POST',
+        headers: {
+          cookie: standardCookie,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          probabilityOfAttending: 100,
+          yearsAtCamp: [],
+          estimatedArrivalDate: '2024-08-20T00:00:00.000Z',
+          estimatedDepartureDate: '2024-09-10T00:00:00.000Z',
+          sleepingArrangement: 'Dropout cleanup observer',
+        }),
+      },
+    );
+    assert(
+      restoreAttendanceResponse.ok,
+      'Could not restore attendance for the dropout cleanup fixture',
+    );
+    const dropoutSignupResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/1/signup',
+      {
+        method: 'POST',
+        headers: {
+          cookie: standardCookie,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ shiftIDs: [signupSource.id] }),
+      },
+    );
+    assert(
+      dropoutSignupResponse.ok &&
+        (await dropoutSignupResponse.json()).changed === true,
+      'Dropout cleanup fixture did not recreate the assignment',
+    );
+    const dropoutResponse = await fetch(
+      'http://localhost:3001/api/rosters/1/drop-out',
+      {
+        method: 'POST',
+        headers: { cookie: standardCookie },
+      },
+    );
+    assert(dropoutResponse.ok, 'Roster self-service dropout failed');
+    assert(
+      (await dropoutResponse.json()).success === true,
+      'Roster self-service dropout did not remove the participant',
+    );
+    const droppedOutShiftViewResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/1/shifts',
+      { headers: { cookie: standardCookie } },
+    );
+    assert(
+      droppedOutShiftViewResponse.status === 403,
+      'Dropped-out user retained roster shift-view access',
+    );
+
+    const adminRejoinResponse = await fetch(
+      'http://localhost:3001/api/roster_participants/1',
+      {
+        method: 'POST',
+        headers: {
+          cookie: sessionCookie,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          probabilityOfAttending: 100,
+          yearsAtCamp: [],
+          estimatedArrivalDate: '2024-08-20T00:00:00.000Z',
+          estimatedDepartureDate: '2024-09-10T00:00:00.000Z',
+          sleepingArrangement: 'Dropout cleanup observer',
+        }),
+      },
+    );
+    assert(adminRejoinResponse.ok, 'Could not create the cleanup observer');
+    const postDropoutShiftViewResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/1/shifts',
+      { headers: { cookie: sessionCookie } },
+    );
+    assert(
+      postDropoutShiftViewResponse.ok,
+      'Cleanup observer could not load chore plan shifts',
+    );
+    const postDropoutShiftView = await postDropoutShiftViewResponse.json();
+    assert(
+      postDropoutShiftView.shifts.find(
+        (shift) => shift.id === signupSource.id,
+      )?.assignedParticipantCount === 0,
+      'Roster dropout left the departed member consuming shift capacity',
     );
 
     console.log('Integration smoke test passed.');

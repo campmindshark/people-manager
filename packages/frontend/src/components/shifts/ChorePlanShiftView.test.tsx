@@ -1,7 +1,14 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {
+  CHORE_PLAN_SIGNUP_RESTRICTION_MESSAGES,
   ChorePlanShiftViewItem,
   ChorePlanShiftViewResponse,
 } from 'backend/view_models/chore_plan_shifts';
@@ -20,17 +27,17 @@ const shift: ChorePlanShiftViewItem = {
   periodOrder: null,
   startTime: '2026-08-30T18:00:00.000Z',
   endTime: '2026-08-30T19:00:00.000Z',
-  requiredParticipants: 2,
+  requiredParticipants: 1,
   assignedParticipantCount: 1,
   currentUserAssigned: true,
+  signupRestrictionReason: null,
+  signupConflictShiftIDs: [],
+  signupConflicts: [],
+  assignments: [{ displayName: 'Moonbeam', currentUser: true }],
   slots: [
     {
       definitionKey: 'chore-am-chum-wench-first',
       positionLabel: 'First',
-    },
-    {
-      definitionKey: 'chore-am-chum-wench-second',
-      positionLabel: 'Second',
     },
   ],
 };
@@ -48,11 +55,54 @@ function response(
 }
 
 function client(result: ChorePlanShiftViewResponse): ChorePlanShiftClient {
-  return { GetShifts: jest.fn().mockResolvedValue(result) };
+  return {
+    GetShifts: jest.fn().mockResolvedValue(result),
+    Signup: jest
+      .fn()
+      .mockResolvedValue({ changed: true, assignedShiftIDs: [] }),
+    Remove: jest
+      .fn()
+      .mockResolvedValue({ changed: true, assignedShiftIDs: [] }),
+    Switch: jest
+      .fn()
+      .mockResolvedValue({ changed: true, assignedShiftIDs: [] }),
+  };
+}
+
+function deferred<T>(): {
+  promise: Promise<T>;
+  resolve: (value: T) => void;
+} {
+  let resolvePromise!: (value: T) => void;
+  const promise = new Promise<T>((resolve) => {
+    resolvePromise = resolve;
+  });
+  return { promise, resolve: resolvePromise };
+}
+
+function openResponse(
+  shifts: ChorePlanShiftViewItem[],
+  requirements = { chore: 1, event: 1, dinner: 1 },
+): ChorePlanShiftViewResponse {
+  return response({
+    plan: {
+      id: 3,
+      rosterID: 2,
+      status: 'open',
+      planningYear: 2026,
+      requirements,
+      openedAt: '2026-08-06T12:00:00.000Z',
+      closedAt: null,
+    },
+    selfServiceMutationsAllowed: true,
+    shifts,
+  });
 }
 
 function failingClient(error: unknown): ChorePlanShiftClient {
-  return { GetShifts: jest.fn().mockRejectedValue(error) };
+  const failedClient = client(response());
+  failedClient.GetShifts = jest.fn().mockRejectedValue(error);
+  return failedClient;
 }
 
 test('shows membership guidance for forbidden requests', async () => {
@@ -124,7 +174,7 @@ test('does not reveal generated draft shifts', async () => {
   expect(screen.queryByRole('button')).not.toBeInTheDocument();
 });
 
-test('renders open generated shifts without mutation controls', async () => {
+test('renders PR 58-style signup sheets and category requirements', async () => {
   const eventShift = {
     ...shift,
     id: 12,
@@ -135,6 +185,7 @@ test('renders open generated shifts without mutation controls', async () => {
     timePeriodLabel: '6p-9p',
     periodOrder: 1,
     currentUserAssigned: false,
+    assignments: [{ displayName: 'Alex R.', currentUser: false }],
   };
   const dinnerShift = {
     ...shift,
@@ -144,41 +195,427 @@ test('renders open generated shifts without mutation controls', async () => {
     kind: 'dinner' as const,
     scheduleName: 'Kitchen Dinner',
     currentUserAssigned: false,
+    assignments: [{ displayName: 'Taylor B.', currentUser: false }],
   };
   render(
     <ChorePlanShiftView
       rosterID={2}
-      planClient={client(
-        response({
-          plan: {
-            id: 3,
-            rosterID: 2,
-            status: 'open',
-            planningYear: 2026,
-            requirements: { chore: 1, event: 1, dinner: 1 },
-            openedAt: '2026-08-06T12:00:00.000Z',
-            closedAt: null,
-          },
-          selfServiceMutationsAllowed: true,
-          shifts: [shift, eventShift, dinnerShift],
-        }),
-      )}
+      planClient={client(openResponse([shift, eventShift, dinnerShift]))}
     />,
   );
 
   expect(await screen.findByText('AM Chum Wench')).toBeVisible();
-  expect(screen.getByText('Your signup')).toBeVisible();
+  expect(screen.getByText('Moonbeam')).toBeVisible();
   expect(screen.getByText('Requirement complete!')).toBeVisible();
   expect(screen.getAllByText('1 shift required!')).toHaveLength(2);
-  expect(screen.getAllByText('Open spot')).toHaveLength(3);
 
   userEvent.click(screen.getByRole('button', { name: /event crew/i }));
   expect(screen.getAllByText('Gate')).toHaveLength(7);
+  expect(screen.getByText('Alex R.')).toBeVisible();
   userEvent.click(screen.getByRole('button', { name: /dinner crew/i }));
   expect(screen.getByText('Kitchen Dinner')).toBeVisible();
+  expect(screen.getByText('Taylor B.')).toBeVisible();
+});
+
+test('lets any open spot select the next available position', async () => {
+  const threeSlotShift = {
+    ...shift,
+    assignedParticipantCount: 0,
+    currentUserAssigned: false,
+    requiredParticipants: 3,
+    assignments: [],
+    slots: [
+      ...shift.slots,
+      { definitionKey: 'chore-am-chum-wench-second', positionLabel: 'Second' },
+      { definitionKey: 'chore-am-chum-wench-third', positionLabel: 'Third' },
+    ],
+  };
+  render(
+    <ChorePlanShiftView
+      rosterID={2}
+      planClient={client(openResponse([threeSlotShift]))}
+    />,
+  );
+
+  const openSpots = await screen.findAllByRole('button', {
+    name: /select open spot for AM Chum Wench/i,
+  });
+  expect(openSpots).toHaveLength(3);
+  openSpots.forEach((openSpot) => expect(openSpot).toBeEnabled());
+
+  userEvent.click(openSpots[2]);
+
   expect(
-    screen.queryByRole('button', { name: /select|remove|sign up/i }),
-  ).not.toBeInTheDocument();
+    screen.getByRole('button', {
+      name: /deselect open spot for AM Chum Wench/i,
+    }),
+  ).toHaveTextContent('Selected');
+  screen
+    .getAllByRole('button', {
+      name: /^select open spot for AM Chum Wench/i,
+    })
+    .forEach((openSpot) => expect(openSpot).toBeDisabled());
+});
+
+test('selects and submits as many as three non-conflicting chores at once', async () => {
+  const dates = [
+    ['2026-08-30T18:00:00.000Z', '2026-08-30T19:00:00.000Z'],
+    ['2026-08-31T18:00:00.000Z', '2026-08-31T19:00:00.000Z'],
+    ['2026-09-01T18:00:00.000Z', '2026-09-01T19:00:00.000Z'],
+    ['2026-09-02T18:00:00.000Z', '2026-09-02T19:00:00.000Z'],
+  ];
+  const shifts = dates.map(([startTime, endTime], index) => ({
+    ...shift,
+    id: 11 + index,
+    stableKey: `chore|${index + 1}|job-${index + 1}`,
+    scheduleKey: `chore|job-${index + 1}`,
+    scheduleName: `Daily job ${index + 1}`,
+    displayDayNumber: index + 1,
+    startTime,
+    endTime,
+    assignedParticipantCount: 0,
+    currentUserAssigned: false,
+    assignments: [],
+  }));
+  const planClient = client(
+    openResponse(shifts, { chore: 4, event: 1, dinner: 1 }),
+  );
+  render(<ChorePlanShiftView rosterID={2} planClient={planClient} />);
+
+  const openSpot = (job: number) =>
+    screen.getByRole('button', {
+      name: new RegExp(`select open spot for Daily job ${job}`, 'i'),
+    });
+  userEvent.click(
+    await screen.findByRole('button', {
+      name: /select open spot for Daily job 1/i,
+    }),
+  );
+  expect(openSpot(2)).toBeEnabled();
+  userEvent.click(openSpot(2));
+  expect(openSpot(3)).toBeEnabled();
+  userEvent.click(openSpot(3));
+  expect(openSpot(4)).toBeDisabled();
+
+  userEvent.click(screen.getByRole('button', { name: 'Sign up (3)' }));
+  await waitFor(() =>
+    expect(planClient.Signup).toHaveBeenCalledWith(2, {
+      shiftIDs: [11, 12, 13],
+    }),
+  );
+  expect(
+    await screen.findByText(/signed up for 3 chore shifts/i),
+  ).toBeVisible();
+});
+
+test('keeps the newest state when category refreshes resolve out of order', async () => {
+  const openChoreShift = {
+    ...shift,
+    assignedParticipantCount: 0,
+    currentUserAssigned: false,
+    assignments: [],
+  };
+  const openEventShift = {
+    ...openChoreShift,
+    id: 12,
+    stableKey: 'event|1|gate',
+    scheduleKey: 'event|gate',
+    kind: 'event' as const,
+    scheduleName: 'Gate',
+    timePeriodLabel: '6p-9p',
+    periodOrder: 1,
+  };
+  const assignedChoreShift = {
+    ...openChoreShift,
+    assignedParticipantCount: 1,
+    currentUserAssigned: true,
+    assignments: [{ displayName: 'Moonbeam', currentUser: true }],
+  };
+  const assignedEventShift = {
+    ...openEventShift,
+    assignedParticipantCount: 1,
+    currentUserAssigned: true,
+    assignments: [{ displayName: 'Moonbeam', currentUser: true }],
+  };
+  const initialResponse = openResponse([openChoreShift, openEventShift]);
+  const firstRefresh = deferred<ChorePlanShiftViewResponse>();
+  const secondRefresh = deferred<ChorePlanShiftViewResponse>();
+  const planClient = client(initialResponse);
+  planClient.GetShifts = jest
+    .fn()
+    .mockResolvedValueOnce(initialResponse)
+    .mockReturnValueOnce(firstRefresh.promise)
+    .mockReturnValueOnce(secondRefresh.promise);
+  render(<ChorePlanShiftView rosterID={2} planClient={planClient} />);
+
+  userEvent.click(await screen.findByRole('button', { name: /event crew/i }));
+  userEvent.click(
+    screen.getByRole('button', {
+      name: /select open spot for AM Chum Wench/i,
+    }),
+  );
+  userEvent.click(screen.getByRole('button', { name: 'Sign up (1)' }));
+  await waitFor(() => expect(planClient.GetShifts).toHaveBeenCalledTimes(2));
+
+  userEvent.click(
+    screen.getByRole('button', { name: /select open spot for Gate/i }),
+  );
+  userEvent.click(screen.getByRole('button', { name: 'Sign up (1)' }));
+  await waitFor(() => expect(planClient.GetShifts).toHaveBeenCalledTimes(3));
+
+  await act(async () => {
+    secondRefresh.resolve(
+      openResponse([assignedChoreShift, assignedEventShift]),
+    );
+  });
+  await waitFor(() =>
+    expect(
+      screen.getByRole('button', { name: /remove your spot for Gate/i }),
+    ).toBeEnabled(),
+  );
+
+  await act(async () => {
+    firstRefresh.resolve(openResponse([assignedChoreShift, openEventShift]));
+  });
+  expect(
+    screen.getByRole('button', { name: /remove your spot for Gate/i }),
+  ).toBeEnabled();
+});
+
+test('selects signup-sheet slots before signup, removal, and switching', async () => {
+  const openShift = {
+    ...shift,
+    id: 12,
+    stableKey: 'chore|1|am-ice-bitch',
+    scheduleKey: 'chore|am-ice-bitch',
+    scheduleName: 'AM Ice Bitch',
+    assignedParticipantCount: 0,
+    currentUserAssigned: false,
+    assignments: [],
+  };
+
+  const signupClient = client(
+    openResponse([
+      {
+        ...shift,
+        assignedParticipantCount: 0,
+        currentUserAssigned: false,
+        assignments: [],
+      },
+    ]),
+  );
+  const signupRender = render(
+    <ChorePlanShiftView rosterID={2} planClient={signupClient} />,
+  );
+  userEvent.click(
+    await screen.findByRole('button', {
+      name: /select open spot for AM Chum Wench/i,
+    }),
+  );
+  userEvent.click(screen.getByRole('button', { name: 'Sign up (1)' }));
+  await waitFor(() =>
+    expect(signupClient.Signup).toHaveBeenCalledWith(2, { shiftIDs: [11] }),
+  );
+  expect(await screen.findByText(/signed up for 1 chore shift/i)).toBeVisible();
+  expect(signupClient.GetShifts).toHaveBeenCalledTimes(2);
+  signupRender.unmount();
+
+  const removeClient = client(openResponse([shift]));
+  const removeRender = render(
+    <ChorePlanShiftView rosterID={2} planClient={removeClient} />,
+  );
+  userEvent.click(
+    await screen.findByRole('button', {
+      name: /remove your spot for AM Chum Wench/i,
+    }),
+  );
+  userEvent.click(screen.getByRole('button', { name: 'Remove shift' }));
+  await waitFor(() => expect(removeClient.Remove).toHaveBeenCalledWith(2, 11));
+  expect(await screen.findByText(/removed AM Chum Wench/i)).toBeVisible();
+  removeRender.unmount();
+
+  const switchClient = client(openResponse([shift, openShift]));
+  render(<ChorePlanShiftView rosterID={2} planClient={switchClient} />);
+  userEvent.click(
+    await screen.findByRole('button', {
+      name: /remove your spot for AM Chum Wench/i,
+    }),
+  );
+  userEvent.click(
+    screen.getByRole('button', {
+      name: /select open spot for AM Ice Bitch/i,
+    }),
+  );
+  userEvent.click(screen.getByRole('button', { name: 'Change shift' }));
+  await waitFor(() =>
+    expect(switchClient.Switch).toHaveBeenCalledWith(2, {
+      fromShiftID: 11,
+      toShiftID: 12,
+    }),
+  );
+  expect(await screen.findByText(/changed to AM Ice Bitch/i)).toBeVisible();
+});
+
+test.each([
+  [
+    'the attendance window',
+    CHORE_PLAN_SIGNUP_RESTRICTION_MESSAGES.outsideAttendanceWindow,
+  ],
+  [
+    'an existing assignment',
+    CHORE_PLAN_SIGNUP_RESTRICTION_MESSAGES.existingShiftConflict,
+  ],
+])('disables and explains spots blocked by %s', async (_label, reason) => {
+  const restrictedShift = {
+    ...shift,
+    assignedParticipantCount: 0,
+    currentUserAssigned: false,
+    assignments: [],
+    signupRestrictionReason: reason,
+    signupConflictShiftIDs:
+      reason === CHORE_PLAN_SIGNUP_RESTRICTION_MESSAGES.existingShiftConflict
+        ? [99]
+        : [],
+    signupConflicts:
+      reason === CHORE_PLAN_SIGNUP_RESTRICTION_MESSAGES.existingShiftConflict
+        ? [
+            {
+              shiftID: 99,
+              scheduleName: 'Kitchen prep',
+              startTime: '2026-08-30T18:30:00.000Z',
+              endTime: '2026-08-30T19:30:00.000Z',
+            },
+          ]
+        : [],
+  };
+  render(
+    <ChorePlanShiftView
+      rosterID={2}
+      planClient={client(openResponse([restrictedShift]))}
+    />,
+  );
+
+  const openSpot = await screen.findByRole('button', {
+    name: /select open spot for AM Chum Wench/i,
+  });
+  expect(openSpot).toBeDisabled();
+
+  fireEvent.mouseOver(openSpot.parentElement as HTMLElement);
+  const tooltip = await screen.findByRole('tooltip');
+  expect(tooltip).toHaveTextContent(reason);
+  if (reason === CHORE_PLAN_SIGNUP_RESTRICTION_MESSAGES.existingShiftConflict) {
+    expect(tooltip).toHaveTextContent(
+      'Conflicting assignment: Kitchen prep (11:30 AM to 12:30 PM).',
+    );
+  }
+});
+
+test('enables an overlapping replacement only when its conflict is selected for removal', async () => {
+  const replacementShift = {
+    ...shift,
+    id: 12,
+    stableKey: 'chore|1|am-ice-bitch',
+    scheduleKey: 'chore|am-ice-bitch',
+    scheduleName: 'AM Ice Bitch',
+    assignedParticipantCount: 0,
+    currentUserAssigned: false,
+    assignments: [],
+    signupRestrictionReason:
+      CHORE_PLAN_SIGNUP_RESTRICTION_MESSAGES.existingShiftConflict,
+    signupConflictShiftIDs: [shift.id],
+    signupConflicts: [
+      {
+        shiftID: shift.id,
+        scheduleName: shift.scheduleName,
+        startTime: shift.startTime,
+        endTime: shift.endTime,
+      },
+    ],
+  };
+  render(
+    <ChorePlanShiftView
+      rosterID={2}
+      planClient={client(openResponse([shift, replacementShift]))}
+    />,
+  );
+
+  const replacementSpot = await screen.findByRole('button', {
+    name: /select open spot for AM Ice Bitch/i,
+  });
+  expect(replacementSpot).toBeDisabled();
+
+  userEvent.click(
+    screen.getByRole('button', {
+      name: /remove your spot for AM Chum Wench/i,
+    }),
+  );
+  expect(replacementSpot).toBeEnabled();
+});
+
+test('shows authoritative backend signup conflicts', async () => {
+  const planClient = client(
+    openResponse([
+      {
+        ...shift,
+        assignedParticipantCount: 0,
+        currentUserAssigned: false,
+        assignments: [],
+      },
+    ]),
+  );
+  planClient.Signup = jest.fn().mockRejectedValue({
+    response: {
+      status: 409,
+      data: { error: 'This chore plan shift is full.' },
+    },
+  });
+  render(<ChorePlanShiftView rosterID={2} planClient={planClient} />);
+
+  userEvent.click(
+    await screen.findByRole('button', {
+      name: /select open spot for AM Chum Wench/i,
+    }),
+  );
+  userEvent.click(screen.getByRole('button', { name: 'Sign up (1)' }));
+  expect(await screen.findByText(/chore plan shift is full/i)).toBeVisible();
+  expect(planClient.GetShifts).toHaveBeenCalledTimes(1);
+});
+
+test('reports a saved mutation separately when the refresh fails', async () => {
+  const initialResponse = openResponse([
+    {
+      ...shift,
+      assignedParticipantCount: 0,
+      currentUserAssigned: false,
+      assignments: [],
+    },
+  ]);
+  const planClient = client(initialResponse);
+  planClient.GetShifts = jest
+    .fn()
+    .mockResolvedValueOnce(initialResponse)
+    .mockRejectedValueOnce(new Error('Refresh failed'));
+  render(<ChorePlanShiftView rosterID={2} planClient={planClient} />);
+
+  userEvent.click(
+    await screen.findByRole('button', {
+      name: /select open spot for AM Chum Wench/i,
+    }),
+  );
+  userEvent.click(screen.getByRole('button', { name: 'Sign up (1)' }));
+
+  expect(await screen.findByText(/signed up for 1 chore shift/i)).toBeVisible();
+  expect(
+    screen.getByText(/assignment update was saved.*could not be refreshed/i),
+  ).toBeVisible();
+  await waitFor(() =>
+    expect(
+      screen.getByRole('button', {
+        name: /select open spot for AM Chum Wench/i,
+      }),
+    ).toBeEnabled(),
+  );
+  expect(planClient.GetShifts).toHaveBeenCalledTimes(2);
 });
 
 test('keeps closed assignments visible and read-only', async () => {

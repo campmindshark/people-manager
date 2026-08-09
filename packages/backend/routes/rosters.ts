@@ -4,9 +4,9 @@ import hasPermission from '../middleware/rbac';
 import userIsVerified from '../middleware/verified_user';
 import User from '../models/user/user';
 import RosterParticipantViewModel from '../view_models/roster_participant';
-import RosterParticipant from '../models/roster_participant/roster_participant';
 import AnalysisController from '../controllers/analysis';
 import RosterController from '../controllers/roster';
+import RosterParticipantController from '../controllers/roster_participant';
 
 const router: Router = express.Router();
 
@@ -23,53 +23,51 @@ router.get(
 );
 
 /* GET Roster by ID. */
-router.get(
-  '/:id',
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  async (req: Request, res: Response, next: NextFunction) => {
-    const query = Roster.query().findById(req.params.id);
+router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
+  const rosterID = Number(req.params.id);
+  if (!Number.isSafeInteger(rosterID) || rosterID < 1) {
+    res.status(400).json({ error: 'Roster ID must be valid' });
+    return;
+  }
 
-    const roster = await query;
+  try {
+    const roster = await Roster.query().findById(rosterID);
+    if (!roster) {
+      res.status(404).json({ error: 'Roster not found' });
+      return;
+    }
+
     res.json(roster);
-  },
-);
+  } catch (error) {
+    next(error);
+  }
+});
 
 /* POST drop-out this user from the specific roster. */
 router.post('/:id/drop-out', async (req: Request, res: Response) => {
-  const rosterID = req.params.id;
+  const rosterID = Number(req.params.id);
 
   const tmpUser = req.user as User;
   const user = User.fromJson(tmpUser);
 
-  if (!rosterID) {
-    res.json({ error: 'Roster ID not defined' });
+  if (!Number.isSafeInteger(rosterID) || rosterID < 1) {
+    res.status(400).json({ error: 'Roster ID must be valid' });
     return;
   }
 
-  const participant = await RosterParticipant.query()
-    .where({
-      userID: user.id,
-      rosterID,
-    })
-    .first();
+  const result = await RosterParticipantController.RemoveFromRoster(rosterID, [
+    user.id,
+  ]);
 
-  if (!participant) {
+  if (result.deletedCount === 0) {
     res.json({ error: 'User not found in roster' });
     return;
   }
-
   console.log(
     `Dropping out user ${
       user.id
     } - ${user.displayName()} from roster ${rosterID}`,
   );
-
-  const success = await RosterParticipant.query().deleteById(participant.id);
-
-  if (!success) {
-    res.status(500).json({ error: 'Failed to drop out user from roster' });
-    return;
-  }
   res.json({ success: true });
 });
 

@@ -1,5 +1,6 @@
 import express, { Request, Response, Router } from 'express';
 import { ValidationError } from 'objection';
+import RosterParticipantController from '../controllers/roster_participant';
 import User from '../models/user/user';
 import Roster from '../models/roster/roster';
 import RosterParticipant from '../models/roster_participant/roster_participant';
@@ -74,14 +75,6 @@ router.post('/:id', async (req: Request, res: Response) => {
     rosterID,
   };
 
-  const checkCurrent = await RosterParticipant.query().where(signupScope);
-
-  const {
-    id: _id,
-    attendanceTimestampFormat: _attendanceTimestampFormat,
-    ...participantFields
-  } = req.body;
-
   let parsedArrivalDate: Date;
   let parsedDepartureDate: Date;
   try {
@@ -103,38 +96,84 @@ router.post('/:id', async (req: Request, res: Response) => {
     return;
   }
 
-  try {
-    const attendanceTimestampWrite =
-      await prepareRosterAttendanceTimestampWrite(
-        RosterParticipant.knex(),
-        parsedArrivalDate,
-        parsedDepartureDate,
-      );
+  if (
+    !Number.isFinite(parsedArrivalDate.getTime()) ||
+    !Number.isFinite(parsedDepartureDate.getTime()) ||
+    parsedArrivalDate >= parsedDepartureDate
+  ) {
+    res.status(400).json({
+      error: 'Arrival and departure dates must define a valid time window.',
+    });
+    return;
+  }
 
-    if (checkCurrent.length > 0) {
-      await RosterParticipant.query()
-        .where(signupScope)
-        .patch({
+  try {
+    const {
+      id: _id,
+      userID: _userId,
+      rosterID: _rosterId,
+      attendanceTimestampFormat: _attendanceTimestampFormat,
+      ...participantFields
+    } = req.body;
+    const { rosterParticipant, removedAssignmentCount } =
+      await RosterParticipant.knex().transaction(async (transaction) => {
+        await transaction('users')
+          .select('id')
+          .where('id', user.id)
+          .forUpdate()
+          .first();
+        const currentParticipants = await RosterParticipant.query(transaction)
+          .where(signupScope)
+          .orderBy('id')
+          .forUpdate();
+        const attendanceTimestampWrite =
+          await prepareRosterAttendanceTimestampWrite(
+            transaction,
+            parsedArrivalDate,
+            parsedDepartureDate,
+          );
+        const participantData = {
           ...participantFields,
           ...attendanceTimestampWrite,
-        });
+        };
+        let savedParticipant: RosterParticipant;
+        if (currentParticipants.length > 0) {
+          await RosterParticipant.query(transaction)
+            .where(signupScope)
+            .patch(participantData);
+          const updatedParticipant = await RosterParticipant.query(
+            transaction,
+          ).findById(currentParticipants[0].id);
+          if (!updatedParticipant) {
+            throw new Error('Updated roster participant could not be loaded.');
+          }
+          savedParticipant = updatedParticipant;
+        } else {
+          savedParticipant = await RosterParticipant.query(transaction).insert({
+            ...participantData,
+            userID: user.id,
+            rosterID,
+          });
+        }
 
-      const rosterParticipant = await RosterParticipant.query().findById(
-        checkCurrent[0].id,
-      );
+        const removedCount =
+          await RosterParticipantController.ReconcileAttendanceWindow(
+            transaction,
+            rosterID,
+            user.id,
+            {
+              startTime: parsedArrivalDate,
+              endTime: parsedDepartureDate,
+            },
+          );
 
-      res.json(rosterParticipant);
-      return;
-    }
+        return {
+          rosterParticipant: savedParticipant,
+          removedAssignmentCount: removedCount,
+        };
+      });
 
-    const rosterParticipant = await RosterParticipant.query().insert({
-      ...participantFields,
-      ...attendanceTimestampWrite,
-      userID: user.id,
-      rosterID,
-    });
-
-    res.json(rosterParticipant);
+    res.json({ ...rosterParticipant, removedAssignmentCount });
   } catch (error) {
     if (error instanceof ValidationError) {
       res.status(400).json({ error: error.message, details: error.data });
@@ -156,26 +195,24 @@ router.delete(
       return;
     }
 
-    const participant = await RosterParticipant.query()
-      .where({
-        userID: parseInt(userId, 10),
-        rosterID: parseInt(rosterId, 10),
-      })
-      .first();
+    const parsedRosterID = parseInt(rosterId, 10);
+    const parsedUserID = parseInt(userId, 10);
+    if (Number.isNaN(parsedRosterID) || Number.isNaN(parsedUserID)) {
+      res.status(400).json({ error: 'Roster ID and User ID must be valid' });
+      return;
+    }
 
-    if (!participant) {
+    const result = await RosterParticipantController.RemoveFromRoster(
+      parsedRosterID,
+      [parsedUserID],
+    );
+
+    if (result.deletedCount === 0) {
       res.status(404).json({ error: 'User not found in roster' });
       return;
     }
 
-    const success = await RosterParticipant.query().deleteById(participant.id);
-
-    if (!success) {
-      res.status(500).json({ error: 'Failed to remove user from roster' });
-      return;
-    }
-
-    res.json({ success: true });
+    res.json({ success: true, ...result });
   },
 );
 
@@ -194,25 +231,29 @@ router.delete(
       return;
     }
 
-    const participants = await RosterParticipant.query()
-      .where({
-        rosterID: parseInt(rosterId, 10),
-      })
-      .whereIn('userID', userIds);
+    const parsedRosterID = parseInt(rosterId, 10);
+    const parsedUserIDs = userIds.map(Number);
+    if (
+      Number.isNaN(parsedRosterID) ||
+      parsedUserIDs.some((userID) => !Number.isInteger(userID) || userID < 1)
+    ) {
+      res.status(400).json({ error: 'Roster ID and user IDs must be valid' });
+      return;
+    }
 
-    if (participants.length === 0) {
+    const result = await RosterParticipantController.RemoveFromRoster(
+      parsedRosterID,
+      parsedUserIDs,
+    );
+
+    if (result.deletedCount === 0) {
       res
         .status(404)
         .json({ error: 'No participants found for the given user IDs' });
       return;
     }
 
-    const participantIds = participants.map((p) => p.id);
-    const deletedCount = await RosterParticipant.query()
-      .whereIn('id', participantIds)
-      .delete();
-
-    res.json({ success: true, deletedCount });
+    res.json({ success: true, ...result });
   },
 );
 
