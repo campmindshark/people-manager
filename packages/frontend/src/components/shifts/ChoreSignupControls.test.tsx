@@ -16,6 +16,7 @@ function lifecycle(
     id: 3,
     rosterID: 2,
     status,
+    draftRevision: '7',
     planningYear: 2026,
     camperCount: 50,
     requirements: { chore: 3, event: 3, dinner: 1 },
@@ -93,7 +94,7 @@ test('places draft opening controls with the shift signup status', async () => {
   ).toBeVisible();
   userEvent.click(screen.getByRole('button', { name: 'Open Chore Signups' }));
 
-  await waitFor(() => expect(planClient.Open).toHaveBeenCalledWith(2));
+  await waitFor(() => expect(planClient.Open).toHaveBeenCalledWith(2, '7'));
   expect(
     await screen.findByText('Chore signups are open for 2026.'),
   ).toBeVisible();

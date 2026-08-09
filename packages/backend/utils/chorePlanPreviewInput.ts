@@ -1,5 +1,6 @@
 import {
   ChorePlanApplyRequest,
+  ChorePlanDisabledAssignment,
   ChorePlanPreviewRequest,
   ChorePlanRequirements,
 } from '../view_models/chore_plan_preview';
@@ -7,6 +8,10 @@ import ChorePlanPreviewError from './chorePlanPreviewError';
 
 export const MAX_CHORE_PLAN_CAMPERS = 200;
 export const MAX_CHORE_PLAN_REQUIREMENT = 20;
+export const MAX_DISABLED_CHORE_PLAN_ASSIGNMENTS = 500;
+const SHIFT_KEY_PATTERN =
+  /^(?:chore|event|dinner)\|[1-8]\|[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const DEFINITION_KEY_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 function parsePositiveID(value: unknown): number {
   if (!Number.isSafeInteger(value) || Number(value) < 1) {
@@ -86,6 +91,68 @@ function parseRevision(value: unknown, label: string): string {
   return value;
 }
 
+function disabledAssignmentIdentity(
+  assignment: ChorePlanDisabledAssignment,
+): string {
+  return `${assignment.shiftKey}|${assignment.definitionKey}`;
+}
+
+function parseDisabledAssignments(
+  value: unknown,
+): ChorePlanDisabledAssignment[] {
+  if (
+    !Array.isArray(value) ||
+    value.length > MAX_DISABLED_CHORE_PLAN_ASSIGNMENTS
+  ) {
+    throw new ChorePlanPreviewError(
+      `Disabled assignments must be an array with at most ${MAX_DISABLED_CHORE_PLAN_ASSIGNMENTS} entries.`,
+      400,
+    );
+  }
+  const assignments = value.map((entry) => {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+      throw new ChorePlanPreviewError(
+        'A disabled assignment must identify one shift and position.',
+        400,
+      );
+    }
+    const input = entry as Record<string, unknown>;
+    const keys = Object.keys(input).sort();
+    if (
+      keys.length !== 2 ||
+      keys[0] !== 'definitionKey' ||
+      keys[1] !== 'shiftKey' ||
+      typeof input.shiftKey !== 'string' ||
+      !SHIFT_KEY_PATTERN.test(input.shiftKey) ||
+      typeof input.definitionKey !== 'string' ||
+      !DEFINITION_KEY_PATTERN.test(input.definitionKey)
+    ) {
+      throw new ChorePlanPreviewError(
+        'A disabled assignment has an invalid shift or position key.',
+        400,
+      );
+    }
+    return {
+      shiftKey: input.shiftKey,
+      definitionKey: input.definitionKey,
+    };
+  });
+  if (
+    new Set(assignments.map(disabledAssignmentIdentity)).size !==
+    assignments.length
+  ) {
+    throw new ChorePlanPreviewError(
+      'Disabled assignments must be unique.',
+      400,
+    );
+  }
+  return [...assignments].sort((first, second) =>
+    disabledAssignmentIdentity(first).localeCompare(
+      disabledAssignmentIdentity(second),
+    ),
+  );
+}
+
 export function parseChorePlanPreviewRequest(
   value: unknown,
 ): ChorePlanPreviewRequest {
@@ -96,13 +163,14 @@ export function parseChorePlanPreviewRequest(
   const input = value as Record<string, unknown>;
   const keys = Object.keys(input).sort();
   if (
-    keys.length !== 3 ||
+    (keys.length !== 3 && keys.length !== 4) ||
     keys[0] !== 'camperCount' ||
-    keys[1] !== 'requirements' ||
-    keys[2] !== 'rosterID'
+    (keys.length === 4 && keys[1] !== 'disabledAssignments') ||
+    keys[keys.length - 2] !== 'requirements' ||
+    keys[keys.length - 1] !== 'rosterID'
   ) {
     throw new ChorePlanPreviewError(
-      'A preview accepts only rosterID, camperCount, and requirements.',
+      'A preview accepts only rosterID, camperCount, requirements, and disabledAssignments.',
       400,
     );
   }
@@ -111,6 +179,13 @@ export function parseChorePlanPreviewRequest(
     rosterID: parsePositiveID(input.rosterID),
     camperCount: parseCamperCount(input.camperCount),
     requirements: parseRequirements(input.requirements),
+    ...('disabledAssignments' in input
+      ? {
+          disabledAssignments: parseDisabledAssignments(
+            input.disabledAssignments,
+          ),
+        }
+      : {}),
   };
 }
 
@@ -124,15 +199,16 @@ export function parseChorePlanApplyRequest(
   const input = value as Record<string, unknown>;
   const keys = Object.keys(input).sort();
   if (
-    keys.length !== 5 ||
+    (keys.length !== 5 && keys.length !== 6) ||
     keys[0] !== 'camperCount' ||
-    keys[1] !== 'expectedCatalogRevision' ||
-    keys[2] !== 'expectedDraftRevision' ||
-    keys[3] !== 'requirements' ||
-    keys[4] !== 'rosterID'
+    (keys.length === 6 && keys[1] !== 'disabledAssignments') ||
+    keys[keys.length - 4] !== 'expectedCatalogRevision' ||
+    keys[keys.length - 3] !== 'expectedDraftRevision' ||
+    keys[keys.length - 2] !== 'requirements' ||
+    keys[keys.length - 1] !== 'rosterID'
   ) {
     throw new ChorePlanPreviewError(
-      'A draft apply accepts only rosterID, camperCount, requirements, expectedCatalogRevision, and expectedDraftRevision.',
+      'A draft apply accepts only rosterID, camperCount, requirements, disabledAssignments, expectedCatalogRevision, and expectedDraftRevision.',
       400,
     );
   }
@@ -141,6 +217,9 @@ export function parseChorePlanApplyRequest(
     rosterID: input.rosterID,
     camperCount: input.camperCount,
     requirements: input.requirements,
+    ...('disabledAssignments' in input
+      ? { disabledAssignments: input.disabledAssignments }
+      : {}),
   });
   const expectedDraftRevision =
     input.expectedDraftRevision === null

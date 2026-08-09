@@ -7,6 +7,7 @@ import {
   ChorePlanDraftSummary,
   ChorePlanPreview,
 } from 'backend/view_models/chore_plan_preview';
+import { ChorePlanReadinessResponse } from 'backend/view_models/chore_plan_readiness';
 import ChorePlanBuilder, {
   ChorePlannerClient,
   ChorePlannerRosterClient,
@@ -29,6 +30,15 @@ function preview(overrides: Partial<ChorePlanPreview> = {}): ChorePlanPreview {
     camperCount: 1,
     requirements: { chore: 3, event: 3, dinner: 1 },
     catalogRevision: '7',
+    disabledAssignments: [],
+    disabledSlots: [],
+    disableableAssignments: [
+      {
+        shiftKey: 'chore|1|chore-am-chum-wench-first',
+        definitionKey: 'chore-am-chum-wench-first',
+      },
+    ],
+    reenableableAssignments: [],
     categories: {
       chore: { target: 3, selected: 3, shortage: 0 },
       event: { target: 3, selected: 3, shortage: 0 },
@@ -75,6 +85,7 @@ function draft(
     planningYear: sourcePreview.year,
     camperCount: sourcePreview.camperCount,
     requirements: sourcePreview.requirements,
+    disabledAssignments: sourcePreview.disabledAssignments,
     scheduleCount: 1,
     shiftCount: sourcePreview.shifts.length,
     slotCount: sourcePreview.shifts.reduce(
@@ -97,6 +108,48 @@ function applyResponse(
     draft: sourceDraft,
     preview: sourcePreview,
     ...overrides,
+  };
+}
+
+function readiness(): ChorePlanReadinessResponse {
+  return {
+    planID: 10,
+    rosterID: 1,
+    status: 'draft',
+    plannerHeadcount: 1,
+    actualRosterCount: 1,
+    headcountDifference: 0,
+    categories: {
+      chore: {
+        kind: 'chore',
+        completeParticipants: 0,
+        incompleteParticipants: 1,
+        assignedShifts: 0,
+        requiredShifts: 3,
+      },
+      event: {
+        kind: 'event',
+        completeParticipants: 0,
+        incompleteParticipants: 1,
+        assignedShifts: 0,
+        requiredShifts: 3,
+      },
+      dinner: {
+        kind: 'dinner',
+        completeParticipants: 0,
+        incompleteParticipants: 1,
+        assignedShifts: 0,
+        requiredShifts: 1,
+      },
+    },
+    underfilledShifts: [],
+    fullShifts: [],
+    overfilledShifts: [],
+    incompleteParticipants: [],
+    feasibilityIssues: [],
+    participantDataIssues: [],
+    requirementExceptions: [],
+    generatedAt: '2026-08-09T12:00:00.000Z',
   };
 }
 
@@ -358,6 +411,247 @@ test('reapplies an identical draft without a replacement dialog', async () => {
   expect(
     await screen.findByText(/saved signup plan already matches this preview/i),
   ).toBeVisible();
+});
+
+test('disables one assignment while retaining its sibling position', async () => {
+  const generated = preview({
+    shifts: [
+      {
+        ...preview().shifts[0],
+        requiredParticipants: 2,
+        totalScore: 150,
+        slots: [
+          ...preview().shifts[0].slots,
+          {
+            definitionKey: 'chore-am-chum-wench-second',
+            positionLabel: 'Second',
+            score: 50,
+          },
+        ],
+      },
+    ],
+  });
+  const currentDraft = draft(generated);
+  const replacementShift = {
+    ...generated.shifts[0],
+    stableKey: 'chore|2|chore-am-chum-wench-first',
+    displayDayNumber: 2,
+    displayDayLabel: 'Monday, Aug 31',
+    requiredParticipants: 1,
+    totalScore: 100,
+    slots: [generated.shifts[0].slots[0]],
+  };
+  const replacement = preview({
+    disabledAssignments: [
+      {
+        shiftKey: generated.shifts[0].stableKey,
+        definitionKey: generated.shifts[0].slots[0].definitionKey,
+      },
+    ],
+    disabledSlots: [
+      {
+        shiftKey: generated.shifts[0].stableKey,
+        definitionKey: generated.shifts[0].slots[0].definitionKey,
+        scheduleKey: generated.shifts[0].scheduleKey,
+        kind: 'chore',
+        scheduleName: generated.shifts[0].scheduleName,
+        displayDayNumber: generated.shifts[0].displayDayNumber,
+        displayDayLabel: generated.shifts[0].displayDayLabel,
+        calendarDay: generated.shifts[0].calendarDay,
+        timePeriodLabel: generated.shifts[0].timePeriodLabel,
+        periodOrder: generated.shifts[0].periodOrder,
+        startTime: generated.shifts[0].startTime,
+        endTime: generated.shifts[0].endTime,
+        positionLabel: generated.shifts[0].slots[0].positionLabel,
+        score: generated.shifts[0].slots[0].score,
+      },
+    ],
+    disableableAssignments: [
+      {
+        shiftKey: generated.shifts[0].stableKey,
+        definitionKey: generated.shifts[0].slots[1].definitionKey,
+      },
+      {
+        shiftKey: replacementShift.stableKey,
+        definitionKey: replacementShift.slots[0].definitionKey,
+      },
+    ],
+    reenableableAssignments: [
+      {
+        shiftKey: generated.shifts[0].stableKey,
+        definitionKey: generated.shifts[0].slots[0].definitionKey,
+      },
+    ],
+    shifts: [
+      {
+        ...generated.shifts[0],
+        requiredParticipants: 1,
+        totalScore: 50,
+        slots: [generated.shifts[0].slots[1]],
+      },
+      replacementShift,
+    ],
+  });
+  const replacementDraft = draft(replacement, { draftRevision: '5' });
+  const { planClient, rosterClient } = clients(generated, currentDraft);
+  (planClient.Apply as jest.Mock).mockResolvedValueOnce(
+    applyResponse(replacement, replacementDraft, { replaced: true }),
+  );
+  (planClient.Apply as jest.Mock).mockResolvedValueOnce(
+    applyResponse(generated, draft(generated, { draftRevision: '6' }), {
+      replaced: true,
+    }),
+  );
+  render(
+    <ChorePlanBuilder planClient={planClient} rosterClient={rosterClient} />,
+  );
+
+  await enterCamperCount('1');
+  userEvent.click(screen.getByRole('button', { name: /preview signup plan/i }));
+  userEvent.click(
+    await screen.findByRole('button', {
+      name: /disable first assignment for am chum wench on sunday, aug 30/i,
+    }),
+  );
+
+  await waitFor(() =>
+    expect(planClient.Apply).toHaveBeenCalledWith({
+      rosterID: 1,
+      camperCount: 1,
+      requirements: { chore: 3, event: 3, dinner: 1 },
+      disabledAssignments: [
+        {
+          shiftKey: 'chore|1|chore-am-chum-wench-first',
+          definitionKey: 'chore-am-chum-wench-first',
+        },
+      ],
+      expectedCatalogRevision: '7',
+      expectedDraftRevision: '4',
+    }),
+  );
+  expect(
+    await screen.findByText(/next available assignment was added/i),
+  ).toBeVisible();
+  expect(screen.getByText('1 disabled assignment')).toBeVisible();
+  const disabledButton = screen.getByRole('button', {
+    name: /re-enable first assignment for am chum wench on sunday, aug 30/i,
+  });
+  expect(disabledButton).toBeVisible();
+  expect(screen.getByText('Off')).toBeVisible();
+  expect(
+    screen.getByRole('button', {
+      name: /disable second assignment for am chum wench on sunday, aug 30/i,
+    }),
+  ).toBeVisible();
+  expect(
+    screen.getByRole('button', {
+      name: /disable first assignment for am chum wench on monday, aug 31/i,
+    }),
+  ).toBeVisible();
+
+  userEvent.click(disabledButton);
+  await waitFor(() =>
+    expect(planClient.Apply).toHaveBeenLastCalledWith({
+      rosterID: 1,
+      camperCount: 1,
+      requirements: { chore: 3, event: 3, dinner: 1 },
+      disabledAssignments: [],
+      expectedCatalogRevision: '7',
+      expectedDraftRevision: '5',
+    }),
+  );
+  expect(
+    await screen.findByText(
+      /most recently added empty assignment was removed/i,
+    ),
+  ).toBeVisible();
+});
+
+test('limits open-plan assignment toggles to capacity added by an update', async () => {
+  const generated = preview({
+    disableableAssignments: [
+      {
+        shiftKey: 'chore|1|chore-am-chum-wench-first',
+        definitionKey: 'chore-am-chum-wench-second',
+      },
+    ],
+    shifts: [
+      {
+        ...preview().shifts[0],
+        requiredParticipants: 2,
+        totalScore: 150,
+        slots: [
+          ...preview().shifts[0].slots,
+          {
+            definitionKey: 'chore-am-chum-wench-second',
+            positionLabel: 'Second',
+            score: 50,
+          },
+        ],
+      },
+    ],
+  });
+  const openPlan = draft(generated, { status: 'open' });
+  const { planClient, rosterClient } = clients(generated, openPlan);
+  planClient.GetReadiness = jest.fn().mockResolvedValue(readiness());
+  planClient.Open = jest.fn().mockResolvedValue({});
+  render(
+    <ChorePlanBuilder planClient={planClient} rosterClient={rosterClient} />,
+  );
+
+  await enterCamperCount('1');
+  userEvent.click(screen.getByRole('button', { name: /preview signup plan/i }));
+
+  expect(
+    await screen.findByRole('button', {
+      name: /disable first assignment for am chum wench on sunday, aug 30/i,
+    }),
+  ).toBeDisabled();
+  expect(
+    screen.getByRole('button', {
+      name: /disable second assignment for am chum wench on sunday, aug 30/i,
+    }),
+  ).toBeEnabled();
+  expect(
+    screen.queryByRole('button', { name: /finalize and open signups/i }),
+  ).not.toBeInTheDocument();
+});
+
+test('reviews readiness before finalizing the saved draft and opening signups', async () => {
+  const generated = preview();
+  const currentDraft = draft(generated);
+  const { planClient, rosterClient } = clients(generated, currentDraft);
+  planClient.GetReadiness = jest.fn().mockResolvedValue(readiness());
+  planClient.Open = jest.fn().mockResolvedValue({});
+  render(
+    <ChorePlanBuilder planClient={planClient} rosterClient={rosterClient} />,
+  );
+
+  await enterCamperCount('1');
+  userEvent.click(screen.getByRole('button', { name: /preview signup plan/i }));
+  userEvent.click(
+    await screen.findByRole('button', {
+      name: /finalize and open signups/i,
+    }),
+  );
+
+  await waitFor(() => expect(planClient.GetReadiness).toHaveBeenCalledWith(1));
+  expect(planClient.Open).not.toHaveBeenCalled();
+  expect(
+    await screen.findByRole('dialog', { name: /readiness before opening/i }),
+  ).toBeVisible();
+  expect(await screen.findByText(/planner headcount:/i)).toHaveTextContent(
+    'Planner headcount: 1 · Actual roster: 1',
+  );
+
+  userEvent.click(screen.getByRole('button', { name: /confirm open/i }));
+  await waitFor(() => expect(planClient.Open).toHaveBeenCalledWith(1, '4'));
+  expect(
+    await screen.findByText(/plan is finalized and signups are open/i),
+  ).toBeVisible();
+  expect(
+    screen.queryByText(/signup sheet preview/i, { selector: 'h5' }),
+  ).not.toBeInTheDocument();
 });
 
 test('shows exact shortages and prevents apply', async () => {

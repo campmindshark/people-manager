@@ -13,6 +13,7 @@ interface ChorePlanLifecycleRow {
   id: number;
   rosterID: number;
   status: 'draft' | 'open' | 'closed';
+  draftRevision: string;
   planningYear: number;
   camperCount: number;
   choreRequirement: number;
@@ -42,6 +43,11 @@ interface TransitionContract {
   fromStatus: ChorePlanLifecycleRow['status'];
   toStatus: ChorePlanLifecycleRow['status'];
   auditAction: 'plan_opened' | 'plan_closed' | 'plan_reopened';
+}
+
+interface TransitionOptions {
+  expectedDraftRevision?: string;
+  reason?: string;
 }
 
 const TRANSITIONS: Record<LifecycleAction, TransitionContract> = {
@@ -99,6 +105,7 @@ function lifecycleState(
     id: plan.id,
     rosterID: plan.rosterID,
     status: plan.status,
+    draftRevision: String(plan.draftRevision),
     planningYear: plan.planningYear,
     camperCount: plan.camperCount,
     requirements: {
@@ -169,8 +176,11 @@ export default class ChorePlanLifecycleController {
   async open(
     rosterID: number,
     actorUserID: number,
+    expectedDraftRevision: string,
   ): Promise<ChorePlanLifecycleState> {
-    return this.transition(rosterID, actorUserID, 'open');
+    return this.transition(rosterID, actorUserID, 'open', {
+      expectedDraftRevision,
+    });
   }
 
   async close(
@@ -192,14 +202,16 @@ export default class ChorePlanLifecycleController {
     ) {
       throw new ChorePlanLifecycleError('Enter a valid reopening reason.', 400);
     }
-    return this.transition(rosterID, actorUserID, 'reopen', normalizedReason);
+    return this.transition(rosterID, actorUserID, 'reopen', {
+      reason: normalizedReason,
+    });
   }
 
   private async transition(
     rosterID: number,
     actorUserID: number,
     action: LifecycleAction,
-    reason?: string,
+    options: TransitionOptions = {},
   ): Promise<ChorePlanLifecycleState> {
     const contract = TRANSITIONS[action];
     return this.getDatabase().transaction(async (transaction) => {
@@ -213,6 +225,15 @@ export default class ChorePlanLifecycleController {
       if (plan.status !== contract.fromStatus) {
         throw new ChorePlanLifecycleError(
           invalidTransitionMessage(action),
+          409,
+        );
+      }
+      if (
+        action === 'open' &&
+        String(plan.draftRevision) !== options.expectedDraftRevision
+      ) {
+        throw new ChorePlanLifecycleError(
+          'The chore plan draft changed. Review it again before opening signups.',
           409,
         );
       }
@@ -250,7 +271,7 @@ export default class ChorePlanLifecycleController {
             ? {
                 fromStatus: contract.fromStatus,
                 toStatus: contract.toStatus,
-                reason,
+                reason: options.reason,
               }
             : {
                 fromStatus: contract.fromStatus,

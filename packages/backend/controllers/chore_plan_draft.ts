@@ -4,10 +4,17 @@ import Roster from '../models/roster/roster';
 import ChoreCatalogController from './chore_catalog';
 import buildChorePlanPreview from '../utils/chorePlanPreview';
 import ChorePlanPreviewError from '../utils/chorePlanPreviewError';
+import {
+  chorePlanAssignmentDifference,
+  chorePlanAssignmentIdentity,
+  chorePlanPreviewAssignmentMap,
+  withChorePlanAssignmentEligibility,
+} from '../utils/chorePlanAssignmentEligibility';
 import { ChoreCatalogDefinitionView } from '../view_models/chore_catalog';
 import {
   ChorePlanApplyRequest,
   ChorePlanApplyResponse,
+  ChorePlanDisabledAssignment,
   ChorePlanDraftResponse,
   ChorePlanDraftSummary,
   ChorePlanPreview,
@@ -31,6 +38,7 @@ interface ChorePlanRow {
   catalogRevision: string;
   draftRevision: string;
   generationHash: string;
+  openedAt: Date | string | null;
   updatedAt: Date | string;
 }
 
@@ -52,6 +60,22 @@ interface IDRow {
 
 interface CountRow {
   count: string;
+}
+
+interface AssignmentCountRow extends CountRow {
+  shiftID: number;
+}
+
+interface PersistedSlotRow extends ChorePlanDisabledAssignment {
+  shiftID: number;
+  kind: 'chore' | 'event' | 'dinner';
+}
+
+interface AdminAddedAssignmentRow extends ChorePlanDisabledAssignment {
+  id: number;
+  chorePlanID: number;
+  addedAfterOpening: boolean;
+  createdAt: Date | string;
 }
 
 interface DraftCounts {
@@ -111,7 +135,17 @@ function requirementsToColumns(requirements: ChorePlanRequirements) {
 }
 
 function generationHash(preview: ChorePlanPreview): string {
-  return createHash('sha256').update(JSON.stringify(preview)).digest('hex');
+  const {
+    disabledSlots: _disabledSlots,
+    disableableAssignments: _disableableAssignments,
+    reenableableAssignments: _reenableableAssignments,
+    ...canonicalPreview
+  } = preview;
+  const { disabledAssignments, ...legacyPreview } = canonicalPreview;
+  const hashInput = disabledAssignments.length
+    ? canonicalPreview
+    : legacyPreview;
+  return createHash('sha256').update(JSON.stringify(hashInput)).digest('hex');
 }
 
 function nextRevision(revision: string): string {
@@ -161,16 +195,147 @@ async function loadDraftCounts(
   };
 }
 
+function disabledAssignmentIdentity(
+  assignment: ChorePlanDisabledAssignment,
+): string {
+  return chorePlanAssignmentIdentity(assignment);
+}
+
+function mergeDisabledAssignments(
+  ...collections: ChorePlanDisabledAssignment[][]
+): ChorePlanDisabledAssignment[] {
+  return [
+    ...new Map(
+      collections
+        .flat()
+        .map((assignment) => [
+          disabledAssignmentIdentity(assignment),
+          assignment,
+        ]),
+    ).values(),
+  ]
+    .sort((first, second) =>
+      disabledAssignmentIdentity(first).localeCompare(
+        disabledAssignmentIdentity(second),
+      ),
+    )
+    .map(({ shiftKey, definitionKey }) => ({ shiftKey, definitionKey }));
+}
+
+async function loadDisabledAssignments(
+  database: Knex,
+  chorePlanID: number,
+): Promise<ChorePlanDisabledAssignment[]> {
+  return (await database('chore_plan_disabled_assignments')
+    .select('shiftKey', 'definitionKey')
+    .where({ chorePlanID })
+    .orderBy(['shiftKey', 'definitionKey'])) as ChorePlanDisabledAssignment[];
+}
+
+async function loadPersistedSlots(
+  database: Knex,
+  chorePlanID: number,
+): Promise<PersistedSlotRow[]> {
+  return (await database('chore_plan_slot_snapshots as slot')
+    .innerJoin(
+      'chore_plan_generated_shifts as generated',
+      'generated.shiftID',
+      'slot.shiftID',
+    )
+    .select(
+      'generated.shiftID',
+      'generated.stableKey as shiftKey',
+      'generated.kind',
+      'slot.definitionKey',
+    )
+    .where('generated.chorePlanID', chorePlanID)) as PersistedSlotRow[];
+}
+
+async function loadAssignmentCounts(
+  database: Knex,
+  shiftIDs: number[],
+): Promise<Map<number, number>> {
+  if (!shiftIDs.length) {
+    return new Map();
+  }
+  const rows = (await database<AssignmentCountRow>('shift_participants')
+    .select('shiftID')
+    .count('* as count')
+    .whereIn('shiftID', shiftIDs)
+    .groupBy('shiftID')) as AssignmentCountRow[];
+  return new Map(rows.map(({ shiftID, count }) => [shiftID, Number(count)]));
+}
+
+function storedAssignmentMap(
+  slots: PersistedSlotRow[],
+): Map<string, PersistedSlotRow> {
+  return new Map(
+    slots.map((slot) => [chorePlanAssignmentIdentity(slot), slot]),
+  );
+}
+
+function previewCapacitiesAreSafe(
+  preview: ChorePlanPreview,
+  slots: PersistedSlotRow[],
+  assignmentCounts: Map<number, number>,
+): boolean {
+  const capacityByShiftKey = new Map(
+    preview.shifts.map((shift) => [shift.stableKey, shift.slots.length]),
+  );
+  const shiftKeyByID = new Map(
+    slots.map(({ shiftID, shiftKey }) => [shiftID, shiftKey]),
+  );
+  return [...assignmentCounts].every(
+    ([shiftID, count]) =>
+      count <= (capacityByShiftKey.get(shiftKeyByID.get(shiftID) ?? '') ?? 0),
+  );
+}
+
+function planInputsMatchRequest(
+  plan: ChorePlanRow,
+  input: ChorePlanApplyRequest,
+): boolean {
+  return (
+    plan.camperCount === input.camperCount &&
+    plan.choreRequirement === input.requirements.chore &&
+    plan.eventRequirement === input.requirements.event &&
+    plan.dinnerRequirement === input.requirements.dinner
+  );
+}
+
+async function recordAddedAssignments(
+  database: Knex,
+  chorePlanID: number,
+  assignments: ChorePlanDisabledAssignment[],
+  actorUserID: number,
+  addedAfterOpening: boolean,
+): Promise<void> {
+  if (!assignments.length) {
+    return;
+  }
+  await database('chore_plan_admin_added_assignments')
+    .insert(
+      assignments.map(({ shiftKey, definitionKey }) => ({
+        chorePlanID,
+        shiftKey,
+        definitionKey,
+        addedAfterOpening,
+        addedByUserID: actorUserID,
+      })),
+    )
+    .onConflict(['chorePlanID', 'shiftKey', 'definitionKey'])
+    .merge({
+      addedAfterOpening,
+      addedByUserID: actorUserID,
+      createdAt: database.fn.now(),
+    });
+}
+
 function draftSummary(
   plan: ChorePlanRow,
   counts: DraftCounts,
+  disabledAssignments: ChorePlanDisabledAssignment[],
 ): ChorePlanDraftSummary {
-  if (plan.status !== 'draft') {
-    throw new ChorePlanPreviewError(
-      'Only a draft chore plan can be generated or replaced.',
-      409,
-    );
-  }
   return {
     id: plan.id,
     rosterID: plan.rosterID,
@@ -180,6 +345,7 @@ function draftSummary(
     planningYear: plan.planningYear,
     camperCount: plan.camperCount,
     requirements: requirementsFromPlan(plan),
+    disabledAssignments,
     ...counts,
     updatedAt: new Date(plan.updatedAt).toISOString(),
   };
@@ -232,8 +398,11 @@ export default class ChorePlanDraftController {
       if (!plan) {
         return { draft: null };
       }
-      const counts = await loadDraftCounts(transaction, plan.id);
-      return { draft: draftSummary(plan, counts) };
+      const [counts, disabledAssignments] = await Promise.all([
+        loadDraftCounts(transaction, plan.id),
+        loadDisabledAssignments(transaction, plan.id),
+      ]);
+      return { draft: draftSummary(plan, counts, disabledAssignments) };
     });
   }
 
@@ -276,14 +445,36 @@ export default class ChorePlanDraftController {
           409,
         );
       }
-      const preview = buildChorePlanPreview({
-        rosterID: input.rosterID,
-        camperCount: input.camperCount,
-        requirements: input.requirements,
-        year: roster.year,
-        catalogRevision: catalog.revision,
-        definitions: catalog.definitions,
-      });
+      let plan = (await transaction<ChorePlanRow>('chore_plans')
+        .where({ rosterID: input.rosterID })
+        .forUpdate()
+        .first()) as ChorePlanRow | undefined;
+
+      if (plan?.status === 'closed') {
+        throw new ChorePlanPreviewError(
+          'A closed chore plan cannot be edited. Reopen signups first.',
+          409,
+        );
+      }
+      const persistedDisabledAssignments = plan
+        ? await loadDisabledAssignments(transaction, plan.id)
+        : [];
+      const disabledAssignments = mergeDisabledAssignments(
+        input.disabledAssignments ?? persistedDisabledAssignments,
+      );
+      const build = (
+        proposedDisabledAssignments: ChorePlanDisabledAssignment[],
+      ) =>
+        buildChorePlanPreview({
+          rosterID: input.rosterID,
+          camperCount: input.camperCount,
+          requirements: input.requirements,
+          disabledAssignments: proposedDisabledAssignments,
+          year: roster.year,
+          catalogRevision: catalog.revision,
+          definitions: catalog.definitions,
+        });
+      const preview = build(disabledAssignments);
       if (
         Object.values(preview.categories).some(({ shortage }) => shortage > 0)
       ) {
@@ -295,17 +486,6 @@ export default class ChorePlanDraftController {
 
       const hash = generationHash(preview);
       const expectedCounts = previewCounts(preview);
-      let plan = (await transaction<ChorePlanRow>('chore_plans')
-        .where({ rosterID: input.rosterID })
-        .forUpdate()
-        .first()) as ChorePlanRow | undefined;
-
-      if (plan && plan.status !== 'draft') {
-        throw new ChorePlanPreviewError(
-          'Only a draft chore plan can be generated or replaced.',
-          409,
-        );
-      }
 
       if (plan?.generationHash === hash) {
         const counts = await loadDraftCounts(transaction, plan.id);
@@ -322,8 +502,13 @@ export default class ChorePlanDraftController {
         return {
           changed: false,
           replaced: false,
-          draft: draftSummary(plan, counts),
-          preview,
+          draft: draftSummary(plan, counts, disabledAssignments),
+          preview: await withChorePlanAssignmentEligibility(
+            transaction,
+            plan,
+            preview,
+            build,
+          ),
         };
       }
 
@@ -335,6 +520,217 @@ export default class ChorePlanDraftController {
           'The chore plan draft changed. Preview it again before replacing it.',
           409,
         );
+      }
+
+      const persistedDisabledByIdentity = new Map(
+        persistedDisabledAssignments.map((assignment) => [
+          disabledAssignmentIdentity(assignment),
+          assignment,
+        ]),
+      );
+      const disabledByIdentity = new Map(
+        disabledAssignments.map((assignment) => [
+          disabledAssignmentIdentity(assignment),
+          assignment,
+        ]),
+      );
+      const newlyDisabledAssignments = chorePlanAssignmentDifference(
+        disabledByIdentity,
+        persistedDisabledByIdentity,
+      );
+      const reenabledAssignments = chorePlanAssignmentDifference(
+        persistedDisabledByIdentity,
+        disabledByIdentity,
+      );
+      if (newlyDisabledAssignments.length + reenabledAssignments.length > 1) {
+        throw new ChorePlanPreviewError(
+          'Change one disabled assignment at a time.',
+          400,
+        );
+      }
+      if (
+        !plan &&
+        (newlyDisabledAssignments.length || reenabledAssignments.length)
+      ) {
+        throw new ChorePlanPreviewError(
+          'Create the chore plan before changing individual assignments.',
+          409,
+        );
+      }
+
+      const persistedSlots = plan
+        ? await loadPersistedSlots(transaction, plan.id)
+        : [];
+      const persistedAssignments = storedAssignmentMap(persistedSlots);
+      const previewAssignments = chorePlanPreviewAssignmentMap(preview);
+      const removedAssignments = chorePlanAssignmentDifference(
+        persistedAssignments,
+        previewAssignments,
+      );
+      const addedAssignments = chorePlanAssignmentDifference(
+        previewAssignments,
+        persistedAssignments,
+      );
+      const assignmentCounts = await loadAssignmentCounts(transaction, [
+        ...new Set(persistedSlots.map(({ shiftID }) => shiftID)),
+      ]);
+      const hasParticipantAssignments = [...assignmentCounts.values()].some(
+        (count) => count > 0,
+      );
+      let trackedAddedAssignments: ChorePlanDisabledAssignment[] = [];
+
+      if (plan && newlyDisabledAssignments.length) {
+        if (!planInputsMatchRequest(plan, input)) {
+          throw new ChorePlanPreviewError(
+            'Apply plan input changes before disabling an assignment.',
+            409,
+          );
+        }
+        const [disabledAssignment] = newlyDisabledAssignments;
+        const disabledSlot = persistedAssignments.get(
+          disabledAssignmentIdentity(disabledAssignment),
+        );
+        if (
+          !disabledSlot ||
+          removedAssignments.length !== 1 ||
+          disabledAssignmentIdentity(removedAssignments[0]) !==
+            disabledAssignmentIdentity(disabledAssignment) ||
+          addedAssignments.length !== 1 ||
+          !previewCapacitiesAreSafe(preview, persistedSlots, assignmentCounts)
+        ) {
+          throw new ChorePlanPreviewError(
+            'That assignment cannot be disabled safely.',
+            409,
+          );
+        }
+        const shiftCapacity = persistedSlots.filter(
+          ({ shiftID }) => shiftID === disabledSlot.shiftID,
+        ).length;
+        if (
+          (assignmentCounts.get(disabledSlot.shiftID) ?? 0) >= shiftCapacity
+        ) {
+          throw new ChorePlanPreviewError(
+            'Only an empty assignment can be disabled.',
+            409,
+          );
+        }
+        if (plan.openedAt !== null) {
+          const addedAfterOpening = await transaction(
+            'chore_plan_admin_added_assignments',
+          )
+            .where({
+              chorePlanID: plan.id,
+              shiftKey: disabledAssignment.shiftKey,
+              definitionKey: disabledAssignment.definitionKey,
+              addedAfterOpening: true,
+            })
+            .first();
+          if (!addedAfterOpening) {
+            throw new ChorePlanPreviewError(
+              'After signups open, only empty assignments added by a plan update can be disabled.',
+              409,
+            );
+          }
+        }
+        trackedAddedAssignments = addedAssignments;
+      } else if (plan && reenabledAssignments.length) {
+        if (!planInputsMatchRequest(plan, input)) {
+          throw new ChorePlanPreviewError(
+            'Apply plan input changes before re-enabling an assignment.',
+            409,
+          );
+        }
+        const [reenabledAssignment] = reenabledAssignments;
+        const eligibilityPlanID = plan.id;
+        const planOpenedAt = plan.openedAt;
+        if (
+          addedAssignments.length !== 1 ||
+          disabledAssignmentIdentity(addedAssignments[0]) !==
+            disabledAssignmentIdentity(reenabledAssignment) ||
+          removedAssignments.length !== 1 ||
+          !previewCapacitiesAreSafe(preview, persistedSlots, assignmentCounts)
+        ) {
+          throw new ChorePlanPreviewError(
+            'That assignment cannot be re-enabled safely.',
+            409,
+          );
+        }
+        const reenabledKind = reenabledAssignment.shiftKey.split('|')[0];
+        const activeAddedAssignments =
+          (await transaction<AdminAddedAssignmentRow>(
+            'chore_plan_admin_added_assignments',
+          )
+            .select(
+              'id',
+              'chorePlanID',
+              'shiftKey',
+              'definitionKey',
+              'addedAfterOpening',
+              'createdAt',
+            )
+            .where({ chorePlanID: eligibilityPlanID })
+            .orderBy('createdAt', 'desc')
+            .orderBy('id', 'desc')) as AdminAddedAssignmentRow[];
+        const removableAssignment = activeAddedAssignments.find(
+          (assignment) => {
+            const slot = persistedAssignments.get(
+              disabledAssignmentIdentity(assignment),
+            );
+            if (
+              !slot ||
+              slot.kind !== reenabledKind ||
+              (planOpenedAt !== null && !assignment.addedAfterOpening)
+            ) {
+              return false;
+            }
+            const shiftCapacity = persistedSlots.filter(
+              ({ shiftID }) => shiftID === slot.shiftID,
+            ).length;
+            return (assignmentCounts.get(slot.shiftID) ?? 0) < shiftCapacity;
+          },
+        );
+        if (
+          !removableAssignment ||
+          disabledAssignmentIdentity(removableAssignment) !==
+            disabledAssignmentIdentity(removedAssignments[0])
+        ) {
+          throw new ChorePlanPreviewError(
+            'That assignment cannot be re-enabled because there is no empty assignment from the latest plan update to remove.',
+            409,
+          );
+        }
+      } else if (plan?.status === 'open') {
+        const existingCamperCount = plan.camperCount;
+        const previousTargets = requirementsFromPlan(plan);
+        const requirementsChanged = (
+          ['chore', 'event', 'dinner'] as const
+        ).some((kind) => input.requirements[kind] !== previousTargets[kind]);
+        const reducesCapacity = (['chore', 'event', 'dinner'] as const).some(
+          (kind) =>
+            preview.categories[kind].target <
+            existingCamperCount * previousTargets[kind],
+        );
+        if (
+          input.camperCount <= existingCamperCount ||
+          requirementsChanged ||
+          reducesCapacity ||
+          removedAssignments.length > 0 ||
+          !previewCapacitiesAreSafe(preview, persistedSlots, assignmentCounts)
+        ) {
+          throw new ChorePlanPreviewError(
+            'An open chore plan can only increase its camper count; requirements, existing assignments, and existing slots must remain unchanged.',
+            409,
+          );
+        }
+        trackedAddedAssignments = addedAssignments;
+      } else if (plan) {
+        if (hasParticipantAssignments) {
+          throw new ChorePlanPreviewError(
+            'A draft with participant assignments cannot be replaced.',
+            409,
+          );
+        }
+        trackedAddedAssignments = addedAssignments;
       }
 
       if (plan) {
@@ -395,6 +791,34 @@ export default class ChorePlanDraftController {
       }
       const planID = plan.id;
 
+      if (newlyDisabledAssignments.length) {
+        await transaction('chore_plan_disabled_assignments').insert(
+          newlyDisabledAssignments.map(({ shiftKey, definitionKey }) => ({
+            chorePlanID: planID,
+            shiftKey,
+            definitionKey,
+            disabledByUserID: actorUserID,
+          })),
+        );
+      }
+      if (reenabledAssignments.length) {
+        const [reenabledAssignment] = reenabledAssignments;
+        await transaction('chore_plan_disabled_assignments')
+          .where({
+            chorePlanID: planID,
+            shiftKey: reenabledAssignment.shiftKey,
+            definitionKey: reenabledAssignment.definitionKey,
+          })
+          .del();
+      }
+      await recordAddedAssignments(
+        transaction,
+        planID,
+        trackedAddedAssignments,
+        actorUserID,
+        plan.openedAt !== null,
+      );
+
       const existingSchedules = (await transaction<ScheduleRow>('schedules')
         .select('id', 'chorePlanID', 'plannerKey')
         .where({ chorePlanID: planID })
@@ -412,22 +836,6 @@ export default class ChorePlanDraftController {
       if (existingShifts.some(({ plannerKey }) => !plannerKey)) {
         throw new Error('A generated shift is missing its stable key.');
       }
-      if (existingShifts.length) {
-        const assignmentCount = (await transaction('shift_participants')
-          .whereIn(
-            'shiftID',
-            existingShifts.map(({ id }) => id),
-          )
-          .count('* as count')
-          .first()) as CountRow | undefined;
-        if (Number(assignmentCount?.count ?? 0) > 0) {
-          throw new ChorePlanPreviewError(
-            'A draft with participant assignments cannot be replaced.',
-            409,
-          );
-        }
-      }
-
       const scheduleDescriptors = [
         ...new Map(
           preview.shifts.map((shift) => [
@@ -641,8 +1049,13 @@ export default class ChorePlanDraftController {
       return {
         changed: true,
         replaced: previousAuditSnapshot !== null,
-        draft: draftSummary(plan, storedCounts),
-        preview,
+        draft: draftSummary(plan, storedCounts, disabledAssignments),
+        preview: await withChorePlanAssignmentEligibility(
+          transaction,
+          plan,
+          preview,
+          build,
+        ),
       };
     });
   }

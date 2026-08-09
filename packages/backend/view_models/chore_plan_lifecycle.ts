@@ -5,6 +5,7 @@ export interface ChorePlanLifecycleState {
   id: number;
   rosterID: number;
   status: ChorePlanStatus;
+  draftRevision: string;
   planningYear: number;
   camperCount: number;
   requirements: ChorePlanRequirements;
@@ -19,4 +20,8 @@ export interface ChorePlanLifecycleState {
 
 export interface ChorePlanLifecycleResponse {
   plan: ChorePlanLifecycleState | null;
+}
+
+export interface ChorePlanOpenRequest {
+  expectedDraftRevision: string;
 }

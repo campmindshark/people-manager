@@ -5,6 +5,8 @@ import {
 } from '../view_models/chore_catalog';
 import { CHORE_CATALOG_V2 } from '../migrations/data/chore_catalog_v2';
 import {
+  ChorePlanDisabledAssignment,
+  ChorePlanDisabledSlotPreview,
   ChorePlanPreview,
   ChorePlanPreviewBuildInput,
   ChorePlanShiftPreview,
@@ -85,6 +87,13 @@ interface AllocationGroup extends DefinitionGroup {
 interface SelectedSlot {
   group: AllocationGroup;
   definition: PlanningDefinition;
+}
+
+function disabledAssignmentIdentity(
+  shiftKey: string,
+  definitionKey: string,
+): string {
+  return `${shiftKey}|${definitionKey}`;
 }
 
 function invalidCatalog(message: string): never {
@@ -405,12 +414,11 @@ function allocationGroups(
   return result;
 }
 
-function selectSlots(
-  allGroups: AllocationGroup[],
+function selectBaselineSlots(
+  groups: AllocationGroup[],
   kind: ChoreCatalogKind,
   target: number,
-): { selected: SelectedSlot[]; shortage: number } {
-  const groups = allGroups.filter((group) => group.kind === kind);
+): SelectedSlot[] {
   const selected: SelectedSlot[] = [];
   const selectedCounts = new Map<string, number>();
 
@@ -454,6 +462,77 @@ function selectSlots(
     selectedCounts.set(group.stableKey, selectedCount + 1);
   }
 
+  return selected;
+}
+
+function selectSlots(
+  allGroups: AllocationGroup[],
+  kind: ChoreCatalogKind,
+  target: number,
+  disabledAssignmentKeys: Set<string>,
+): { selected: SelectedSlot[]; shortage: number } {
+  const groups = allGroups.filter((group) => group.kind === kind);
+  const baseline = selectBaselineSlots(groups, kind, target);
+  const selected = baseline.filter(
+    ({ group, definition }) =>
+      !disabledAssignmentKeys.has(
+        disabledAssignmentIdentity(group.stableKey, definition.stableKey),
+      ),
+  );
+  const selectedAssignmentKeys = new Set(
+    selected.map(({ group, definition }) =>
+      disabledAssignmentIdentity(group.stableKey, definition.stableKey),
+    ),
+  );
+  const selectedCounts = new Map<string, number>();
+  selected.forEach(({ group }) => {
+    selectedCounts.set(
+      group.stableKey,
+      (selectedCounts.get(group.stableKey) ?? 0) + 1,
+    );
+  });
+
+  while (selected.length < target) {
+    const candidates = groups
+      .flatMap((group) =>
+        group.definitions.map((definition) => ({ group, definition })),
+      )
+      .filter(({ group, definition }) => {
+        const assignmentKey = disabledAssignmentIdentity(
+          group.stableKey,
+          definition.stableKey,
+        );
+        return (
+          !disabledAssignmentKeys.has(assignmentKey) &&
+          !selectedAssignmentKeys.has(assignmentKey)
+        );
+      })
+      .sort(
+        (first, second) =>
+          second.definition.scoreCents - first.definition.scoreCents ||
+          (selectedCounts.get(first.group.stableKey) ?? 0) -
+            (selectedCounts.get(second.group.stableKey) ?? 0) ||
+          first.group.displayCalendarDay - second.group.displayCalendarDay ||
+          first.definition.sourceOrder - second.definition.sourceOrder ||
+          first.group.sourceOrder - second.group.sourceOrder ||
+          first.group.stableKey.localeCompare(second.group.stableKey),
+      );
+    const candidate = candidates[0];
+    if (!candidate) {
+      break;
+    }
+    selected.push(candidate);
+    const assignmentKey = disabledAssignmentIdentity(
+      candidate.group.stableKey,
+      candidate.definition.stableKey,
+    );
+    selectedAssignmentKeys.add(assignmentKey);
+    selectedCounts.set(
+      candidate.group.stableKey,
+      (selectedCounts.get(candidate.group.stableKey) ?? 0) + 1,
+    );
+  }
+
   return { selected, shortage: Math.max(0, target - selected.length) };
 }
 
@@ -477,6 +556,11 @@ function buildShift(
   definitions: PlanningDefinition[],
   gatesOpen: DateTime,
 ): ChorePlanShiftPreview {
+  const orderedDefinitions = [...definitions].sort(
+    (first, second) =>
+      first.sourceOrder - second.sourceOrder ||
+      first.stableKey.localeCompare(second.stableKey),
+  );
   const start = localDateTime(
     gatesOpen,
     group.calendarDay,
@@ -501,13 +585,13 @@ function buildShift(
     periodOrder: group.periodOrder,
     startTime: start.toUTC().toISO() ?? '',
     endTime: end.toUTC().toISO() ?? '',
-    requiredParticipants: definitions.length,
+    requiredParticipants: orderedDefinitions.length,
     totalScore:
-      definitions.reduce(
+      orderedDefinitions.reduce(
         (total, definition) => total + definition.scoreCents,
         0,
       ) / 100,
-    slots: definitions.map((definition) => ({
+    slots: orderedDefinitions.map((definition) => ({
       definitionKey: definition.stableKey,
       positionLabel: definition.positionLabel,
       score: definition.scoreCents / 100,
@@ -565,10 +649,37 @@ export default function buildChorePlanPreview(
   });
 
   const groups = allocationGroups(definitions);
+  const availableAssignmentKeys = new Set(
+    groups.flatMap((group) =>
+      group.definitions.map((definition) =>
+        disabledAssignmentIdentity(group.stableKey, definition.stableKey),
+      ),
+    ),
+  );
+  const disabledAssignments = input.disabledAssignments ?? [];
+  const disabledAssignmentKeys = new Set(
+    disabledAssignments.map(({ shiftKey, definitionKey }) =>
+      disabledAssignmentIdentity(shiftKey, definitionKey),
+    ),
+  );
+  disabledAssignmentKeys.forEach((assignmentKey) => {
+    if (!availableAssignmentKeys.has(assignmentKey)) {
+      throw new ChorePlanPreviewError(
+        `Disabled assignment ${assignmentKey} is not in the chore catalog.`,
+        400,
+      );
+    }
+  });
   const allocations = Object.fromEntries(
     KINDS.map((kind) => {
       const target = request.camperCount * request.requirements[kind];
-      return [kind, { target, ...selectSlots(groups, kind, target) }];
+      return [
+        kind,
+        {
+          target,
+          ...selectSlots(groups, kind, target, disabledAssignmentKeys),
+        },
+      ];
     }),
   ) as Record<
     ChoreCatalogKind,
@@ -577,6 +688,41 @@ export default function buildChorePlanPreview(
   const gatesOpen = DateTime.fromJSDate(
     getBurnDates(input.year).gatesOpen,
   ).setZone(BM_TIMEZONE);
+  const groupsByKey = new Map(groups.map((group) => [group.stableKey, group]));
+  const disabledSlots = disabledAssignments.map(
+    ({ shiftKey, definitionKey }): ChorePlanDisabledSlotPreview => {
+      const group = groupsByKey.get(shiftKey);
+      const definition = group?.definitions.find(
+        ({ stableKey }) => stableKey === definitionKey,
+      );
+      if (!group || !definition) {
+        throw new ChorePlanPreviewError(
+          `Disabled assignment ${disabledAssignmentIdentity(
+            shiftKey,
+            definitionKey,
+          )} is not in the chore catalog.`,
+          400,
+        );
+      }
+      const shift = buildShift(group, [definition], gatesOpen);
+      return {
+        shiftKey,
+        definitionKey,
+        scheduleKey: shift.scheduleKey,
+        kind: shift.kind,
+        scheduleName: shift.scheduleName,
+        displayDayNumber: shift.displayDayNumber,
+        displayDayLabel: shift.displayDayLabel,
+        calendarDay: shift.calendarDay,
+        timePeriodLabel: shift.timePeriodLabel,
+        periodOrder: shift.periodOrder,
+        startTime: shift.startTime,
+        endTime: shift.endTime,
+        positionLabel: definition.positionLabel,
+        score: definition.scoreCents / 100,
+      };
+    },
+  );
   const selectedByGroup = new Map<
     string,
     { group: AllocationGroup; definitions: PlanningDefinition[] }
@@ -608,6 +754,22 @@ export default function buildChorePlanPreview(
     camperCount: request.camperCount,
     requirements: { ...request.requirements },
     catalogRevision: input.catalogRevision,
+    disabledAssignments: [...disabledAssignments]
+      .sort((first, second) =>
+        disabledAssignmentIdentity(
+          first.shiftKey,
+          first.definitionKey,
+        ).localeCompare(
+          disabledAssignmentIdentity(second.shiftKey, second.definitionKey),
+        ),
+      )
+      .map(({ shiftKey, definitionKey }): ChorePlanDisabledAssignment => ({
+        shiftKey,
+        definitionKey,
+      })),
+    disabledSlots,
+    disableableAssignments: [],
+    reenableableAssignments: [],
     categories: {
       chore: {
         target: allocations.chore.target,

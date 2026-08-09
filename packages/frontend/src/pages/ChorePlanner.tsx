@@ -28,8 +28,8 @@ export default function ChorePlanner() {
             </Typography>
             <Typography color="text.secondary" sx={{ maxWidth: 900 }}>
               Turn the scored chore catalog into a blank, dated signup plan.
-              Preview the mix first, then if it&apos;s ready create the signup
-              sheet.
+              Create the draft, toggle any empty assignments that should be
+              disabled or restored, then finalize the plan and open signups.
             </Typography>
           </Box>
           <ChorePlanBuilder />

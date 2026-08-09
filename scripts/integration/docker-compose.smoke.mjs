@@ -1065,11 +1065,32 @@ async function runIntegrationTest() {
       forbiddenOpenResponse.status === 403,
       'A verified standard user must not open chore plans',
     );
+    const staleOpenResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/1/open',
+      {
+        method: 'POST',
+        headers: {
+          cookie: sessionCookie,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ expectedDraftRevision: '1' }),
+      },
+    );
+    assert(
+      staleOpenResponse.status === 409,
+      'Opening a newer draft from a stale revision must be rejected',
+    );
     const openResponse = await fetch(
       'http://localhost:3001/api/chore-plans/1/open',
       {
         method: 'POST',
-        headers: { cookie: sessionCookie },
+        headers: {
+          cookie: sessionCookie,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          expectedDraftRevision: replacement.draft.draftRevision,
+        }),
       },
     );
     assert(openResponse.ok, 'Admin could not open the draft chore plan');
@@ -1427,7 +1448,13 @@ async function runIntegrationTest() {
       'http://localhost:3001/api/chore-plans/1/open',
       {
         method: 'POST',
-        headers: { cookie: sessionCookie },
+        headers: {
+          cookie: sessionCookie,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          expectedDraftRevision: openedPlan.draftRevision,
+        }),
       },
     );
     assert(
@@ -1791,7 +1818,12 @@ async function runIntegrationTest() {
         releaseAuditOutput.includes('"action":"plan_opened"') &&
         releaseAuditOutput.includes('"action":"plan_closed"') &&
         releaseAuditOutput.includes('"action":"plan_reopened"') &&
-        releaseAuditOutput.includes('"action":"admin_assignment_mutated"'),
+        releaseAuditOutput.includes('"action":"admin_assignment_mutated"') &&
+        releaseAuditOutput.includes(
+          '"name":"20260809000000_chore_plan_disabled_assignments.ts"',
+        ) &&
+        releaseAuditOutput.includes('"disabledAssignmentCount":') &&
+        releaseAuditOutput.includes('"adminAddedAssignmentCount":'),
       'The read-only release audit omitted expected migration or audit state',
     );
 

@@ -254,7 +254,11 @@ test(
         }),
         (error) => isAssignmentError(error, 409, /plan is open/i),
       );
-      await lifecycleController.open(roster.id, users[0].id);
+      await lifecycleController.open(
+        roster.id,
+        users[0].id,
+        applied.draft.draftRevision,
+      );
       const initialView = await assignmentsController.getView(roster.id);
       assert.equal(initialView.plan?.status, 'open');
       assert.deepEqual(initialView.plan?.requirements, {

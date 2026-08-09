@@ -2,10 +2,31 @@ import { ChoreCatalogDefinitionView, ChoreCatalogKind } from './chore_catalog';
 
 export type ChorePlanRequirements = Record<ChoreCatalogKind, number>;
 
+export interface ChorePlanDisabledAssignment {
+  shiftKey: string;
+  definitionKey: string;
+}
+
+export interface ChorePlanDisabledSlotPreview extends ChorePlanDisabledAssignment {
+  scheduleKey: string;
+  kind: ChoreCatalogKind;
+  scheduleName: string;
+  displayDayNumber: number;
+  displayDayLabel: string;
+  calendarDay: number;
+  timePeriodLabel: string;
+  periodOrder: number | null;
+  startTime: string;
+  endTime: string;
+  positionLabel: string;
+  score: number;
+}
+
 export interface ChorePlanPreviewRequest {
   rosterID: number;
   camperCount: number;
   requirements: ChorePlanRequirements;
+  disabledAssignments?: ChorePlanDisabledAssignment[];
 }
 
 export interface ChorePlanApplyRequest extends ChorePlanPreviewRequest {
@@ -48,6 +69,10 @@ export interface ChorePlanPreview {
   camperCount: number;
   requirements: ChorePlanRequirements;
   catalogRevision: string;
+  disabledAssignments: ChorePlanDisabledAssignment[];
+  disabledSlots: ChorePlanDisabledSlotPreview[];
+  disableableAssignments: ChorePlanDisabledAssignment[];
+  reenableableAssignments: ChorePlanDisabledAssignment[];
   categories: Record<ChoreCatalogKind, ChorePlanPreviewCategory>;
   shifts: ChorePlanShiftPreview[];
 }
@@ -55,12 +80,13 @@ export interface ChorePlanPreview {
 export interface ChorePlanDraftSummary {
   id: number;
   rosterID: number;
-  status: 'draft';
+  status: 'draft' | 'open' | 'closed';
   draftRevision: string;
   catalogRevision: string;
   planningYear: number;
   camperCount: number;
   requirements: ChorePlanRequirements;
+  disabledAssignments: ChorePlanDisabledAssignment[];
   scheduleCount: number;
   shiftCount: number;
   slotCount: number;
