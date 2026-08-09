@@ -8,6 +8,7 @@ import ShiftViewModel from '../view_models/shift';
 import { getConfig } from '../config/config';
 import ShiftSignupError from '../utils/shiftSignupError';
 import { shiftTimeRangesOverlap, ShiftTimeRange } from '../utils/shiftTime';
+import { PUBLIC_SHIFT_COLUMNS } from '../utils/scheduleApiColumns';
 
 const knex = Knex(knexConfig[getConfig().Environment]);
 
@@ -59,7 +60,8 @@ export default class ShiftController {
       .where('userID', participantID)
       .join('shifts', 'shift_participants.shiftID', '=', 'shifts.id')
       .join('schedules', 'shifts.scheduleID', '=', 'schedules.id')
-      .where('rosterID', rosterID);
+      .where('rosterID', rosterID)
+      .select(...PUBLIC_SHIFT_COLUMNS);
 
     const shifts = await query;
 
@@ -72,7 +74,8 @@ export default class ShiftController {
     const query = knex<Shift>('shifts')
       .from('shift_participants')
       .where('userID', participantID)
-      .join('shifts', 'shift_participants.shiftID', '=', 'shifts.id');
+      .join('shifts', 'shift_participants.shiftID', '=', 'shifts.id')
+      .select(...PUBLIC_SHIFT_COLUMNS);
 
     const shifts = await query;
 
@@ -85,6 +88,7 @@ export default class ShiftController {
     scheduleID: number,
   ): Promise<ShiftViewModel[]> {
     const query = knex<Shift>('shifts')
+      .select(...PUBLIC_SHIFT_COLUMNS)
       .where('scheduleID', scheduleID)
       .orderBy('startTime', 'asc');
 

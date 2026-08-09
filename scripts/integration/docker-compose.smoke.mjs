@@ -279,6 +279,26 @@ async function runIntegrationTest() {
       'A verified standard user must not read the chore catalog',
     );
 
+    const forbiddenPreviewResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/preview',
+      {
+        method: 'POST',
+        headers: {
+          cookie: standardCookie,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          rosterID: 1,
+          camperCount: 1,
+          requirements: { chore: 1, event: 1, dinner: 1 },
+        }),
+      },
+    );
+    assert(
+      forbiddenPreviewResponse.status === 403,
+      'A verified standard user must not preview chore plans',
+    );
+
     const catalogResponse = await fetch(
       'http://localhost:3001/api/chore-plans/catalog',
       { headers: { cookie: sessionCookie } },
@@ -346,6 +366,40 @@ async function runIntegrationTest() {
     assert(
       staleUpdateResponse.status === 409,
       'A stale catalog revision must be rejected',
+    );
+
+    const previewResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/preview',
+      {
+        method: 'POST',
+        headers: {
+          cookie: sessionCookie,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          rosterID: 1,
+          camperCount: 1,
+          requirements: { chore: 1, event: 1, dinner: 1 },
+        }),
+      },
+    );
+    assert(previewResponse.ok, 'Admin could not preview a chore plan');
+    const preview = await previewResponse.json();
+    assert(
+      preview.catalogRevision === '2',
+      'Preview did not report its consistent catalog revision',
+    );
+    assert(
+      preview.categories?.chore?.selected === 1 &&
+        preview.categories?.event?.selected === 1 &&
+        preview.categories?.dinner?.selected === 1,
+      'Preview did not allocate the requested category capacity',
+    );
+    assert(
+      preview.shifts?.every((shift) =>
+        shift.slots?.every((slot) => slot.definitionKey),
+      ),
+      'Preview slots did not retain stable definition identity',
     );
 
     console.log('Integration smoke test passed.');

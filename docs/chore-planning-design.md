@@ -117,8 +117,34 @@ After that boundary the planner is a pure function. For the same roster inputs,
 catalog revision, and definition rows it must return byte-for-byte equivalent
 ordered planning data.
 
+The preview request accepts only a roster ID, a camper count from 1 through
+200, and whole-number chore, event, and dinner requirements from 0 through 20.
+The backend loads the roster and catalog in a read-only repeatable-read
+transaction. It rejects missing rosters and fails closed if the catalog count,
+keys, source order, event-period order, day metadata, timing, grouping, or score
+values violate the reviewed catalog contract. Preview performs no writes and
+has no network or document dependency.
+
+Capacity targets are `camper count × per-camper requirement`. Chore templates
+are instantiated across all seven planning days; explicit event and dinner
+definitions occur once. Chore and dinner allocation first gives each ordered
+shift group one position while capacity remains. All categories then choose
+the highest-scored next position in a group. Ties resolve by current group
+fill count, display day, source order, and stable key. Positions within a group
+are prefixes of the reviewed source order, so a later position is never chosen
+without the positions before it. Insufficient catalog capacity is represented
+as an exact per-category shortage rather than a partial-write error.
+
+Event period order defines the continuous event week. After-midnight periods
+use their actual next-day timestamp while remaining grouped under the previous
+display day; the final Sunday-after-midnight period is calendar day eight and
+displays under Saturday. All local clock values are anchored to the roster
+year in `America/Los_Angeles` and returned as UTC instants.
+
 The preview response includes the catalog revision and stable definition keys
-for every selected position. Preview performs no database writes.
+for every selected position, plus stable schedule/shift keys, ordered shifts,
+exact selected/target/shortage summaries, position scores, and computed time
+instants.
 
 Apply does not trust client-supplied shift fields. Its request includes the plan
 inputs and expected catalog revision; the backend locks the plan and catalog,

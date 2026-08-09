@@ -28,7 +28,8 @@
         "userVerification:readAll",
         "settings:edit",
         "choreCatalog:read",
-        "choreCatalog:editScores"
+        "choreCatalog:editScores",
+        "chorePlans:preview"
       ]
     }
   ]
