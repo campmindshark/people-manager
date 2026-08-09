@@ -216,10 +216,13 @@ export default class BackendChorePlanClient {
     return data;
   }
 
-  async Open(rosterID: number): Promise<ChorePlanLifecycleState> {
+  async Open(
+    rosterID: number,
+    expectedDraftRevision: string,
+  ): Promise<ChorePlanLifecycleState> {
     const { data } = await axios.post<ChorePlanLifecycleState>(
       `${this.baseApiURL}/api/chore-plans/${rosterID}/open`,
-      {},
+      { expectedDraftRevision },
       defaultRequestConfig,
     );
     return data;

@@ -483,7 +483,11 @@ test(
         { chore: 0, event: 1, dinner: 1 },
       );
 
-      await lifecycleController.open(roster.id, users[0].id);
+      await lifecycleController.open(
+        roster.id,
+        users[0].id,
+        applied.draft.draftRevision,
+      );
       const shifts = (await database('chore_plan_generated_shifts as generated')
         .innerJoin('shifts as shift', 'shift.id', 'generated.shiftID')
         .select(

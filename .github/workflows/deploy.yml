@@ -67,7 +67,7 @@ jobs:
           cache-to: type=gha,scope=migration,mode=max
 
   terraform:
-    name: Terraform Apply & Migrate
+    name: Migrate & Terraform Apply
     # Wait for both images so Terraform never references a tag that hasn't
     # been pushed yet.
     needs: [build-app, build-migration]
@@ -127,17 +127,6 @@ jobs:
           TF_LOG: info
         run: terraform plan
 
-      - name: Terraform Apply
-        working-directory: terraform/
-        env:
-          TF_VAR_docker_image_tag: ${{ github.sha }}
-          TF_VAR_migration_docker_image_tag: ${{ github.sha }}-migration
-          TF_VAR_GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
-          TF_VAR_GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
-          TF_VAR_JWT_SECRET: ${{ secrets.JWT_SECRET }}
-          TF_LOG: info
-        run: terraform apply -auto-approve
-
       - name: Detect migration file changes
         id: migration_changes
         run: |
@@ -169,6 +158,20 @@ jobs:
             echo "No migration changes detected."
             echo "run_migrations=false" >> "$GITHUB_OUTPUT"
           fi
+
+      # Register the new migration image without updating the application
+      # service. The full apply runs only after the schema is ready.
+      - name: Update ECS migration task definition
+        if: steps.migration_changes.outputs.run_migrations == 'true'
+        working-directory: terraform/
+        env:
+          TF_VAR_docker_image_tag: ${{ github.sha }}
+          TF_VAR_migration_docker_image_tag: ${{ github.sha }}-migration
+          TF_VAR_GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+          TF_VAR_GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+          TF_VAR_JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          TF_LOG: info
+        run: terraform apply -auto-approve -target=aws_ecs_task_definition.db_migration_task
 
       - name: Run ECS migration task
         if: steps.migration_changes.outputs.run_migrations == 'true'
@@ -218,3 +221,14 @@ jobs:
             echo "Migration task failed with exit code: $EXIT_CODE"
             exit 1
           fi
+
+      - name: Terraform Apply
+        working-directory: terraform/
+        env:
+          TF_VAR_docker_image_tag: ${{ github.sha }}
+          TF_VAR_migration_docker_image_tag: ${{ github.sha }}-migration
+          TF_VAR_GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+          TF_VAR_GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+          TF_VAR_JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          TF_LOG: info
+        run: terraform apply -auto-approve

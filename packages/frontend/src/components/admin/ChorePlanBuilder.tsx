@@ -72,7 +72,10 @@ export interface ChorePlannerClient {
   Preview: (request: ChorePlanPreviewRequest) => Promise<ChorePlanPreview>;
   GetDraft: (rosterID: number) => Promise<ChorePlanDraftResponse>;
   Apply: (request: ChorePlanApplyRequest) => Promise<ChorePlanApplyResponse>;
-  Open?: (rosterID: number) => Promise<ChorePlanLifecycleState>;
+  Open?: (
+    rosterID: number,
+    expectedDraftRevision: string,
+  ) => Promise<ChorePlanLifecycleState>;
 }
 
 export interface ChorePlannerRosterClient {
@@ -545,7 +548,7 @@ export default function ChorePlanBuilder({
     setError(null);
     setSuccess(null);
     try {
-      await planClient.Open(preview.rosterID);
+      await planClient.Open(preview.rosterID, observedDraft.draftRevision);
       setPreview(null);
       setObservedDraft(null);
       setSuccess('The chore shift plan is finalized and signups are open.');

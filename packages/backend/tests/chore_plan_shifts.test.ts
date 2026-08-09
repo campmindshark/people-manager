@@ -167,7 +167,11 @@ test(
       assert.equal(draftView.selfServiceMutationsAllowed, false);
       assert.deepEqual(draftView.shifts, []);
 
-      await lifecycleController.open(roster.id, member.id);
+      await lifecycleController.open(
+        roster.id,
+        member.id,
+        applied.draft.draftRevision,
+      );
       const generatedShift = await database('chore_plan_generated_shifts')
         .select('shiftID')
         .where({ chorePlanID: applied.draft.id })

@@ -472,7 +472,7 @@ test('finalizes the saved draft and opens chore signups', async () => {
     }),
   );
 
-  await waitFor(() => expect(planClient.Open).toHaveBeenCalledWith(1));
+  await waitFor(() => expect(planClient.Open).toHaveBeenCalledWith(1, '4'));
   expect(
     await screen.findByText(/plan is finalized and signups are open/i),
   ).toBeVisible();

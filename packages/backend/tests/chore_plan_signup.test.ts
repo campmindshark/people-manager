@@ -291,7 +291,11 @@ test(
         signupController.signup(roster.id, [sourceShift.id], users[0].id),
         (error) => isSignupError(error, 409, /plan is open/i),
       );
-      await lifecycleController.open(roster.id, users[0].id);
+      await lifecycleController.open(
+        roster.id,
+        users[0].id,
+        applied.draft.draftRevision,
+      );
 
       let releaseUserLock = () => {};
       const userLockRelease = new Promise<void>((resolve) => {

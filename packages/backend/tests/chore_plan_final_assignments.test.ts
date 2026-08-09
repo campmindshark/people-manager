@@ -147,7 +147,11 @@ test(
         (error) => isFinalAssignmentsError(error, 409, /after.*close/i),
       );
 
-      await lifecycleController.open(roster.id, users[0].id);
+      await lifecycleController.open(
+        roster.id,
+        users[0].id,
+        applied.draft.draftRevision,
+      );
       await assert.rejects(
         controller.getForUser(roster.id, users[0].id),
         (error) => isFinalAssignmentsError(error, 409, /after.*close/i),

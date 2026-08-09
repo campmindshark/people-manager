@@ -228,7 +228,11 @@ test(
         },
         users[0].id,
       );
-      await lifecycleController.open(roster.id, users[0].id);
+      await lifecycleController.open(
+        roster.id,
+        users[0].id,
+        applied.draft.draftRevision,
+      );
 
       const assignedShift = await database(
         'chore_plan_generated_shifts as generated',

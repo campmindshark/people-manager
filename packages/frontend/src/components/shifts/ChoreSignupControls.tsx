@@ -26,7 +26,10 @@ export interface ChoreSignupLifecycleClient {
   GetLifecycle: (
     rosterID: number,
   ) => Promise<{ plan: ChorePlanLifecycleState | null }>;
-  Open: (rosterID: number) => Promise<ChorePlanLifecycleState>;
+  Open: (
+    rosterID: number,
+    expectedDraftRevision: string,
+  ) => Promise<ChorePlanLifecycleState>;
   Close: (rosterID: number) => Promise<ChorePlanLifecycleState>;
   Reopen: (
     rosterID: number,
@@ -124,7 +127,7 @@ export function useChoreSignupLifecycle({
       const updatedPlan =
         plan.status === 'open'
           ? await planClient.Close(rosterID)
-          : await planClient.Open(rosterID);
+          : await planClient.Open(rosterID, plan.draftRevision);
       setPlan(updatedPlan);
     } catch (toggleError) {
       setError(requestErrorMessage(toggleError));

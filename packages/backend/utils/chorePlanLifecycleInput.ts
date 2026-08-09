@@ -1,4 +1,5 @@
 import ChorePlanLifecycleError from './chorePlanLifecycleError';
+import { ChorePlanOpenRequest } from '../view_models/chore_plan_lifecycle';
 
 export const MAX_CHORE_PLAN_REOPEN_REASON_LENGTH = 500;
 
@@ -17,6 +18,30 @@ export function parseEmptyLifecycleRequest(value: unknown): void {
       400,
     );
   }
+}
+
+export function parseChorePlanOpenRequest(
+  value: unknown,
+): ChorePlanOpenRequest {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new ChorePlanLifecycleError(
+      'Enter valid details before opening signups.',
+      400,
+    );
+  }
+
+  const input = value as Record<string, unknown>;
+  if (
+    Object.keys(input).length !== 1 ||
+    typeof input.expectedDraftRevision !== 'string' ||
+    !/^[1-9][0-9]*$/.test(input.expectedDraftRevision)
+  ) {
+    throw new ChorePlanLifecycleError(
+      'An open request accepts only a valid expected draft revision.',
+      400,
+    );
+  }
+  return { expectedDraftRevision: input.expectedDraftRevision };
 }
 
 export function parseChorePlanReopenRequest(value: unknown): string {

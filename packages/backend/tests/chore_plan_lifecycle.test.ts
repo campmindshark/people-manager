@@ -7,6 +7,7 @@ import ChorePlanLifecycleController from '../controllers/chore_plan_lifecycle';
 import RoleConfigCollection from '../roles/role';
 import ChorePlanLifecycleError from '../utils/chorePlanLifecycleError';
 import {
+  parseChorePlanOpenRequest,
   parseChorePlanReopenRequest,
   parseEmptyLifecycleRequest,
 } from '../utils/chorePlanLifecycleInput';
@@ -88,11 +89,30 @@ async function waitForLockWait(
 test('lifecycle input accepts only narrow transition contracts', () => {
   assert.equal(parseEmptyLifecycleRequest(undefined), undefined);
   assert.equal(parseEmptyLifecycleRequest({}), undefined);
+  assert.deepEqual(parseChorePlanOpenRequest({ expectedDraftRevision: '7' }), {
+    expectedDraftRevision: '7',
+  });
   assert.equal(
     parseChorePlanReopenRequest({ reason: '  Scheduling correction  ' }),
     'Scheduling correction',
   );
 
+  assert.throws(
+    () =>
+      parseChorePlanOpenRequest({
+        expectedDraftRevision: '7',
+        force: true,
+      }),
+    (error) => isLifecycleError(error, 400, /only a valid expected/i),
+  );
+  assert.throws(
+    () => parseChorePlanOpenRequest({}),
+    (error) => isLifecycleError(error, 400, /only a valid expected/i),
+  );
+  assert.throws(
+    () => parseChorePlanOpenRequest(undefined),
+    (error) => isLifecycleError(error, 400, /valid details/i),
+  );
   assert.throws(
     () => parseEmptyLifecycleRequest({ reason: 'not accepted' }),
     (error) => isLifecycleError(error, 400, /does not accept/i),
@@ -181,7 +201,7 @@ test(
         (error) => isLifecycleError(error, 404, /roster not found/i),
       );
       await assert.rejects(
-        lifecycleController.open(roster.id, opener.id),
+        lifecycleController.open(roster.id, opener.id, '1'),
         (error) => isLifecycleError(error, 404, /not found/i),
       );
       const applied = await draftController.apply(
@@ -197,6 +217,7 @@ test(
       const loadedDraft = await lifecycleController.getByRosterID(roster.id);
       assert(loadedDraft.plan);
       assert.equal(loadedDraft.plan.status, 'draft');
+      assert.equal(loadedDraft.plan.draftRevision, applied.draft.draftRevision);
       assert.equal(loadedDraft.plan.planningYear, 2026);
       assert.equal(loadedDraft.plan.camperCount, 1);
       assert.deepEqual(loadedDraft.plan.requirements, {
@@ -216,7 +237,15 @@ test(
         (error) => isLifecycleError(error, 409, /closed chore plan/i),
       );
 
-      const opened = await lifecycleController.open(roster.id, opener.id);
+      await assert.rejects(
+        lifecycleController.open(roster.id, opener.id, '999'),
+        (error) => isLifecycleError(error, 409, /draft changed/i),
+      );
+      const opened = await lifecycleController.open(
+        roster.id,
+        opener.id,
+        applied.draft.draftRevision,
+      );
       assert.equal(opened.status, 'open');
       assert.equal(opened.openedByUserID, opener.id);
       assert(opened.openedAt);
@@ -226,7 +255,11 @@ test(
       assert.equal(opened.shiftCount, applied.draft.shiftCount);
       assert.equal(opened.slotCount, applied.draft.slotCount);
       await assert.rejects(
-        lifecycleController.open(roster.id, opener.id),
+        lifecycleController.open(
+          roster.id,
+          opener.id,
+          applied.draft.draftRevision,
+        ),
         (error) => isLifecycleError(error, 409, /draft chore plan/i),
       );
       await assert.rejects(

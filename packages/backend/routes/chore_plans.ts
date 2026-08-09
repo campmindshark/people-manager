@@ -24,6 +24,7 @@ import {
 import ChorePlanLifecycleError from '../utils/chorePlanLifecycleError';
 import ChorePlanFinalAssignmentsError from '../utils/chorePlanFinalAssignmentsError';
 import {
+  parseChorePlanOpenRequest,
   parseChorePlanReopenRequest,
   parseEmptyLifecycleRequest,
 } from '../utils/chorePlanLifecycleInput';
@@ -537,11 +538,12 @@ router.post(
   hasPermission('chorePlans:lifecycle'),
   async (req: Request, res: Response) => {
     try {
-      parseEmptyLifecycleRequest(req.body);
+      const request = parseChorePlanOpenRequest(req.body);
       const user = req.user as User;
       const result = await lifecycleController.open(
         parseChorePlanRosterID(req.params.rosterID),
         user.id,
+        request.expectedDraftRevision,
       );
       logChorePlanOperationalEvent('chore_plan.lifecycle_changed', {
         actorUserID: user.id,
