@@ -80,7 +80,7 @@ jobs:
       TF_PLUGIN_CACHE_DIR: ${{ github.workspace }}/.terraform.d/plugin-cache
       # Production feature state is version controlled. Enable or disable it
       # through a reviewed PR so merging to main performs the deployment.
-      TF_VAR_chore_planning_enabled: 'false'
+      TF_VAR_chore_planning_enabled: 'true'
 
     steps:
       - name: Checkout

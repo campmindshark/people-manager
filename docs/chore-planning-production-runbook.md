@@ -68,10 +68,10 @@ workflow run, time, and operator in the smoke checklist before proceeding.
 1. Select a non-active roster and at least two controlled test users. Record
    their IDs, confirm both attendance windows cover the test shifts, and
    confirm the active roster has no open chore plan.
-2. Review and merge the focused feature-enablement PR that changes only
-   `TF_VAR_chore_planning_enabled` from `'false'` to `'true'`. Record its merge
-   SHA and wait for the automatically triggered `Deploy` workflow and ECS
-   service to stabilize.
+2. Review and merge the focused feature-enablement PR whose only production
+   behavior change sets `TF_VAR_chore_planning_enabled` from `'false'` to
+   `'true'`. Record its merge SHA and wait for the automatically triggered
+   `Deploy` workflow and ECS service to stabilize.
 3. Confirm `GET /api/settings/features` reports `chorePlanning: true`. Confirm a
    verified standard user receives `403` from the catalog and planner
    endpoints.
