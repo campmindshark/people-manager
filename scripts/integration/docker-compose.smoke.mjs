@@ -232,8 +232,7 @@ async function runIntegrationTest() {
     const adminRosterSignup = await adminRosterSignupResponse.json();
     assert(
       adminRosterSignup.estimatedArrivalDate === '2024-08-24T23:00:00.000Z' &&
-        adminRosterSignup.estimatedDepartureDate ===
-          '2024-08-25T00:30:00.000Z',
+        adminRosterSignup.estimatedDepartureDate === '2024-08-25T00:30:00.000Z',
       'Roster attendance timestamps were not preserved as absolute instants',
     );
 
@@ -435,7 +434,10 @@ async function runIntegrationTest() {
       'http://localhost:3001/api/chore-plans/1/shifts',
       { headers: { cookie: standardCookie } },
     );
-    assert(emptyShiftViewResponse.ok, 'Roster member could not read empty plan');
+    assert(
+      emptyShiftViewResponse.ok,
+      'Roster member could not read empty plan',
+    );
     const emptyShiftView = await emptyShiftViewResponse.json();
     assert(
       emptyShiftView.plan === null &&
@@ -1671,7 +1673,8 @@ async function runIntegrationTest() {
       postAttendanceShiftViewResponse.ok,
       'Member could not inspect shifts after updating attendance',
     );
-    const postAttendanceShiftView = await postAttendanceShiftViewResponse.json();
+    const postAttendanceShiftView =
+      await postAttendanceShiftViewResponse.json();
     const postAttendanceSource = postAttendanceShiftView.shifts.find(
       (shift) => shift.id === signupSource.id,
     );
@@ -1766,9 +1769,8 @@ async function runIntegrationTest() {
     );
     const postDropoutShiftView = await postDropoutShiftViewResponse.json();
     assert(
-      postDropoutShiftView.shifts.find(
-        (shift) => shift.id === signupSource.id,
-      )?.assignedParticipantCount === 0,
+      postDropoutShiftView.shifts.find((shift) => shift.id === signupSource.id)
+        ?.assignedParticipantCount === 0,
       'Roster dropout left the departed member consuming shift capacity',
     );
 
