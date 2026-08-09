@@ -60,11 +60,13 @@ function isSignupError(
   error: unknown,
   status: number,
   message: RegExp,
+  reason?: ChorePlanSignupError['reason'],
 ): boolean {
   return (
     error instanceof ChorePlanSignupError &&
     error.status === status &&
-    message.test(error.message)
+    message.test(error.message) &&
+    (reason === undefined || error.reason === reason)
   );
 }
 
@@ -228,7 +230,8 @@ test(
       const signupController = new ChorePlanSignupController(database);
       await assert.rejects(
         signupController.signup(roster.id, [1], users[5].id),
-        (error) => isSignupError(error, 403, /roster members/i),
+        (error) =>
+          isSignupError(error, 403, /roster members/i, 'not_roster_member'),
       );
       const applied = await draftController.apply(
         {

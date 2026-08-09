@@ -79,7 +79,11 @@ export default class ChorePlanSignupController {
       .where({ id: rosterID })
       .first();
     if (!roster) {
-      throw new ChorePlanSignupError('Roster not found.', 404);
+      throw new ChorePlanSignupError(
+        'Roster not found.',
+        404,
+        'roster_not_found',
+      );
     }
 
     // Reject non-members before returning plan-specific errors. The participant
@@ -93,6 +97,7 @@ export default class ChorePlanSignupController {
       throw new ChorePlanSignupError(
         'Chore plan signup is available only to roster members.',
         403,
+        'not_roster_member',
       );
     }
 
@@ -108,12 +113,17 @@ export default class ChorePlanSignupController {
       .forShare()
       .first()) as PlanRow | undefined;
     if (!plan) {
-      throw new ChorePlanSignupError('Chore plan not found.', 404);
+      throw new ChorePlanSignupError(
+        'Chore plan not found.',
+        404,
+        'plan_not_found',
+      );
     }
     if (plan.status !== 'open') {
       throw new ChorePlanSignupError(
         'Self-service chore signup is available only while the plan is open.',
         409,
+        'plan_not_open',
       );
     }
 
@@ -125,7 +135,7 @@ export default class ChorePlanSignupController {
       .forUpdate()
       .first();
     if (!user) {
-      throw new ChorePlanSignupError('User not found.', 404);
+      throw new ChorePlanSignupError('User not found.', 404, 'user_not_found');
     }
 
     const participant = (await transaction<ParticipantRow>(
@@ -139,6 +149,7 @@ export default class ChorePlanSignupController {
       throw new ChorePlanSignupError(
         'Chore plan signup is available only to roster members.',
         403,
+        'not_roster_member',
       );
     }
 
@@ -191,6 +202,7 @@ export default class ChorePlanSignupController {
       throw new ChorePlanSignupError(
         CHORE_PLAN_SIGNUP_RESTRICTION_MESSAGES.outsideAttendanceWindow,
         409,
+        'attendance_window',
       );
     }
   }
@@ -220,6 +232,7 @@ export default class ChorePlanSignupController {
       throw new ChorePlanSignupError(
         CHORE_PLAN_SIGNUP_RESTRICTION_MESSAGES.existingShiftConflict,
         409,
+        'overlap',
       );
     }
   }
@@ -234,6 +247,7 @@ export default class ChorePlanSignupController {
         throw new ChorePlanSignupError(
           CHORE_PLAN_SIGNUP_RESTRICTION_MESSAGES.existingShiftConflict,
           409,
+          'overlap',
         );
       }
     });
@@ -275,6 +289,7 @@ export default class ChorePlanSignupController {
         throw new ChorePlanSignupError(
           `You already have all required ${kind} assignments. Switch an existing assignment instead.`,
           409,
+          'category_requirement',
         );
       }
     });
@@ -313,6 +328,7 @@ export default class ChorePlanSignupController {
       throw new ChorePlanSignupError(
         `You already have all required ${target.kind} assignments. Switch an existing assignment instead.`,
         409,
+        'category_requirement',
       );
     }
   }
@@ -328,7 +344,11 @@ export default class ChorePlanSignupController {
     if (
       Number(participantCount?.count ?? 0) >= Number(shift.requiredParticipants)
     ) {
-      throw new ChorePlanSignupError('This chore plan shift is full.', 409);
+      throw new ChorePlanSignupError(
+        'This chore plan shift is full.',
+        409,
+        'capacity',
+      );
     }
   }
 
@@ -368,7 +388,11 @@ export default class ChorePlanSignupController {
         shiftIDs,
       );
       if (shifts.length !== shiftIDs.length) {
-        throw new ChorePlanSignupError('Chore plan shift not found.', 404);
+        throw new ChorePlanSignupError(
+          'Chore plan shift not found.',
+          404,
+          'shift_not_found',
+        );
       }
       const existingAssignments = await transaction('shift_participants')
         .select('shiftID')
@@ -445,7 +469,11 @@ export default class ChorePlanSignupController {
         [shiftID],
       );
       if (!shift) {
-        throw new ChorePlanSignupError('Chore plan shift not found.', 404);
+        throw new ChorePlanSignupError(
+          'Chore plan shift not found.',
+          404,
+          'shift_not_found',
+        );
       }
       const deleted = await transaction('shift_participants')
         .where({ shiftID, userID })
@@ -482,7 +510,11 @@ export default class ChorePlanSignupController {
       const source = shifts.find(({ id }) => id === fromShiftID);
       const target = shifts.find(({ id }) => id === toShiftID);
       if (!source || !target) {
-        throw new ChorePlanSignupError('Chore plan shift not found.', 404);
+        throw new ChorePlanSignupError(
+          'Chore plan shift not found.',
+          404,
+          'shift_not_found',
+        );
       }
       const sourceAssignment = await transaction('shift_participants')
         .select('id')
@@ -492,6 +524,7 @@ export default class ChorePlanSignupController {
         throw new ChorePlanSignupError(
           'You are not assigned to the source shift.',
           409,
+          'source_assignment_missing',
         );
       }
       const targetAssignment = await transaction('shift_participants')
@@ -502,6 +535,7 @@ export default class ChorePlanSignupController {
         throw new ChorePlanSignupError(
           'You are already assigned to the destination shift.',
           409,
+          'destination_assignment_exists',
         );
       }
 
