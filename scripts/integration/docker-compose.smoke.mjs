@@ -164,6 +164,14 @@ async function runIntegrationTest() {
       disabledRequirementOverridesResponse.status === 404,
       'Disabled requirement-override routes must appear absent',
     );
+    const disabledReadinessResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/admin/1/readiness',
+      { headers: { cookie: sessionCookie } },
+    );
+    assert(
+      disabledReadinessResponse.status === 404,
+      'Disabled readiness routes must appear absent',
+    );
 
     const verificationResponse = await fetch(
       `http://localhost:3001/api/users/verify/${authCheck.user.id}`,
@@ -678,6 +686,32 @@ async function runIntegrationTest() {
         memberDraft.shifts?.length === 0,
       'Draft generated shifts were exposed to a roster member',
     );
+    const forbiddenReadinessResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/admin/1/readiness',
+      { headers: { cookie: standardCookie } },
+    );
+    assert(
+      forbiddenReadinessResponse.status === 403,
+      'A standard user must not read chore plan readiness',
+    );
+    const adminDraftReadinessResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/admin/1/readiness',
+      { headers: { cookie: sessionCookie } },
+    );
+    assert(
+      adminDraftReadinessResponse.ok,
+      'Admin could not read draft chore plan readiness',
+    );
+    const adminDraftReadiness = await adminDraftReadinessResponse.json();
+    assert(
+      adminDraftReadiness.status === 'draft' &&
+        adminDraftReadiness.plannerHeadcount === 1 &&
+        adminDraftReadiness.actualRosterCount === 2 &&
+        adminDraftReadiness.categories?.chore?.requiredShifts === 2 &&
+        adminDraftReadiness.categories?.chore?.assignedShifts === 0 &&
+        adminDraftReadiness.incompleteParticipants?.length === 2,
+      'Draft readiness omitted headcount or unique assignment totals',
+    );
     const forbiddenAdminAssignmentsResponse = await fetch(
       'http://localhost:3001/api/chore-plans/admin/1/assignments',
       { headers: { cookie: standardCookie } },
@@ -807,6 +841,24 @@ async function runIntegrationTest() {
         (participant) => participant.userID === standardAuth.user.id,
       )?.requirements?.chore === 0,
       'Administrative assignment state did not use effective requirements',
+    );
+    const overriddenReadinessResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/admin/1/readiness',
+      { headers: { cookie: sessionCookie } },
+    );
+    assert(
+      overriddenReadinessResponse.ok,
+      'Admin could not refresh readiness after a requirement override',
+    );
+    const overriddenReadiness = await overriddenReadinessResponse.json();
+    assert(
+      overriddenReadiness.requirementExceptions?.some(
+        (exception) =>
+          exception.userID === standardAuth.user.id &&
+          exception.requirements?.chore === 0 &&
+          exception.reason === 'Smoke-test accommodation',
+      ),
+      'Readiness did not use the shared effective requirement override',
     );
     const missingClearReasonResponse = await fetch(
       `http://localhost:3001/api/chore-plans/admin/1/participants/${standardAuth.user.id}/requirements`,
@@ -1013,6 +1065,24 @@ async function runIntegrationTest() {
         !JSON.stringify(memberOpen).includes('@localhost'),
       'Member shift view exposed participant identity fields',
     );
+    const openSignupStatusResponse = await fetch(
+      'http://localhost:3001/api/users/signup-status/1',
+      { headers: { cookie: standardCookie } },
+    );
+    assert(
+      openSignupStatusResponse.ok,
+      'Roster member could not read open chore signup status',
+    );
+    const openSignupStatus = await openSignupStatusResponse.json();
+    assert(
+      openSignupStatus.chorePlanStatus === 'open' &&
+        openSignupStatus.choreSignupsOpen === true &&
+        openSignupStatus.requirements?.chore === 1 &&
+        openSignupStatus.requirements?.event === 1 &&
+        openSignupStatus.requirements?.dinner === 1 &&
+        openSignupStatus.shiftCount === 0,
+      'Participant signup status omitted open-plan requirements or counts',
+    );
     const signupSource = memberOpen.shifts[0];
     const signupDestination = memberOpen.shifts.find(
       (shift) =>
@@ -1051,6 +1121,17 @@ async function runIntegrationTest() {
       choreSignup.changed === true &&
         choreSignup.assignedShiftIDs?.includes(signupSource.id),
       'Open chore signup did not create the requested assignment',
+    );
+    const assignedSignupStatusResponse = await fetch(
+      'http://localhost:3001/api/users/signup-status/1',
+      { headers: { cookie: standardCookie } },
+    );
+    const assignedSignupStatus = await assignedSignupStatusResponse.json();
+    assert(
+      assignedSignupStatusResponse.ok &&
+        assignedSignupStatus.shiftCount === 1 &&
+        assignedSignupStatus[`${signupSource.kind}ShiftCount`] === 1,
+      'Participant signup status did not count the distinct generated shift',
     );
     const repeatedChoreSignupResponse = await fetch(
       'http://localhost:3001/api/chore-plans/1/signup',
@@ -1334,6 +1415,17 @@ async function runIntegrationTest() {
         memberClosed.selfServiceMutationsAllowed === false &&
         memberClosed.shifts?.length === memberOpen.shifts.length,
       'Closed member shift view did not remain visible and read-only',
+    );
+    const closedSignupStatusResponse = await fetch(
+      'http://localhost:3001/api/users/signup-status/1',
+      { headers: { cookie: standardCookie } },
+    );
+    const closedSignupStatus = await closedSignupStatusResponse.json();
+    assert(
+      closedSignupStatusResponse.ok &&
+        closedSignupStatus.chorePlanStatus === 'closed' &&
+        closedSignupStatus.choreSignupsOpen === false,
+      'Closed participant signup status still reported open mutations',
     );
     const closedSignupResponse = await fetch(
       'http://localhost:3001/api/chore-plans/1/signup',

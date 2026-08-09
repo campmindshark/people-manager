@@ -38,6 +38,10 @@ jest.mock('../state/store', () => {
       key: 'testCurrentUserVerified',
       default: true,
     }),
+    CurrentUserSignupStatus: atom({
+      key: 'testCurrentUserSignupStatus',
+      default: {},
+    }),
     MyRolesState: atom({
       key: 'testMyRoles',
       default: [
