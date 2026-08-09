@@ -34,6 +34,7 @@
         "chorePlans:lifecycle",
         "chorePlans:reopen",
         "chorePlans:readiness",
+        "chorePlans:viewHistory",
         "chorePlans:overrideRequirements",
         "chorePlans:assign",
         "chorePlans:forceAssign"

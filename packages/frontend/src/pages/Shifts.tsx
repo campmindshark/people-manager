@@ -13,6 +13,7 @@ import {
   useSetRecoilState,
 } from 'recoil';
 import { ChorePlanReadinessResponse } from 'backend/view_models/chore_plan_readiness';
+import ChorePlanChangeHistoryDialog from 'src/components/admin/ChorePlanChangeHistoryDialog';
 import ChorePlanReadinessReviewDialog from 'src/components/admin/ChorePlanReadinessDashboard';
 import ChorePlanShiftView from 'src/components/shifts/ChorePlanShiftView';
 import ChoreRequirementOverrides from 'src/components/admin/ChoreRequirementOverrides';
@@ -92,6 +93,7 @@ export default function Shifts() {
     CurrentUserSignupStatus,
   );
   const [adminEditMode, setAdminEditMode] = useState(false);
+  const [changeHistoryOpen, setChangeHistoryOpen] = useState(false);
   const [requirementRevision, setRequirementRevision] = useState(0);
   const [readiness, setReadiness] = useState<ChorePlanReadinessResponse | null>(
     null,
@@ -113,6 +115,9 @@ export default function Shifts() {
   const canReviewReadiness =
     featureFlags.chorePlanning &&
     roles.some((role) => role.permissions.includes('chorePlans:readiness'));
+  const canViewChangeHistory =
+    featureFlags.chorePlanning &&
+    roles.some((role) => role.permissions.includes('chorePlans:viewHistory'));
   const canAdminEdit = canManageAssignments || canOverrideRequirements;
   const {
     canManageChorePlans,
@@ -219,6 +224,14 @@ export default function Shifts() {
                   plan={chorePlan}
                 />
               )}
+              {canViewChangeHistory && userIsVerified && (
+                <Button
+                  onClick={() => setChangeHistoryOpen(true)}
+                  variant="outlined"
+                >
+                  Change History
+                </Button>
+              )}
               {canAdminEdit && userIsVerified && (
                 <Button
                   color={adminEditMode ? 'secondary' : 'primary'}
@@ -267,6 +280,14 @@ export default function Shifts() {
           onReopen={handleReopenSignups}
           open={reviewingReopen}
         />
+        {canViewChangeHistory && userIsVerified && (
+          <ChorePlanChangeHistoryDialog
+            onClose={() => setChangeHistoryOpen(false)}
+            open={changeHistoryOpen}
+            rosterID={currentRoster.id}
+            rosterYear={currentRoster.year}
+          />
+        )}
         {canReviewReadiness && chorePlan?.status !== 'closed' && (
           <ChorePlanReadinessReviewDialog
             action={chorePlan?.status === 'open' ? 'close' : 'open'}

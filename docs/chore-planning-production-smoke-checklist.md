@@ -49,6 +49,9 @@ the release PR or issue. Detailed procedures and stop conditions are in
 - [ ] Open, signup, retry, switch, and removal behave as expected.
 - [ ] Admin assign, move, swap, unassign, capacity conflict, and forced move
       behave as expected.
+- [ ] The Shifts-page Change History popup shows the rehearsal roster only,
+      including actor, timestamp, reason, affected assignments, and forced
+      operation details; a standard user cannot access it.
 - [ ] Close and final assignments pass desktop, narrow-screen, and print checks.
 - [ ] Roster-scoped read-only audit reconciles plan and required audit counts.
 - [ ] CloudWatch events reconcile with the rehearsal; no unexplained internal

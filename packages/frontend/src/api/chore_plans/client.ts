@@ -5,6 +5,7 @@ import {
   ChorePlanAdminAssignmentViewResponse,
   ChorePlanForceAssignmentRequest,
 } from 'backend/view_models/chore_plan_assignments';
+import { ChorePlanChangeHistoryResponse } from 'backend/view_models/chore_plan_change_history';
 import {
   ChorePlanApplyRequest,
   ChorePlanApplyResponse,
@@ -97,6 +98,16 @@ export default class BackendChorePlanClient {
   async GetReadiness(rosterID: number): Promise<ChorePlanReadinessResponse> {
     const { data } = await axios.get<ChorePlanReadinessResponse>(
       `${this.baseApiURL}/api/chore-plans/admin/${rosterID}/readiness`,
+      defaultRequestConfig,
+    );
+    return data;
+  }
+
+  async GetChangeHistory(
+    rosterID: number,
+  ): Promise<ChorePlanChangeHistoryResponse> {
+    const { data } = await axios.get<ChorePlanChangeHistoryResponse>(
+      `${this.baseApiURL}/api/chore-plans/admin/${rosterID}/change-history`,
       defaultRequestConfig,
     );
     return data;
