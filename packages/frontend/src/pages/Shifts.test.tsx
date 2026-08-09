@@ -36,20 +36,37 @@ jest.mock('../state/store', () => {
       key: 'testCurrentUserVerified',
       default: true,
     }),
+    MyRolesState: atom({
+      key: 'testMyRoles',
+      default: [
+        {
+          permissions: ['chorePlans:assign', 'chorePlans:forceAssign'],
+        },
+      ],
+    }),
   };
 });
 
 jest.mock('src/components/shifts/ChorePlanShiftView', () => {
   const ReactModule = jest.requireActual('react') as typeof import('react');
 
-  function ChorePlanShiftView() {
+  function ChorePlanShiftView({
+    adminEditMode,
+    canForceAssignments,
+  }: {
+    adminEditMode: boolean;
+    canForceAssignments: boolean;
+  }) {
     const [mountNumber] = ReactModule.useState(() => {
       mockShiftViewMountCount += 1;
       return mockShiftViewMountCount;
     });
     return (
       <div>
-        <div>Chore signup sheets</div>
+        <div>
+          Chore signup sheets — {adminEditMode ? 'admin' : 'member'} —{' '}
+          {canForceAssignments ? 'force allowed' : 'safe edits only'}
+        </div>
         <div>Chore sheet mount {mountNumber}</div>
       </div>
     );
@@ -92,14 +109,22 @@ beforeEach(() => {
   mockShiftViewMountCount = 0;
 });
 
-function renderExperience(chorePlanning: boolean) {
+function renderExperience(
+  chorePlanning: boolean,
+  adminEditMode = false,
+  canForceAssignments = false,
+) {
   render(
     <RecoilRoot
       initializeState={({ set }) => {
         set(FeatureFlagsState, { chorePlanning });
       }}
     >
-      <VerifiedShiftExperience rosterID={3} />
+      <VerifiedShiftExperience
+        adminEditMode={adminEditMode}
+        canForceAssignments={canForceAssignments}
+        rosterID={3}
+      />
     </RecoilRoot>,
   );
 }
@@ -107,7 +132,7 @@ function renderExperience(chorePlanning: boolean) {
 test('replaces the legacy hourly grid with chore signup sheets when enabled', () => {
   renderExperience(true);
 
-  expect(screen.getByText('Chore signup sheets')).toBeVisible();
+  expect(screen.getByText(/Chore signup sheets/)).toBeVisible();
   expect(screen.queryByText('Legacy hourly shifts')).not.toBeInTheDocument();
 });
 
@@ -118,7 +143,15 @@ test('keeps the legacy hourly grid when chore planning is disabled', () => {
   expect(screen.queryByText('Chore signup sheets')).not.toBeInTheDocument();
 });
 
-test('puts PR 58 lifecycle status and action before the signup sheets', () => {
+test('forwards PR 58 admin edit mode and force permission to the signup sheets', () => {
+  renderExperience(true, true, true);
+
+  expect(
+    screen.getByText(/Chore signup sheets — admin — force allowed/),
+  ).toBeVisible();
+});
+
+test('keeps PR 58 lifecycle and Admin Edit controls above signup sheets', () => {
   render(
     <RecoilRoot
       initializeState={({ set }) => {
@@ -132,13 +165,19 @@ test('puts PR 58 lifecycle status and action before the signup sheets', () => {
   expect(
     screen.getByRole('heading', { name: '2026 shift signup' }),
   ).toBeVisible();
-  expect(
-    screen.getByRole('button', { name: 'Open Chore Signups' }),
-  ).toBeVisible();
+  const lifecycleButton = screen.getByRole('button', {
+    name: 'Open Chore Signups',
+  });
+  const adminEditButton = screen.getByRole('button', { name: 'Admin Edit' });
   const status = screen.getByText('Chore signup status');
-  const shifts = screen.getByText('Chore signup sheets');
+  const shifts = screen.getByText(/Chore signup sheets — member/);
+  expect(lifecycleButton).toBeVisible();
+  expect(adminEditButton).toBeVisible();
   expect(status).toBeVisible();
   expect(shifts).toBeVisible();
+  expect(lifecycleButton.compareDocumentPosition(adminEditButton)).toBe(
+    Node.DOCUMENT_POSITION_FOLLOWING,
+  );
   expect(status.compareDocumentPosition(shifts)).toBe(
     Node.DOCUMENT_POSITION_FOLLOWING,
   );

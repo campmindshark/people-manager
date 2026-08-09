@@ -148,6 +148,14 @@ async function runIntegrationTest() {
       disabledChoreSignupResponse.status === 404,
       'Disabled chore signup routes must appear absent',
     );
+    const disabledAdminAssignmentsResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/admin/1/assignments',
+      { headers: { cookie: sessionCookie } },
+    );
+    assert(
+      disabledAdminAssignmentsResponse.status === 404,
+      'Disabled administrative assignment routes must appear absent',
+    );
 
     const verificationResponse = await fetch(
       `http://localhost:3001/api/users/verify/${authCheck.user.id}`,
@@ -347,6 +355,27 @@ async function runIntegrationTest() {
     assert(
       forbiddenOutsiderShiftViewResponse.status === 403,
       'A verified non-member must not read chore plan shifts',
+    );
+    const assignmentAdminRosterSignupResponse = await fetch(
+      'http://localhost:3001/api/roster_participants/1',
+      {
+        method: 'POST',
+        headers: {
+          cookie: sessionCookie,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          probabilityOfAttending: 100,
+          yearsAtCamp: [],
+          estimatedArrivalDate: '2024-08-20T00:00:00.000Z',
+          estimatedDepartureDate: '2024-09-10T00:00:00.000Z',
+          sleepingArrangement: 'Administrative assignment smoke test',
+        }),
+      },
+    );
+    assert(
+      assignmentAdminRosterSignupResponse.ok,
+      'Could not add the admin as an assignment-test roster member',
     );
     const emptyShiftViewResponse = await fetch(
       'http://localhost:3001/api/chore-plans/1/shifts',
@@ -629,6 +658,29 @@ async function runIntegrationTest() {
         memberDraft.shifts?.length === 0,
       'Draft generated shifts were exposed to a roster member',
     );
+    const forbiddenAdminAssignmentsResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/admin/1/assignments',
+      { headers: { cookie: standardCookie } },
+    );
+    assert(
+      forbiddenAdminAssignmentsResponse.status === 403,
+      'A standard user must not read administrative assignments',
+    );
+    const adminDraftAssignmentsResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/admin/1/assignments',
+      { headers: { cookie: sessionCookie } },
+    );
+    assert(
+      adminDraftAssignmentsResponse.ok,
+      'Admin could not read draft administrative assignment state',
+    );
+    const adminDraftAssignments = await adminDraftAssignmentsResponse.json();
+    assert(
+      adminDraftAssignments.plan?.status === 'draft' &&
+        adminDraftAssignments.mutationsAllowed === false &&
+        adminDraftAssignments.participants?.length === 2,
+      'Draft administrative assignment state was incomplete',
+    );
     const draftSignupResponse = await fetch(
       'http://localhost:3001/api/chore-plans/1/signup',
       {
@@ -907,6 +959,183 @@ async function runIntegrationTest() {
       'Chore signup removal did not delete the assignment',
     );
 
+    const adminOpenAssignmentsResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/admin/1/assignments',
+      { headers: { cookie: sessionCookie } },
+    );
+    assert(
+      adminOpenAssignmentsResponse.ok,
+      'Admin could not read open assignment state',
+    );
+    const adminOpenAssignments = await adminOpenAssignmentsResponse.json();
+    assert(
+      adminOpenAssignments.plan?.status === 'open' &&
+        adminOpenAssignments.mutationsAllowed === true &&
+        adminOpenAssignments.participants?.some(
+          (participant) => participant.userID === standardAuth.user.id,
+        ) &&
+        adminOpenAssignments.participants?.some(
+          (participant) => participant.userID === authCheck.user.id,
+        ),
+      'Open administrative assignment view omitted plan or participant state',
+    );
+    const adminSource = adminOpenAssignments.shifts.find(
+      (shift) => shift.id === signupSource.id,
+    );
+    const adminDestination = adminOpenAssignments.shifts.find(
+      (shift) => shift.id === signupDestination.id,
+    );
+    assert(
+      adminSource && adminDestination,
+      'Administrative assignment view omitted mutation shifts',
+    );
+    const forbiddenAdminMutationResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/admin/1/assignments',
+      {
+        method: 'POST',
+        headers: {
+          cookie: standardCookie,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          operation: 'assign',
+          userID: standardAuth.user.id,
+          shiftID: adminSource.id,
+        }),
+      },
+    );
+    assert(
+      forbiddenAdminMutationResponse.status === 403,
+      'A standard user must not mutate administrative assignments',
+    );
+    const strictAdminMutationResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/admin/1/assignments',
+      {
+        method: 'POST',
+        headers: {
+          cookie: sessionCookie,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          operation: 'assign',
+          userID: standardAuth.user.id,
+          shiftID: adminSource.id,
+          force: true,
+        }),
+      },
+    );
+    assert(
+      strictAdminMutationResponse.status === 400,
+      'Ordinary administrative mutations must reject force fields',
+    );
+
+    const mutateAdminAssignments = async (mutation) => {
+      const response = await fetch(
+        'http://localhost:3001/api/chore-plans/admin/1/assignments',
+        {
+          method: 'POST',
+          headers: {
+            cookie: sessionCookie,
+            'content-type': 'application/json',
+          },
+          body: JSON.stringify(mutation),
+        },
+      );
+      return response;
+    };
+    const standardAdminAssignResponse = await mutateAdminAssignments({
+      operation: 'assign',
+      userID: standardAuth.user.id,
+      shiftID: adminSource.id,
+    });
+    assert(standardAdminAssignResponse.ok, 'Admin assign operation failed');
+    const actorAdminAssignResponse = await mutateAdminAssignments({
+      operation: 'assign',
+      userID: authCheck.user.id,
+      shiftID: adminDestination.id,
+    });
+    assert(actorAdminAssignResponse.ok, 'Second admin assign operation failed');
+
+    const blockedMove = {
+      operation: 'move',
+      userID: standardAuth.user.id,
+      fromShiftID: adminSource.id,
+      toShiftID: adminDestination.id,
+    };
+    const blockedMoveResponse = await mutateAdminAssignments(blockedMove);
+    assert(
+      blockedMoveResponse.status === 409,
+      'A move into a full shift must be rejected',
+    );
+    const afterBlockedMoveResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/admin/1/assignments',
+      { headers: { cookie: sessionCookie } },
+    );
+    const afterBlockedMove = await afterBlockedMoveResponse.json();
+    assert(
+      afterBlockedMove.shifts
+        .find((shift) => shift.id === adminSource.id)
+        ?.assignedUserIDs.includes(standardAuth.user.id),
+      'A failed administrative move removed its source assignment',
+    );
+    const forceMoveResponse = await fetch(
+      'http://localhost:3001/api/chore-plans/admin/1/force-assignments',
+      {
+        method: 'POST',
+        headers: {
+          cookie: sessionCookie,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          mutation: blockedMove,
+          reason: 'Smoke-test capacity exception',
+        }),
+      },
+    );
+    assert(forceMoveResponse.ok, 'Forced administrative move failed');
+    const forceMove = await forceMoveResponse.json();
+    assert(
+      forceMove.forced === true &&
+        forceMove.bypassedRules?.includes(
+          `capacity:shift:${adminDestination.id}`,
+        ),
+      'Forced move did not report its capacity bypass',
+    );
+    const unassignAfterForceResponse = await mutateAdminAssignments({
+      operation: 'unassign',
+      userID: standardAuth.user.id,
+      shiftID: adminDestination.id,
+    });
+    assert(unassignAfterForceResponse.ok, 'Admin unassign operation failed');
+    const reassignForSwapResponse = await mutateAdminAssignments({
+      operation: 'assign',
+      userID: standardAuth.user.id,
+      shiftID: adminSource.id,
+    });
+    assert(reassignForSwapResponse.ok, 'Could not prepare the admin swap');
+    const swapResponse = await mutateAdminAssignments({
+      operation: 'swap',
+      firstUserID: standardAuth.user.id,
+      firstShiftID: adminSource.id,
+      secondUserID: authCheck.user.id,
+      secondShiftID: adminDestination.id,
+    });
+    assert(swapResponse.ok, 'Administrative swap failed');
+    const cleanupFirstResponse = await mutateAdminAssignments({
+      operation: 'unassign',
+      userID: authCheck.user.id,
+      shiftID: adminSource.id,
+    });
+    const cleanupSecondResponse = await mutateAdminAssignments({
+      operation: 'unassign',
+      userID: standardAuth.user.id,
+      shiftID: adminDestination.id,
+    });
+    assert(
+      cleanupFirstResponse.ok && cleanupSecondResponse.ok,
+      'Could not clean up administrative assignment smoke rows',
+    );
+
     const repeatedOpenResponse = await fetch(
       'http://localhost:3001/api/chore-plans/1/open',
       {
@@ -959,6 +1188,15 @@ async function runIntegrationTest() {
     assert(
       closedSignupResponse.status === 409,
       'Closed chore plans must reject self-service mutations',
+    );
+    const closedAdminMutationResponse = await mutateAdminAssignments({
+      operation: 'assign',
+      userID: standardAuth.user.id,
+      shiftID: adminSource.id,
+    });
+    assert(
+      closedAdminMutationResponse.status === 409,
+      'Closed chore plans must reject administrative mutations',
     );
 
     const invalidReopenResponse = await fetch(

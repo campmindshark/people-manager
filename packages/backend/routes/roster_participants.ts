@@ -8,6 +8,7 @@ import hasPermission from '../middleware/rbac';
 import { assertYearsAtCampWithinRoster } from '../utils/campYears';
 import parseEventDateTime from '../utils/eventTime';
 import { prepareRosterAttendanceTimestampWrite } from '../utils/rosterAttendanceTime';
+import { parseRosterParticipantBulkRemovalInput } from '../utils/rosterParticipantInput';
 
 const router: Router = express.Router();
 
@@ -224,26 +225,15 @@ router.delete(
     const { rosterId } = req.params;
     const { userIds } = req.body;
 
-    if (!rosterId || !userIds || !Array.isArray(userIds)) {
-      res
-        .status(400)
-        .json({ error: 'Roster ID and user IDs array are required' });
-      return;
-    }
-
-    const parsedRosterID = parseInt(rosterId, 10);
-    const parsedUserIDs = userIds.map(Number);
-    if (
-      Number.isNaN(parsedRosterID) ||
-      parsedUserIDs.some((userID) => !Number.isInteger(userID) || userID < 1)
-    ) {
-      res.status(400).json({ error: 'Roster ID and user IDs must be valid' });
+    const removal = parseRosterParticipantBulkRemovalInput(rosterId, userIds);
+    if (!removal) {
+      res.status(400).json({ error: 'Valid roster and user IDs are required' });
       return;
     }
 
     const result = await RosterParticipantController.RemoveFromRoster(
-      parsedRosterID,
-      parsedUserIDs,
+      removal.rosterID,
+      removal.userIDs,
     );
 
     if (result.deletedCount === 0) {

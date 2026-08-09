@@ -36,6 +36,7 @@ import {
 import BackendChorePlanClient from '../../api/chore_plans/client';
 import { getFrontendConfig } from '../../config/config';
 import { TimeOfDayFormatter } from '../../utils/datetime/formatter';
+import ChorePlanAssignmentManager from '../admin/ChorePlanAssignmentManager';
 import SignupSheetTable, { SignupSheetShift } from './SignupSheetTable';
 
 export interface ChorePlanShiftClient {
@@ -55,6 +56,13 @@ export interface ChorePlanShiftClient {
 }
 
 interface ChorePlanShiftViewProps {
+  rosterID: number;
+  adminEditMode?: boolean;
+  canForceAssignments?: boolean;
+  planClient?: ChorePlanShiftClient;
+}
+
+interface MemberChorePlanShiftViewProps {
   rosterID: number;
   planClient?: ChorePlanShiftClient;
 }
@@ -543,10 +551,10 @@ function SignupCategory({
   );
 }
 
-export default function ChorePlanShiftView({
+function MemberChorePlanShiftView({
   rosterID,
   planClient,
-}: ChorePlanShiftViewProps) {
+}: MemberChorePlanShiftViewProps) {
   const client = useMemo<ChorePlanShiftClient>(
     () => planClient ?? new BackendChorePlanClient(frontendConfig.BackendURL),
     [planClient],
@@ -680,6 +688,32 @@ export default function ChorePlanShiftView({
   );
 }
 
+MemberChorePlanShiftView.defaultProps = {
+  planClient: undefined,
+};
+
+export default function ChorePlanShiftView({
+  rosterID,
+  adminEditMode = false,
+  canForceAssignments = false,
+  planClient,
+}: ChorePlanShiftViewProps) {
+  if (adminEditMode) {
+    return (
+      <ChorePlanAssignmentManager
+        canForceAssignments={canForceAssignments}
+        rosterID={rosterID}
+      />
+    );
+  }
+
+  return (
+    <MemberChorePlanShiftView rosterID={rosterID} planClient={planClient} />
+  );
+}
+
 ChorePlanShiftView.defaultProps = {
+  adminEditMode: false,
+  canForceAssignments: false,
   planClient: undefined,
 };

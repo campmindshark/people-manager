@@ -1,5 +1,11 @@
 import axios from 'axios';
 import {
+  ChorePlanAdminAssignmentMutation,
+  ChorePlanAdminAssignmentMutationResponse,
+  ChorePlanAdminAssignmentViewResponse,
+  ChorePlanForceAssignmentRequest,
+} from 'backend/view_models/chore_plan_assignments';
+import {
   ChorePlanApplyRequest,
   ChorePlanApplyResponse,
   ChorePlanDraftResponse,
@@ -45,6 +51,40 @@ export default class BackendChorePlanClient {
   async GetShifts(rosterID: number): Promise<ChorePlanShiftViewResponse> {
     const { data } = await axios.get<ChorePlanShiftViewResponse>(
       `${this.baseApiURL}/api/chore-plans/${rosterID}/shifts`,
+      defaultRequestConfig,
+    );
+    return data;
+  }
+
+  async GetAdminAssignments(
+    rosterID: number,
+  ): Promise<ChorePlanAdminAssignmentViewResponse> {
+    const { data } = await axios.get<ChorePlanAdminAssignmentViewResponse>(
+      `${this.baseApiURL}/api/chore-plans/admin/${rosterID}/assignments`,
+      defaultRequestConfig,
+    );
+    return data;
+  }
+
+  async MutateAdminAssignments(
+    rosterID: number,
+    mutation: ChorePlanAdminAssignmentMutation,
+  ): Promise<ChorePlanAdminAssignmentMutationResponse> {
+    const { data } = await axios.post<ChorePlanAdminAssignmentMutationResponse>(
+      `${this.baseApiURL}/api/chore-plans/admin/${rosterID}/assignments`,
+      mutation,
+      defaultRequestConfig,
+    );
+    return data;
+  }
+
+  async ForceAdminAssignments(
+    rosterID: number,
+    request: ChorePlanForceAssignmentRequest,
+  ): Promise<ChorePlanAdminAssignmentMutationResponse> {
+    const { data } = await axios.post<ChorePlanAdminAssignmentMutationResponse>(
+      `${this.baseApiURL}/api/chore-plans/admin/${rosterID}/force-assignments`,
+      request,
       defaultRequestConfig,
     );
     return data;

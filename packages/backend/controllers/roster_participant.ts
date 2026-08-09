@@ -67,7 +67,9 @@ export default class RosterParticipantController {
         .select('id')
         .whereIn('id', uniqueUserIDs)
         .orderBy('id')
-        .forUpdate();
+        // Serialize assignment and membership changes without blocking an
+        // audit foreign key's FOR KEY SHARE lock on the same user.
+        .forNoKeyUpdate();
       const participants = (await transaction<RosterParticipantRow>(
         'roster_participants',
       )

@@ -1,5 +1,6 @@
 import express, { Request, Response, Router } from 'express';
 import ChoreCatalogController from '../controllers/chore_catalog';
+import ChorePlanAssignmentsController from '../controllers/chore_plan_assignments';
 import ChorePlanDraftController from '../controllers/chore_plan_draft';
 import ChorePlanLifecycleController from '../controllers/chore_plan_lifecycle';
 import ChorePlanPreviewController from '../controllers/chore_plan_preview';
@@ -10,6 +11,11 @@ import userIsVerified from '../middleware/verified_user';
 import User from '../models/user/user';
 import ChoreCatalogError from '../utils/choreCatalogError';
 import { parseChoreCatalogScoreUpdate } from '../utils/choreCatalogInput';
+import ChorePlanAssignmentError from '../utils/chorePlanAssignmentError';
+import {
+  parseChorePlanAdminAssignmentMutation,
+  parseChorePlanForceAssignmentRequest,
+} from '../utils/chorePlanAssignmentInput';
 import ChorePlanLifecycleError from '../utils/chorePlanLifecycleError';
 import {
   parseChorePlanReopenRequest,
@@ -32,6 +38,7 @@ import {
 
 const router: Router = express.Router();
 const controller = new ChoreCatalogController();
+const assignmentsController = new ChorePlanAssignmentsController();
 const draftController = new ChorePlanDraftController();
 const lifecycleController = new ChorePlanLifecycleController();
 const previewController = new ChorePlanPreviewController();
@@ -41,6 +48,7 @@ const signupController = new ChorePlanSignupController();
 function sendError(error: unknown, res: Response, operation: string): void {
   if (
     (error instanceof ChoreCatalogError ||
+      error instanceof ChorePlanAssignmentError ||
       error instanceof ChorePlanLifecycleError ||
       error instanceof ChorePlanPreviewError ||
       error instanceof ChorePlanShiftViewError ||
@@ -54,6 +62,66 @@ function sendError(error: unknown, res: Response, operation: string): void {
   console.error(`Failed to ${operation}:`, error);
   res.status(500).json({ error: `Failed to ${operation}.` });
 }
+
+router.get(
+  '/admin/:rosterID/assignments',
+  userIsVerified(),
+  hasPermission('chorePlans:assign'),
+  async (req: Request, res: Response) => {
+    try {
+      res.json(
+        await assignmentsController.getView(
+          parseChorePlanRosterID(req.params.rosterID),
+        ),
+      );
+    } catch (error) {
+      sendError(error, res, 'load administrative chore assignments');
+    }
+  },
+);
+
+router.post(
+  '/admin/:rosterID/assignments',
+  userIsVerified(),
+  hasPermission('chorePlans:assign'),
+  async (req: Request, res: Response) => {
+    try {
+      const user = req.user as User;
+      res.json(
+        await assignmentsController.mutate(
+          parseChorePlanRosterID(req.params.rosterID),
+          user.id,
+          parseChorePlanAdminAssignmentMutation(req.body),
+        ),
+      );
+    } catch (error) {
+      sendError(error, res, 'change administrative chore assignments');
+    }
+  },
+);
+
+router.post(
+  '/admin/:rosterID/force-assignments',
+  userIsVerified(),
+  hasPermission('chorePlans:assign'),
+  hasPermission('chorePlans:forceAssign'),
+  async (req: Request, res: Response) => {
+    try {
+      const user = req.user as User;
+      const request = parseChorePlanForceAssignmentRequest(req.body);
+      res.json(
+        await assignmentsController.mutate(
+          parseChorePlanRosterID(req.params.rosterID),
+          user.id,
+          request.mutation,
+          request.reason,
+        ),
+      );
+    } catch (error) {
+      sendError(error, res, 'force administrative chore assignments');
+    }
+  },
+);
 
 router.get(
   '/:rosterID/shifts',

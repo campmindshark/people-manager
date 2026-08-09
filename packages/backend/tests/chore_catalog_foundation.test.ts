@@ -8,7 +8,13 @@ import knexFactory, { Knex } from 'knex';
 
 const PRE_EXCLUSION_MIGRATION = '20260806020000_chore_draft_persistence.ts';
 const EXCLUSION_MIGRATION = '20260806025000_exclude_3a_6a_event_period.ts';
-const CURRENT_MIGRATION = '20260806030000_chore_plan_lifecycle.ts';
+const LIFECYCLE_MIGRATION = '20260806030000_chore_plan_lifecycle.ts';
+const CURRENT_MIGRATION = '20260806040000_chore_plan_admin_assignments.ts';
+const CURRENT_MIGRATIONS = [
+  EXCLUSION_MIGRATION,
+  LIFECYCLE_MIGRATION,
+  CURRENT_MIGRATION,
+];
 const TEST_DATABASE_URL = process.env.CHORE_TEARDOWN_TEST_DATABASE_URL;
 const POSTGRES_TEST_OPTIONS = {
   skip: TEST_DATABASE_URL
@@ -129,7 +135,7 @@ async function addCurrentCatalogMigrations(
 ): Promise<void> {
   const sourceDirectory = path.resolve(__dirname, '../migrations');
   await Promise.all(
-    [EXCLUSION_MIGRATION, CURRENT_MIGRATION].map((migrationName) =>
+    CURRENT_MIGRATIONS.map((migrationName) =>
       fs.copyFile(
         path.join(sourceDirectory, migrationName),
         path.join(destinationDirectory, migrationName),
@@ -564,10 +570,7 @@ test(
         directory: migrationsDirectory,
         extension: 'ts',
       });
-      assert.deepEqual(currentMigrationNames, [
-        EXCLUSION_MIGRATION,
-        CURRENT_MIGRATION,
-      ]);
+      assert.deepEqual(currentMigrationNames, CURRENT_MIGRATIONS);
 
       assert.equal(
         (await database('chore_catalog_definitions').select('stableKey'))

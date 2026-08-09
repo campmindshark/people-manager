@@ -1,5 +1,12 @@
-import React, { useEffect } from 'react';
-import { Alert, Box, Container, Stack, Typography } from '@mui/material';
+import React, { useEffect, useState } from 'react';
+import {
+  Alert,
+  Box,
+  Button,
+  Container,
+  Stack,
+  Typography,
+} from '@mui/material';
 import { useSetRecoilState, useRecoilValue } from 'recoil';
 import ChorePlanShiftView from 'src/components/shifts/ChorePlanShiftView';
 import ChoreSignupControls, {
@@ -11,23 +18,48 @@ import ShiftDisplay from 'src/components/shifts/ShiftDisplay';
 import Dashboard from '../layouts/dashboard/Dashboard';
 import { FeatureFlagsState } from '../state/features';
 import { CurrentRosterState } from '../state/roster';
-import PageState, { CurrentUserIsVerified } from '../state/store';
+import PageState, { CurrentUserIsVerified, MyRolesState } from '../state/store';
 
-export function VerifiedShiftExperience({ rosterID }: { rosterID: number }) {
+export function VerifiedShiftExperience({
+  rosterID,
+  adminEditMode = false,
+  canForceAssignments = false,
+}: {
+  rosterID: number;
+  adminEditMode?: boolean;
+  canForceAssignments?: boolean;
+}) {
   const featureFlags = useRecoilValue(FeatureFlagsState);
 
   return featureFlags.chorePlanning ? (
-    <ChorePlanShiftView rosterID={rosterID} />
+    <ChorePlanShiftView
+      adminEditMode={adminEditMode}
+      canForceAssignments={canForceAssignments}
+      rosterID={rosterID}
+    />
   ) : (
     <ShiftDisplay />
   );
 }
+
+VerifiedShiftExperience.defaultProps = {
+  adminEditMode: false,
+  canForceAssignments: false,
+};
 
 export default function Shifts() {
   const setPageState = useSetRecoilState(PageState);
   const userIsVerified = useRecoilValue(CurrentUserIsVerified);
   const currentRoster = useRecoilValue(CurrentRosterState);
   const featureFlags = useRecoilValue(FeatureFlagsState);
+  const roles = useRecoilValue(MyRolesState);
+  const [adminEditMode, setAdminEditMode] = useState(false);
+  const canManageAssignments =
+    featureFlags.chorePlanning &&
+    roles.some((role) => role.permissions.includes('chorePlans:assign'));
+  const canForceAssignments = roles.some((role) =>
+    role.permissions.includes('chorePlans:forceAssign'),
+  );
   const {
     canManageChorePlans,
     canReopenChorePlans,
@@ -46,6 +78,12 @@ export default function Shifts() {
       index: 'shifts',
     });
   }, [setPageState]);
+
+  useEffect(() => {
+    if (!canManageAssignments) {
+      setAdminEditMode(false);
+    }
+  }, [canManageAssignments]);
 
   if (!featureFlags.chorePlanning) {
     return (
@@ -80,15 +118,30 @@ export default function Shifts() {
                 year&apos;s chore plan.
               </Typography>
             </Box>
-            {canManageChorePlans && (
-              <ChoreSignupButton
-                canReopen={canReopenChorePlans}
-                loading={choreSignupLoading}
-                onReviewReopen={() => setReviewingReopen(true)}
-                onToggleSignups={toggleSignups}
-                plan={chorePlan}
-              />
-            )}
+            <Stack
+              alignItems={{ xs: 'stretch', sm: 'flex-end' }}
+              direction={{ xs: 'column', sm: 'row' }}
+              spacing={1}
+            >
+              {canManageChorePlans && (
+                <ChoreSignupButton
+                  canReopen={canReopenChorePlans}
+                  loading={choreSignupLoading}
+                  onReviewReopen={() => setReviewingReopen(true)}
+                  onToggleSignups={toggleSignups}
+                  plan={chorePlan}
+                />
+              )}
+              {canManageAssignments && userIsVerified && (
+                <Button
+                  color={adminEditMode ? 'secondary' : 'primary'}
+                  onClick={() => setAdminEditMode((enabled) => !enabled)}
+                  variant={adminEditMode ? 'contained' : 'outlined'}
+                >
+                  {adminEditMode ? 'Exit Admin Edit' : 'Admin Edit'}
+                </Button>
+              )}
+            </Stack>
           </Stack>
           <ChoreSignupControls
             canManageChorePlans={canManageChorePlans}
@@ -99,6 +152,8 @@ export default function Shifts() {
           />
           {userIsVerified ? (
             <VerifiedShiftExperience
+              adminEditMode={adminEditMode}
+              canForceAssignments={canForceAssignments}
               key={`${chorePlan?.id ?? 'none'}:${
                 chorePlan?.status ?? 'loading'
               }`}

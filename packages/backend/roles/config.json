@@ -32,7 +32,9 @@
         "chorePlans:preview",
         "chorePlans:apply",
         "chorePlans:lifecycle",
-        "chorePlans:reopen"
+        "chorePlans:reopen",
+        "chorePlans:assign",
+        "chorePlans:forceAssign"
       ]
     }
   ]
