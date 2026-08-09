@@ -12,6 +12,7 @@ import {
   ChorePlanPreview,
   ChorePlanPreviewRequest,
 } from 'backend/view_models/chore_plan_preview';
+import { ChorePlanFinalAssignmentsResponse } from 'backend/view_models/chore_plan_final_assignments';
 import {
   ChorePlanRequirementOverrideClearRequest,
   ChorePlanRequirementOverrideMutationResponse,
@@ -58,6 +59,16 @@ export default class BackendChorePlanClient {
   async GetShifts(rosterID: number): Promise<ChorePlanShiftViewResponse> {
     const { data } = await axios.get<ChorePlanShiftViewResponse>(
       `${this.baseApiURL}/api/chore-plans/${rosterID}/shifts`,
+      defaultRequestConfig,
+    );
+    return data;
+  }
+
+  async GetFinalAssignments(
+    rosterID: number,
+  ): Promise<ChorePlanFinalAssignmentsResponse> {
+    const { data } = await axios.get<ChorePlanFinalAssignmentsResponse>(
+      `${this.baseApiURL}/api/chore-plans/${rosterID}/final-assignments`,
       defaultRequestConfig,
     );
     return data;

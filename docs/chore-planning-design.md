@@ -258,8 +258,9 @@ an audit failure restores both the assignments and the previous requirement
 state.
 
 One shared backend function computes effective requirements. Signup validation,
-readiness, participant messaging, and final-assignment reporting must all use
-that function.
+readiness, and participant messaging must all use that function. Final
+assignment sheets report persisted assignments rather than inferring
+completion, so they do not duplicate requirement calculations.
 
 The administrative contract uses the dedicated
 `chorePlans:overrideRequirements` permission. `GET
@@ -403,6 +404,40 @@ remaining chore, event, and dinner shifts with a natural-language list. Draft
 and closed plans do not produce incomplete-signup notifications. The response
 contains only the current user's assignment totals and requirement exception;
 it exposes no other participant identity or readiness detail.
+
+## Final assignments
+
+`GET /api/chore-plans/:rosterID/final-assignments` is the dedicated final
+assignment read model. It requires a verified user who currently belongs to the
+requested roster. A missing roster or plan returns `404`, a non-member returns
+`403`, and a draft or open plan returns `409`. The feature flag applies at the
+shared chore-plan router boundary, so the route is absent while chore planning
+is disabled.
+
+The endpoint reads the plan, generated shifts, and assignments in one read-only
+repeatable-read transaction and performs no writes. A successful response
+contains the closed plan identity, planning year and closure timestamp, the
+total assignment count, and all generated shifts grouped in the fixed chore,
+event, and dinner order. Shifts are ordered by display day, absolute start time,
+schedule key, and stable key. Assigned names are ordered case-insensitively by
+their rendered display name with the internal user ID used only as a stable tie
+breaker.
+
+Another participant is represented only by a display name. The display name is
+the playa name plus first name and last initial when available, with a minimal
+fallback when those fields are blank. The response does not expose another
+participant's user ID, email, contact fields, attendance, requirements,
+overrides, or full last name. It marks only whether an assignment belongs to
+the caller. Planner inputs, catalog scores and revisions, slot-definition
+snapshots, and audit data are also omitted.
+
+The frontend exposes this snapshot as a feature-gated Final Assignments page
+with no mutation controls. It reuses the weekly category grids, remains
+horizontally scrollable on narrow screens, and prints category sheets in
+landscape with application navigation and screen-only controls removed. Empty
+categories and shifts remain explicit, and printing never manufactures open
+slots or participant assignments. Reopening the plan makes a subsequent final
+assignment request return `409` again.
 
 ## Authorization
 

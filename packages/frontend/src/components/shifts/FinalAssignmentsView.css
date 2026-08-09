@@ -1,0 +1,129 @@
+.final-assignments-print-root {
+  padding: 24px;
+}
+
+.final-assignments-print-header {
+  margin-bottom: 20px;
+}
+
+@media (max-width: 700px) {
+  .final-assignments-print-root {
+    padding: 12px;
+  }
+}
+
+@media print {
+  body {
+    margin: 0;
+    overflow: visible;
+    background: #fff;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  .final-assignments-print-root,
+  .final-assignments-print-root * {
+    visibility: visible;
+  }
+
+  .final-assignments-print-root {
+    position: absolute;
+    top: 0;
+    left: 0;
+    box-sizing: border-box;
+    width: 100%;
+    max-width: none;
+    padding: 0;
+    color: #111;
+    background: #fff;
+    border: 0;
+    box-shadow: none;
+    print-color-adjust: exact;
+  }
+
+  .final-assignments-print-root .MuiTypography-colorTextSecondary {
+    color: #444 !important;
+  }
+
+  .final-assignments-print-header {
+    margin-bottom: 12px;
+  }
+
+  .final-assignment-categories {
+    display: block;
+  }
+
+  .final-assignment-category-section {
+    margin: 0 !important;
+    overflow: visible;
+    color: #111 !important;
+    background: #fff !important;
+    border: 0;
+    box-shadow: none !important;
+    break-after: page;
+  }
+
+  .final-assignment-category-section:last-child {
+    break-after: auto;
+  }
+
+  .final-assignment-category-section > h2 {
+    padding: 0 0 8px;
+  }
+
+  .final-assignment-category-section .signup-sheet-table-shell {
+    --signup-sheet-divider: #aaa;
+    --signup-sheet-header-background: #eee;
+    --signup-sheet-row-background: #f8f8f8;
+    --signup-sheet-row-hover-background: #f8f8f8;
+    --signup-sheet-sticky-background: #fff;
+    --signup-sheet-sticky-secondary-background: #f3f3f3;
+    --signup-sheet-text: #111;
+    --signup-sheet-muted-text: #444;
+    --signup-sheet-accent: #1f5b99;
+    --signup-sheet-high: #567b5f;
+    --signup-sheet-high-background: #edf5ef;
+    overflow: visible;
+    color: #111;
+    background: #fff;
+    border-color: #aaa;
+  }
+
+  .final-assignment-category-section .signup-sheet-grid {
+    min-width: 0;
+  }
+
+  .final-assignment-category-section .signup-sheet-grid th,
+  .final-assignment-category-section .signup-sheet-grid td {
+    padding: 4px;
+  }
+
+  .final-assignment-category-section .signup-sheet-grid td {
+    height: auto;
+  }
+
+  .final-assignment-category-section .signup-sheet-slots {
+    gap: 2px;
+  }
+
+  .final-assignment-current-user-label {
+    display: none;
+  }
+
+  .final-assignment-category-section .signup-sheet-slot {
+    display: block;
+    min-height: 0;
+    padding: 0;
+    color: #111;
+    background: transparent !important;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    white-space: normal;
+    font-size: 8px;
+    font-weight: 400;
+    line-height: 1.25;
+  }
+}
